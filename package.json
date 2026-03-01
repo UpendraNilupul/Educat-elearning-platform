@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^5.2.1"
   },
   "devDependencies": {
@@ -10,7 +11,10 @@
     "start:dev": "nodemon server.js"
   },
   "nodemonConfig": {
-    "ignore": ["public/*", "tests/*"],
+    "ignore": [
+      "public/*",
+      "tests/*"
+    ],
     "delay": "2"
   }
 }
