@@ -4,5 +4,13 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "start:dev": "nodemon server.js"
+  },
+  "nodemonConfig": {
+    "ignore": ["public/*", "tests/*"],
+    "delay": "2"
   }
 }
