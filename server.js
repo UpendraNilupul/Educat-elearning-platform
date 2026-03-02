@@ -12,7 +12,7 @@ app.use(express.static(__dirname));
 
 app.get('/', (req, res)=>{
     //res.send('server working properly');
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'App.jsx'));
 });
 
 app.use((req, res)=>{
