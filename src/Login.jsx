@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // Import your CSS file here (make sure the path is correct relative to this file)
-// import './css/singin.css'; 
+//import './singin.css'; 
 
 const Login = () => {
     // 1. Set up state to hold the email and password
@@ -36,9 +36,14 @@ const Login = () => {
     };
 
     // 3. Render the JSX (your converted HTML)
+    // 3. Render the JSX (your converted HTML)
     return (
-        <div className="login-form-container">
-            <form onSubmit={handleLogin} id="login-form">
+        // Added pt-32 (padding-top) to push it below the header
+        // Added pb-12 (padding-bottom) for some space at the bottom
+        <div className="login-form-container pt-32 pb-12">
+            
+            {/* If you want padding INSIDE the white form box itself, add p-8 here */}
+            <form onSubmit={handleLogin} id="login-form" className="p-8">
                 <h3>login now</h3>
                 
                 <input 
@@ -66,7 +71,6 @@ const Login = () => {
                 
                 <p>forget password? <a href="#">click here</a></p>
                 
-                {/* Notice the href is updated for React routing if you use it later */}
                 <p>don't have an account? <a href="/signup" id="register-link">create one</a></p>
             </form>
         </div>
