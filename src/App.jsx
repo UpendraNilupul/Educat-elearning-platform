@@ -6,6 +6,7 @@ import LatestUpdates from './LatestUpdates';
 import MeetTeachers from './MeetTeachers';
 import StatsCTA from './StatsCTA';
 import Footer from './Footer';
+import Login from './Login';
 
 function App() {
   return (

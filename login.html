@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>SINGIN</title>
+        <link rel="stylesheet" href="css/singin.css">
+    </head>
+    <body>
+        <div class="login-form-container">
+        <form action="" id="login-form">
+        <h3>login now</h3>
+        <input type="email" placeholder="your email" class="box" id="login-email">
+        <input type="password" placeholder="your password" class="box" id="login-password">
+        <input type="submit" value="login" class="btn">
+        <input type="checkbox" id="remember-me">
+        <label for="remember-me">remember me</label>
+        <p>forget password? <a href="#">click here</a></p>
+        <p>don't have an account? <a href="singup.html" id="register-link">create one</a></p>
+        </form>
+        </div>
+        
+
+        <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Stops the page from refreshing
+
+            // Grab the values from your input boxes
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                // Send the data to your Node API
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Success: ' + data.message);
+                    // Optional: Redirect user after login
+                    // window.location.href = '/dashboard.html'; 
+                } else {
+                    alert('Error: ' + data.message); // Shows "Invalid email or password"
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                alert('Something went wrong connecting to the server.');
+            }
+        });
+    </script>
+
+
+
+    </body>
+</html>
