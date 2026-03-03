@@ -1,24 +1,28 @@
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
+import express from 'express';
+import path from 'path';
+import cors from 'cors';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 app.use(cors());
 
-app.use(express.static(__dirname));
+// 1. Serve the static files from the 'dist' folder
+app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('/', (req, res)=>{
-    //res.send('server working properly');
-    res.sendFile(path.join(__dirname, 'App.jsx'));
+// 2. Point the root route to the index.html INSIDE dist
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.use((req, res)=>{
-    res.status(404).send('404: Page not found');
+// 3. Handle React Routing (optional but recommended)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(port,()=>{
+app.listen(port, () => {
     console.log(`🌱 Server running at http://localhost:${port}`);
 });
