@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Menu, X } from 'lucide-react';
+import { Link } from 'react-router-dom'; // 1. Imported Link here
 
 const Header = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -42,15 +43,16 @@ const Header = () => {
                         <span className="text-[#ed8936] font-semibold text-xs md:text-sm tracking-wide">0714783615</span>
                     </div>
                     <div className="flex items-center space-x-4 text-xs font-medium md:text-sm">
-                        <button className="transition-colors hover:text-gray-300">Login</button>
+                        {/* 2. Changed buttons to Links */}
+                        <Link to="/login" className="transition-colors hover:text-gray-300">Login</Link>
                         <span className="opacity-30">|</span>
-                        <button className="transition-colors hover:text-gray-300">Register</button>
+                        <Link to="/register" className="transition-colors hover:text-gray-300">Register</Link>
                     </div>
                 </div>
             </div>
 
             {/* Main Navigation Bar - Sticky/Fixed */}
-            <div className={`${isScrolled ? 'h-0' : 'h-[20px]'}`}></div> {/* Dynamic Spacer adjusted for py-4 + logo */}
+            <div className={`${isScrolled ? 'h-0' : 'h-[20px]'}`}></div>
             <nav
                 className={`fixed left-0 w-full bg-white z-50 transition-all duration-300 ease-in-out ${isScrolled
                     ? 'top-0 py-2 shadow-md'
@@ -60,12 +62,15 @@ const Header = () => {
                 <div className="flex items-center justify-between w-full px-6 mx-auto max-w-7xl">
                     {/* Logo Section */}
                     <div className="flex items-center flex-shrink-0">
-                        <img
-                            src="/EduCat Logo.PNG"
-                            alt="Logo"
-                            className={`transition-all duration-300 object-contain w-auto ${isScrolled ? 'h-14' : 'h-20'
-                                }`}
-                        />
+                        {/* Wrapped logo in a Link so clicking it always goes home */}
+                        <Link to="/">
+                            <img
+                                src="/EduCat Logo.PNG"
+                                alt="Logo"
+                                className={`transition-all duration-300 object-contain w-auto ${isScrolled ? 'h-14' : 'h-20'
+                                    }`}
+                            />
+                        </Link>
                     </div>
 
                     {/* Desktop Navigation */}
@@ -73,7 +78,8 @@ const Header = () => {
                         {navLinks.map((link) => (
                             <a
                                 key={link.name}
-                                href={`#${link.name.toLowerCase().replace(' ', '-')}`}
+                                /* 3. Added / before the # so links work from other pages */
+                                href={`/#${link.name.toLowerCase().replace(' ', '-')}`}
                                 className={`text-base font-semibold transition-colors hover:text-[#ed8936] ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
                                     }`}
                             >
@@ -100,7 +106,8 @@ const Header = () => {
                             {navLinks.map((link) => (
                                 <a
                                     key={link.name}
-                                    href={`#${link.name.toLowerCase().replace(' ', '-')}`}
+                                    /* 3. Added / before the # here too */
+                                    href={`/#${link.name.toLowerCase().replace(' ', '-')}`}
                                     className={`text-lg font-medium py-2 border-b border-gray-50 last:border-0 ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
                                         }`}
                                     onClick={() => setIsMenuOpen(false)}
