@@ -1,6 +1,6 @@
 create database educat;
 use educat;
-create table users(id int not null auto_increment primary key, name varchar(150) not null, password varchar(24) not null, role varchar(20) not null, email varchar(100) not null, phone_number varchar(10) not null,
+create table users(id int not null auto_increment primary key, name varchar(150) not null, password varchar(200) not null, role varchar(20) not null, email varchar(100) not null, phone_number varchar(10) not null,
  address varchar(150) not null, dob date not null, gender varchar(6) not null, status varchar(20) default 'active', join_date date not null, picture varchar(300), 2fa_enabled boolean default false);
  create table advertisements(id int not null auto_increment primary key, t_id int not null, ad_link varchar(300), foreign key(t_id) references users(id));
  create table classes_courses(id int not null auto_increment primary key, name varchar(100) not null, title varchar(100) not null,type varchar(20) not null, t_id int not null,
