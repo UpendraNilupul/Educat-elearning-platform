@@ -28,13 +28,25 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
-        // Authentication successful
-        res.status(200).json({ message: 'Logged in successfully!', userId: user.id, userRole: user.role });
-        /*
+        
         req.session.userId = user.id;
         req.session.userRole = user.role;
-        res.status(200).json({ message: 'Logged in successfully!' });*/
+        res.status(200).json({ message: 'Logged in successfully!', userId: user.id, userRole: user.role});
     });
+});
+
+router.get('/status', (req, res) => {
+    if (req.session.userRole) {
+        res.json({ 
+            isLoggedIn: true, 
+            userRole: req.session.userRole 
+        });
+    } else {
+        res.json({ 
+            isLoggedIn: false, 
+            userRole: null 
+        });
+    }
 });
 
 export default router; // IMPORTANT: Replaced module.exports with ES export
