@@ -14,6 +14,7 @@ const Login = () => {
         try {
             const response = await fetch('/api/login', {
                 method: 'POST',
+                /*credentials: 'include',*/
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -21,11 +22,21 @@ const Login = () => {
             });
 
             const data = await response.json();
-
+            console.log(data);
+            
+            //sessions
             if (response.ok) {
-                navigate('/');
-            } else {
-                alert('Error: ' + data.message);
+                localStorage.setItem('userId', data.userId);
+                localStorage.setItem('userRole', data.userRole);
+
+                if (data.userRole === 'admin') {
+                    navigate('/admin');
+                } else {
+                    navigate('/');
+                }
+            } 
+            else {
+                alert(data.message);
             }
         } catch (error) {
             console.error('Error during login:', error);
