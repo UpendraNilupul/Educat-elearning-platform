@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './login.css';
+import '../styles/login.css';
 
 
 
@@ -24,7 +24,7 @@ const Login = () => {
 
             const data = await response.json();
             console.log(data);
-            
+
             //sessions
             if (response.ok) {
                 localStorage.setItem('userId', data.userId);
@@ -35,7 +35,7 @@ const Login = () => {
                 } else {
                     navigate('/');
                 }
-            } 
+            }
             else {
                 alert(data.message);
             }
@@ -47,36 +47,36 @@ const Login = () => {
 
     return (
         <div className="login-form-container pt-32 pb-12">
-            
+
             {/* If you want padding INSIDE the white form box itself, add p-8 here */}
             <form onSubmit={handleLogin} id="login-form" className="p-8">
                 <h3>login now</h3>
-                
-                <input 
-                    type="email" 
-                    placeholder="your email" 
-                    className="box" 
+
+                <input
+                    type="email"
+                    placeholder="your email"
+                    className="box"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)} 
-                    required 
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                 />
-                
-                <input 
-                    type="password" 
-                    placeholder="your password" 
-                    className="box" 
+
+                <input
+                    type="password"
+                    placeholder="your password"
+                    className="box"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)} 
-                    required 
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                 />
-                
+
                 <input type="submit" value="login" className="btn" />
-                
+
                 <input type="checkbox" id="remember-me" />
                 <label htmlFor="remember-me">remember me</label>
-                
+
                 <p>forget password? <a href="#">click here</a></p>
-                
+
                 <p>don't have an account? <a href="/signup" id="register-link">create one</a></p>
             </form>
         </div>

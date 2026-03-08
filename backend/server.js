@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
-import loginRoutes from './routs/login.js';
+import loginRoutes from './routes/login.js';
 import session from 'express-session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,13 +17,13 @@ app.use(cors({
 app.use(express.json());
 
 // 1. Serve the static React files from the 'dist' folder
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 app.use(session({
     secret: 'a_very_long_random_secret_string', // Used to sign the session ID
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    cookie: {
         httpOnly: true, // 🛡️ CRITICAL: Hides the cookie from hackers' JavaScript!
         secure: false, // Set to true later when you launch with HTTPS
         sameSite: 'lax',
@@ -37,7 +37,7 @@ app.use('/api', loginRoutes);
 
 
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 app.listen(port, () => {
