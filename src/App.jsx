@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+// Component Imports
 import Header from './components/Header';
 import Hero from './components/Hero';
 import WelcomeSection from './components/WelcomeSection';
@@ -8,9 +9,12 @@ import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
+
+// Page Imports
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 
+// 1. The HomePage Component
 const HomePage = () => {
   return (
     <>
@@ -19,6 +23,17 @@ const HomePage = () => {
       <LatestUpdates />
       <MeetTeachers />
       <StatsCTA />
+    </>
+  );
+};
+
+// 2. Layout Wrapper to keep Header and Footer off the Login page
+const MainLayout = ({ children }) => {
+  return (
+    <>
+      <Header />
+      {children}
+      <Footer />
     </>
   );
 };
@@ -33,7 +48,6 @@ function App() {
       .then(response => response.json())
       .then(data => {
         console.log("The server says this user's role is:", data.userRole);
-        // We save the role into React's memory
         setUserRole(data.userRole);
       })
       .catch(err => console.log("User is likely not logged in yet."));
@@ -42,22 +56,34 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-white">
-        <Header />
-
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          {/* Wrap HomePage in MainLayout so it gets Header & Footer */}
+          <Route 
+            path="/" 
+            element={
+              <MainLayout>
+                <HomePage />
+              </MainLayout>
+            } 
+          />
+
+          {/* DO NOT wrap Login. It will render entirely alone! */}
           <Route path="/login" element={<Login />} />
 
-          {/* Protect the Admin Route */}
+          {/* Protect the Admin Route and apply the Layout */}
           <Route
             path="/admin"
             element={
-              userRole === 'admin' ? <Admin /> : <Navigate to="/admin" />
+              userRole === 'admin' ? (
+                <MainLayout>
+                  <Admin />
+                </MainLayout>
+              ) : (
+                <Navigate to="/login" />
+              )
             }
           />
         </Routes>
-
-        <Footer />
       </div>
     </Router>
   );
