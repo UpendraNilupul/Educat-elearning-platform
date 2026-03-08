@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
-import Header from './Header';
-import Hero from './Hero';
-import WelcomeSection from './WelcomeSection';
-import LatestUpdates from './LatestUpdates';
-import MeetTeachers from './MeetTeachers';
-import StatsCTA from './StatsCTA';
-import Footer from './Footer';
-import Login from './Login';
-import Admin from './Admin'; 
+import Header from './components/Header';
+import Hero from './components/Hero';
+import WelcomeSection from './components/WelcomeSection';
+import LatestUpdates from './components/LatestUpdates';
+import MeetTeachers from './components/MeetTeachers';
+import StatsCTA from './components/StatsCTA';
+import Footer from './components/Footer';
+import Login from './pages/Login';
+import Admin from './pages/Admin';
 
 const HomePage = () => {
   return (
