@@ -3,7 +3,7 @@ import mysql from 'mysql';
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '',
+    password: '24254',
     database: 'educat'
 });
 
@@ -13,7 +13,7 @@ db.connect((err) => {
         console.error('Error Details:', err.message);
         console.log('Please ensure your MySQL server is running and your credentials in backend/db.js are correct.');
     } else {
-        console.log('✅ Successfully connected to the database!');
+        console.log('✅ Successfully connected to the database!!');
     }
 });
 
