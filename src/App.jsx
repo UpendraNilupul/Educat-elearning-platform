@@ -10,6 +10,7 @@ import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
+import Teachers from './pages/Teachers';
 
 const HomePage = () => {
   return (
@@ -47,6 +48,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/teachers" element={<Teachers />} />
 
           {/* Protect the Admin Route */}
           <Route

@@ -22,12 +22,12 @@ const Header = () => {
     }, []);
 
     const navLinks = [
-        { name: 'Home', active: true },
-        { name: 'Classes', active: false },
-        { name: 'Teachers', active: false },
-        { name: 'About', active: false },
-        { name: 'News', active: false },
-        { name: 'Contact us', active: false },
+        { name: 'Home', path: '/', active: true },
+        { name: 'Classes', path: '/#classes', active: false },
+        { name: 'Teachers', path: '/teachers', active: false },
+        { name: 'About', path: '/#about', active: false },
+        { name: 'News', path: '/#news', active: false },
+        { name: 'Contact us', path: '/#contact', active: false },
     ];
 
     return (
@@ -76,15 +76,14 @@ const Header = () => {
                     {/* Desktop Navigation */}
                     <div className="items-center hidden gap-8 md:flex">
                         {navLinks.map((link) => (
-                            <a
+                            <Link
                                 key={link.name}
-                                /* 3. Added / before the # so links work from other pages */
-                                href={`/#${link.name.toLowerCase().replace(' ', '-')}`}
+                                to={link.path}
                                 className={`text-base font-semibold transition-colors hover:text-[#ed8936] ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
                                     }`}
                             >
                                 {link.name}
-                            </a>
+                            </Link>
                         ))}
                     </div>
 
@@ -104,16 +103,15 @@ const Header = () => {
                     <div className="absolute left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-lg top-full md:hidden">
                         <div className="flex flex-col p-4 space-y-4">
                             {navLinks.map((link) => (
-                                <a
+                                <Link
                                     key={link.name}
-                                    /* 3. Added / before the # here too */
-                                    href={`/#${link.name.toLowerCase().replace(' ', '-')}`}
+                                    to={link.path}
                                     className={`text-lg font-medium py-2 border-b border-gray-50 last:border-0 ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
                                         }`}
                                     onClick={() => setIsMenuOpen(false)}
                                 >
                                     {link.name}
-                                </a>
+                                </Link>
                             ))}
                         </div>
                     </div>
