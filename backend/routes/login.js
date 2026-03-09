@@ -35,6 +35,39 @@ router.post('/login', async (req, res) => {
     });
 });
 
+router.post('/register', async (req, res) => {
+    const { name, email, password, phoneNumber, address, dob, gender, role } = req.body;
+
+    if (!name || !email || !password || !phoneNumber || !address || !dob || !gender || !role) {
+        return res.status(400).json({ message: 'All fields are required.' });
+    }
+
+    // Check if user already exists
+    const checkQuery = 'SELECT * FROM users WHERE email = ?';
+    db.query(checkQuery, [email], async (err, results) => {
+        if (err) {
+            console.error('Error checking user:', err);
+            return res.status(500).send('Server error');
+        }
+        if (results.length > 0) {
+            return res.status(409).json({ message: 'User with this email already exists.' });
+        }
+
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert new user
+        const insertQuery = 'INSERT INTO users (name, password, role, email, phone_number, address, dob, gender, join_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())';
+        db.query(insertQuery, [name, hashedPassword, role, email, phoneNumber, address, dob, gender], (err, results) => {
+            if (err) {
+                console.error('Error registering user:', err);
+                return res.status(500).send('Server error');
+            }
+            res.status(201).json({ message: 'User registered successfully!' });
+        });
+    });
+});
+
 router.get('/status', (req, res) => {
     if (req.session.userRole) {
         res.json({ 

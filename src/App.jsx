@@ -10,6 +10,7 @@ import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
+import Register from './pages/Register';
 
 const HomePage = () => {
   return (
@@ -47,6 +48,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
           {/* Protect the Admin Route */}
           <Route
