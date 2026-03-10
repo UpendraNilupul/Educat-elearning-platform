@@ -9,7 +9,7 @@
 }
 
 /* The Card: Larger curves, diffused layered shadows, and a subtle hover lift */
-#login-form {
+#login-form , #register-form{
   background: #ffffff;
   width: 100%;
   max-width: 420px;
