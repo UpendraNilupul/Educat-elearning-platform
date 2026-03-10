@@ -12,7 +12,9 @@ import Footer from './components/Footer';
 
 // Page Imports
 import Login from './pages/Login';
-import Admin from './pages/Admin';
+import Admin from './pages/Admin_dashboard';
+import Teacher from './pages/Teacher_dashboard'; 
+import Student from './pages/Student_dashboard';
 
 // 1. The HomePage Component
 const HomePage = () => {
@@ -68,7 +70,7 @@ function App() {
           />
 
           {/* DO NOT wrap Login. It will render entirely alone! */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login setUserRole={setUserRole} />} />
 
           {/* Protect the Admin Route and apply the Layout */}
           <Route
@@ -79,7 +81,33 @@ function App() {
                   <Admin />
                 </MainLayout>
               ) : (
-                <Navigate to="/login" />
+                <Navigate to="/" />
+              )
+            }
+          />
+          {/* Protect the Admin Route and apply the Layout */}
+          <Route
+            path="/teacher"
+            element={
+              userRole === 'teacher' ? (
+                <MainLayout>
+                  <Teacher />
+                </MainLayout>
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          {/* Protect the Admin Route and apply the Layout */}
+          <Route
+            path="/student"
+            element={
+              userRole === 'student' ? (
+                <MainLayout>
+                  <Student />
+                </MainLayout>
+              ) : (
+                <Navigate to="/" />
               )
             }
           />
