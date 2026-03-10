@@ -10,11 +10,9 @@ import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
 import Login from './pages/Login';
-import Admin from './pages/Admin';
 import Teachers from './pages/Teachers';
 
 // Page Imports
-import Login from './pages/Login';
 import Admin from './pages/Admin_dashboard';
 import Teacher from './pages/Teacher_dashboard'; 
 import Student from './pages/Student_dashboard';
@@ -23,6 +21,7 @@ import Student from './pages/Student_dashboard';
 const HomePage = () => {
   return (
     <>
+      <Header />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
