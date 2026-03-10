@@ -3,6 +3,7 @@ import path from 'path';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import loginRoutes from './routes/login.js';
+import teacherRoutes from './routes/teachers.js';
 import session from 'express-session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ app.use(session({
 // 2. Register your database API routes
 // (e.g., http://localhost:3000/api/login)
 app.use('/api', loginRoutes);
+app.use('/api', teacherRoutes);
 
 
 app.use((req, res) => {
