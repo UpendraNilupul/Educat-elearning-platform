@@ -58,7 +58,6 @@ const Register = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-            alert('ok');
 
             const data = await response.json();
 
