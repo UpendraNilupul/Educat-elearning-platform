@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
-import { FlaskConical, Calculator, Monitor, Languages, Menu, X } from 'lucide-react';
+import { FlaskConical, Calculator, Monitor, Languages, Menu, X, Palette, Terminal, Coffee, Layout } from 'lucide-react';
 
 const WelcomeSection = () => {
-    const [activeTab, setActiveTab] = useState('Advanced Level');
+    const [activeTab, setActiveTab] = useState('advanced');
 
-    const categories = [
+    const advancedData = [
         { icon: <FlaskConical size={48} />, name: 'Science' },
         { icon: <Calculator size={48} />, name: 'Maths' },
         { icon: <Monitor size={48} />, name: 'IT' },
         { icon: <Languages size={48} />, name: 'English' },
+    ];
+
+    const coursesData = [
+        { icon: <Palette size={48} />, name: 'Graphic Design' },
+        { icon: <Terminal size={48} />, name: 'Software Engineering' },
+        { icon: <Coffee size={48} />, name: 'Java for Beginner' },
+        { icon: <Layout size={48} />, name: 'Web Development' },
     ];
 
     return (
@@ -16,16 +23,18 @@ const WelcomeSection = () => {
             {/* Top Tabs Bar */}
             <div className="w-full border-t border-b border-gray-200">
                 <div className="flex justify-center space-x-12 py-4">
-                    {['Advanced Level', 'Courses'].map((tab) => (
+                    {[{ key: 'advanced', label: 'Advanced Level' }, { key: 'courses', label: 'Courses' }].map((tab) => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`text-lg font-semibold transition-all relative ${activeTab === tab ? 'text-[#4a0b59]' : 'text-[#4a0b59]/60 hover:text-[#4a0b59]'
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`text-lg font-semibold transition-all relative ${activeTab === tab.key
+                                ? 'text-purple-900'
+                                : 'text-gray-500 hover:text-purple-900'
                                 }`}
                         >
-                            {tab}
-                            {activeTab === tab && (
-                                <div className="absolute -bottom-[17px] left-0 right-0 h-1 bg-[#4a0b59]"></div>
+                            {tab.label}
+                            {activeTab === tab.key && (
+                                <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 border-b-2 border-purple-900"></div>
                             )}
                         </button>
                     ))}
@@ -53,12 +62,12 @@ const WelcomeSection = () => {
 
                 {/* Categories Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
-                    {categories.map((category) => (
+                    {(activeTab === 'advanced' ? advancedData : coursesData).map((category) => (
                         <div
                             key={category.name}
                             className="flex flex-col items-center group cursor-pointer"
                         >
-                            <div className="text-[#ed8936] mb-4 transition-transform group-hover:scale-110 duration-300">
+                            <div className="text-orange-500 mb-4 transition-transform group-hover:scale-110 duration-300">
                                 {category.icon}
                             </div>
                             <h3 className="text-xl font-bold text-[#4a0b59]">
