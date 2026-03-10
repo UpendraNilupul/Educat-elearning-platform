@@ -9,15 +9,16 @@ import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
-import Login from './pages/Login';
-import Register from './pages/Register';
 
 // Page Imports
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
-import Teacher from './pages/Teacher_dashboard'; 
+import Teacher from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 
-// 1. The HomePage Component
+// Home Page Component
 const HomePage = () => {
   return (
     <>
@@ -32,7 +33,7 @@ const HomePage = () => {
   );
 };
 
-// 2. Layout Wrapper to keep Header and Footer off the Login page
+// Layout Wrapper
 const MainLayout = ({ children }) => {
   return (
     <>
@@ -62,29 +63,32 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
+
           <Route path="/" element={<HomePage />} />
+
           <Route path="/login" element={<Login />} />
-          <Route 
-            path="/register" 
+
+          <Route
+            path="/register"
             element={
               <>
                 <Header />
                 <Register />
+                <Footer />
               </>
-            } 
+            }
           />
-          {/* Wrap HomePage in MainLayout so it gets Header & Footer */}
-          <Route 
+
+          <Route
+            path="/teachers"
             element={
               <MainLayout>
-                <HomePage />
+                <Teachers />
               </MainLayout>
-            } 
+            }
           />
 
-          {/* DO NOT wrap Login. It will render entirely alone! */}
-
-          {/* Protect the Admin Route and apply the Layout */}
+          {/* Admin Route */}
           <Route
             path="/admin"
             element={
@@ -97,7 +101,8 @@ function App() {
               )
             }
           />
-          {/* Protect the Admin Route and apply the Layout */}
+
+          {/* Teacher Route */}
           <Route
             path="/teacher"
             element={
@@ -110,7 +115,8 @@ function App() {
               )
             }
           />
-          {/* Protect the Admin Route and apply the Layout */}
+
+          {/* Student Route */}
           <Route
             path="/student"
             element={
@@ -123,6 +129,7 @@ function App() {
               )
             }
           />
+
         </Routes>
       </div>
     </Router>
