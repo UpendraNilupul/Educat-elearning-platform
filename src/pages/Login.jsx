@@ -85,7 +85,7 @@ const Login = ({ setUserRole }) => {
 
                 <p>forget password? <a href="#">click here</a></p>
 
-                <p>don't have an account? <a href="/signup" id="register-link">create one</a></p>
+                <p>don't have an account? <a href="/register" id="register-link">create one</a></p>
             </form>
         </div>
     );

@@ -31,7 +31,8 @@ router.post('/login', async (req, res) => {
         
         req.session.userId = user.id;
         req.session.userRole = user.role;
-        res.status(200).json({ message: 'Logged in successfully!', userId: user.id, userRole: user.role});
+        req.session.userName = user.name;
+        res.status(200).json({ message: 'Logged in successfully!', userId: user.id, userRole: user.role, userName: user.name});
     });
 });
 
@@ -72,14 +73,26 @@ router.get('/status', (req, res) => {
     if (req.session.userRole) {
         res.json({ 
             isLoggedIn: true, 
-            userRole: req.session.userRole 
+            userRole: req.session.userRole,
+            userName: req.session.userName
         });
     } else {
         res.json({ 
             isLoggedIn: false, 
-            userRole: null 
+            userRole: null,
+            userName: null
         });
     }
+});
+
+router.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ message: 'Could not log out.' });
+        }
+        res.clearCookie('connect.sid'); // Clears the session cookie
+        res.status(200).json({ message: 'Logged out successfully' });
+    });
 });
 
 export default router; // IMPORTANT: Replaced module.exports with ES export
