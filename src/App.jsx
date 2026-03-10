@@ -10,11 +10,9 @@ import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
 import Login from './pages/Login';
-import Admin from './pages/Admin';
 import Register from './pages/Register';
 
 // Page Imports
-import Login from './pages/Login';
 import Admin from './pages/Admin_dashboard';
 import Teacher from './pages/Teacher_dashboard'; 
 import Student from './pages/Student_dashboard';
@@ -23,11 +21,13 @@ import Student from './pages/Student_dashboard';
 const HomePage = () => {
   return (
     <>
+      <Header />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
       <MeetTeachers />
       <StatsCTA />
+      <Footer />
     </>
   );
 };
@@ -64,6 +64,15 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Login />} />
+          <Route 
+            path="/register" 
+            element={
+              <>
+                <Header />
+                <Register />
+              </>
+            } 
+          />
           {/* Wrap HomePage in MainLayout so it gets Header & Footer */}
           <Route 
             element={
