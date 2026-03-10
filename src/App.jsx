@@ -9,9 +9,10 @@ import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
+import Login from './pages/Login';
+import Teachers from './pages/Teachers';
 
 // Page Imports
-import Login from './pages/Login';
 import Admin from './pages/Admin_dashboard';
 import Teacher from './pages/Teacher_dashboard'; 
 import Student from './pages/Student_dashboard';
@@ -20,6 +21,7 @@ import Student from './pages/Student_dashboard';
 const HomePage = () => {
   return (
     <>
+      <Header />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
@@ -59,6 +61,9 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/teachers" element={<Teachers />} />
           {/* Wrap HomePage in MainLayout so it gets Header & Footer */}
           <Route 
             path="/" 
