@@ -22,6 +22,7 @@ import Student from './pages/Student_dashboard';
 const HomePage = () => {
   return (
     <>
+      <Header />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
@@ -45,6 +46,8 @@ const MainLayout = ({ children }) => {
 
 function App() {
   const [userRole, setUserRole] = useState(null);
+  const [userName, setUserName] = useState('');
+  const [isLoading, setIsLoading] = useState(true); // Added loading state!
 
   useEffect(() => {
     fetch('http://localhost:3000/api/status', {
@@ -54,27 +57,49 @@ function App() {
       .then(data => {
         console.log("The server says this user's role is:", data.userRole);
         setUserRole(data.userRole);
+        setUserName(data.userName);
       })
-      .catch(err => console.log("User is likely not logged in yet."));
+      .catch(err => console.log("User is likely not logged in yet."))
+      .finally(() => {
+        setIsLoading(false); // Stop loading once the check is done
+      });
   }, []);
+
+const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:3000/api/logout', { 
+        method: 'POST', 
+        credentials: 'include' 
+      });
+      // Clear local storage and reset state
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
+      setUserRole(null);
+      setUserName('');
+      // Because userRole is now null, React Router will automatically redirect to "/"
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+
+  // Don't render the routes until we know if the user is logged in
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
-<<<<<<< HEAD
-          {/* Main Pages with Header and Footer */}
-          <Route 
-            path="/" 
-=======
 
           <Route path="/" element={<HomePage />} />
 
-          <Route path="/login" element={<Login />} />
+          {/* Fixed: Only ONE login route, properly passing setUserRole */}
+          <Route path="/login" element={<Login setUserRole={setUserRole} />} />
 
           <Route
             path="/register"
->>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
             element={
               <>
                 <Header />
@@ -83,6 +108,8 @@ function App() {
               </>
             }
           />
+          
+          {/* Fixed: Only ONE teachers route */}
           <Route 
             path="/teachers" 
             element={
@@ -92,63 +119,41 @@ function App() {
             } 
           />
 
-<<<<<<< HEAD
-          {/* Login Page - NO Header/Footer */}
-          <Route path="/login" element={<Login setUserRole={setUserRole} />} />
-
-          {/* Protected Routes with Header and Footer */}
-=======
-          <Route
-            path="/teachers"
-            element={
-              <MainLayout>
-                <Teachers />
-              </MainLayout>
-            }
-          />
-
-          {/* Admin Route */}
->>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
+          {/* Protected Route: Admin */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
                 <MainLayout>
-                  <Admin />
+                  <Admin userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-<<<<<<< HEAD
-=======
 
-          {/* Teacher Route */}
->>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
+          {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
             element={
               userRole === 'teacher' ? (
                 <MainLayout>
-                  <Teacher />
+                  <Teacher userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-<<<<<<< HEAD
-=======
 
-          {/* Student Route */}
->>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
+          {/* Protected Route: Student */}
           <Route
             path="/student"
             element={
               userRole === 'student' ? (
                 <MainLayout>
-                  <Student />
+                  <Student userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
                 <Navigate to="/" />
