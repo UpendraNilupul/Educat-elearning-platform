@@ -4,7 +4,7 @@ import '../styles/login.css';
 
 
 
-const Login = () => {
+const Login = ({ setUserRole }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
@@ -30,9 +30,17 @@ const Login = () => {
                 localStorage.setItem('userId', data.userId);
                 localStorage.setItem('userRole', data.userRole);
 
+                if (setUserRole) {
+                    setUserRole(data.userRole); 
+                }
+
                 if (data.userRole === 'admin') {
                     navigate('/admin');
-                } else {
+                } else if (data.userRole === 'teacher') {
+                    navigate('/teacher');
+                }else if(data.userRole === 'student'){
+                    navigate('/student');
+                }else{
                     navigate('/');
                 }
             }
