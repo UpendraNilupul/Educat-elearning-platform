@@ -9,15 +9,16 @@ import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
-import Login from './pages/Login';
-import Teachers from './pages/Teachers';
 
 // Page Imports
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
-import Teacher from './pages/Teacher_dashboard'; 
+import Teacher from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 
-// 1. The HomePage Component
+// Home Page Component
 const HomePage = () => {
   return (
     <>
@@ -26,11 +27,12 @@ const HomePage = () => {
       <LatestUpdates />
       <MeetTeachers />
       <StatsCTA />
+      <Footer />
     </>
   );
 };
 
-// 2. Layout Wrapper to keep Header and Footer off the Login page
+// Layout Wrapper
 const MainLayout = ({ children }) => {
   return (
     <>
@@ -60,14 +62,26 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
+<<<<<<< HEAD
           {/* Main Pages with Header and Footer */}
           <Route 
             path="/" 
+=======
+
+          <Route path="/" element={<HomePage />} />
+
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/register"
+>>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
             element={
-              <MainLayout>
-                <HomePage />
-              </MainLayout>
-            } 
+              <>
+                <Header />
+                <Register />
+                <Footer />
+              </>
+            }
           />
           <Route 
             path="/teachers" 
@@ -78,10 +92,23 @@ function App() {
             } 
           />
 
+<<<<<<< HEAD
           {/* Login Page - NO Header/Footer */}
           <Route path="/login" element={<Login setUserRole={setUserRole} />} />
 
           {/* Protected Routes with Header and Footer */}
+=======
+          <Route
+            path="/teachers"
+            element={
+              <MainLayout>
+                <Teachers />
+              </MainLayout>
+            }
+          />
+
+          {/* Admin Route */}
+>>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
           <Route
             path="/admin"
             element={
@@ -94,6 +121,11 @@ function App() {
               )
             }
           />
+<<<<<<< HEAD
+=======
+
+          {/* Teacher Route */}
+>>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
           <Route
             path="/teacher"
             element={
@@ -106,6 +138,11 @@ function App() {
               )
             }
           />
+<<<<<<< HEAD
+=======
+
+          {/* Student Route */}
+>>>>>>> a913d61b0500fffc60931c89f1372ae93c3a10be
           <Route
             path="/student"
             element={
@@ -118,6 +155,7 @@ function App() {
               )
             }
           />
+
         </Routes>
       </div>
     </Router>
