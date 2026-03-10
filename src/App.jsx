@@ -21,7 +21,6 @@ import Student from './pages/Student_dashboard';
 const HomePage = () => {
   return (
     <>
-      <Header />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
@@ -61,10 +60,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/teachers" element={<Teachers />} />
-          {/* Wrap HomePage in MainLayout so it gets Header & Footer */}
+          {/* Main Pages with Header and Footer */}
           <Route 
             path="/" 
             element={
@@ -73,11 +69,19 @@ function App() {
               </MainLayout>
             } 
           />
+          <Route 
+            path="/teachers" 
+            element={
+              <MainLayout>
+                <Teachers />
+              </MainLayout>
+            } 
+          />
 
-          {/* DO NOT wrap Login. It will render entirely alone! */}
+          {/* Login Page - NO Header/Footer */}
           <Route path="/login" element={<Login setUserRole={setUserRole} />} />
 
-          {/* Protect the Admin Route and apply the Layout */}
+          {/* Protected Routes with Header and Footer */}
           <Route
             path="/admin"
             element={
@@ -90,7 +94,6 @@ function App() {
               )
             }
           />
-          {/* Protect the Admin Route and apply the Layout */}
           <Route
             path="/teacher"
             element={
@@ -103,7 +106,6 @@ function App() {
               )
             }
           />
-          {/* Protect the Admin Route and apply the Layout */}
           <Route
             path="/student"
             element={
