@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Menu, X } from 'lucide-react';
-import { Link } from 'react-router-dom'; // 1. Imported Link here
+import { Link, useNavigate } from 'react-router-dom';
 
-const Header = () => {
+// 🌟 Added userName to the props
+const Header = ({ userRole, userName, onLogout }) => { 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const handleScroll = () => {
@@ -21,6 +23,12 @@ const Header = () => {
         };
     }, []);
 
+    const goToDashboard = () => {
+        if (userRole === 'admin') navigate('/admin');
+        else if (userRole === 'teacher') navigate('/teacher');
+        else if (userRole === 'student') navigate('/student');
+    };
+
     const navLinks = [
         { name: 'Home', path: '/', active: true },
         { name: 'Classes', path: '/#classes', active: false },
@@ -32,7 +40,6 @@ const Header = () => {
 
     return (
         <header className="relative w-full font-sans">
-            {/* Top Bar - Collapses on scroll */}
             <div
                 className={`bg-[#4a0b59] text-white transition-all duration-300 ease-in-out overflow-hidden ${isScrolled ? 'max-h-0 opacity-0' : 'max-h-16 py-2 opacity-100'
                     }`}
@@ -43,15 +50,30 @@ const Header = () => {
                         <span className="text-[#ed8936] font-semibold text-xs md:text-sm tracking-wide">0714783615</span>
                     </div>
                     <div className="flex items-center space-x-4 text-xs font-medium md:text-sm">
-                        {/* 2. Changed buttons to Links */}
-                        <Link to="/login" className="transition-colors hover:text-gray-300">Login</Link>
-                        <span className="opacity-30">|</span>
-                        <Link to="/register" className="transition-colors hover:text-gray-300">Register</Link>
+                        
+                        {userRole ? (
+                            <>
+                                {/* 🌟 Changed 'Dashboard' to the user's name! */}
+                                <button onClick={goToDashboard} className="transition-colors hover:text-[#ed8936]">
+                                    {userName ? `Hi, ${userName}` : 'Dashboard'}
+                                </button>
+                                <span className="opacity-30">|</span>
+                                <button onClick={onLogout} className="transition-colors hover:text-red-400">
+                                    Logout
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/login" className="transition-colors hover:text-gray-300">Login</Link>
+                                <span className="opacity-30">|</span>
+                                <Link to="/register" className="transition-colors hover:text-gray-300">Register</Link>
+                            </>
+                        )}
+                        
                     </div>
                 </div>
             </div>
 
-            {/* Main Navigation Bar - Sticky/Fixed */}
             <div className={`${isScrolled ? 'h-0' : 'h-[20px]'}`}></div>
             <nav
                 className={`fixed left-0 w-full bg-white z-50 transition-all duration-300 ease-in-out ${isScrolled
@@ -60,9 +82,7 @@ const Header = () => {
                     }`}
             >
                 <div className="flex items-center justify-between w-full px-6 mx-auto max-w-7xl">
-                    {/* Logo Section */}
                     <div className="flex items-center flex-shrink-0">
-                        {/* Wrapped logo in a Link so clicking it always goes home */}
                         <Link to="/">
                             <img
                                 src="/EduCat Logo.PNG"
@@ -73,7 +93,6 @@ const Header = () => {
                         </Link>
                     </div>
 
-                    {/* Desktop Navigation */}
                     <div className="items-center hidden gap-8 md:flex">
                         {navLinks.map((link) => (
                             <Link
@@ -87,7 +106,6 @@ const Header = () => {
                         ))}
                     </div>
 
-                    {/* Mobile Menu Toggle */}
                     <div className="flex items-center md:hidden">
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -98,7 +116,6 @@ const Header = () => {
                     </div>
                 </div>
 
-                {/* Mobile Navigation Menu */}
                 {isMenuOpen && (
                     <div className="absolute left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-lg top-full md:hidden">
                         <div className="flex flex-col p-4 space-y-4">
