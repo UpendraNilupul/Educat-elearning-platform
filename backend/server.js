@@ -39,6 +39,12 @@ app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
 
+// Add this to your imports at the top
+import forgotPasswordRoutes from './routes/forgotPassword.js';
+
+// Add this below your other app.use('/api', ...) lines
+app.use('/api/forgot-password', forgotPasswordRoutes);
+
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
