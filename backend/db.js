@@ -1,17 +1,20 @@
 import mysql from 'mysql';
+import dotenv from 'dotenv';
+
+// This loads the variables from .env into process.env
+dotenv.config();
 
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '24254',
-    database: 'educat'
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
 });
 
 db.connect((err) => {
     if (err) {
         console.error('❌ Database connection failed!');
         console.error('Error Details:', err.message);
-        console.log('Please ensure your MySQL server is running and your credentials in backend/db.js are correct.');
     } else {
         console.log('✅ Successfully connected to the database!!');
     }
