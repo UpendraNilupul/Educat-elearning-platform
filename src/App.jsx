@@ -19,10 +19,10 @@ import Teacher from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 
 // Home Page Component
-const HomePage = () => {
+const HomePage = ({ userRole, userName, onLogout }) => {
   return (
     <>
-      <Header />
+      <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
@@ -34,10 +34,10 @@ const HomePage = () => {
 };
 
 // Layout Wrapper
-const MainLayout = ({ children }) => {
+const MainLayout = ({ children, userRole, userName, onLogout }) => {
   return (
     <>
-      <Header />
+      <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       {children}
       <Footer />
     </>
@@ -88,21 +88,23 @@ const handleLogout = async () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  return (
+return (
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
 
-          <Route path="/" element={<HomePage />} />
+          {/* Passed props to HomePage so its Header can hide Login/Register */}
+          <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
 
           {/* Fixed: Only ONE login route, properly passing setUserRole */}
-          <Route path="/login" element={<Login setUserRole={setUserRole} />} />
+          <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
 
           <Route
             path="/register"
             element={
               <>
-                <Header />
+                {/* Passed props to the standalone Header */}
+                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
                 <Register />
                 <Footer />
               </>
@@ -113,7 +115,7 @@ const handleLogout = async () => {
           <Route 
             path="/teachers" 
             element={
-              <MainLayout>
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                 <Teachers />
               </MainLayout>
             } 
@@ -124,7 +126,7 @@ const handleLogout = async () => {
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <MainLayout>
+                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                   <Admin userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
@@ -138,7 +140,7 @@ const handleLogout = async () => {
             path="/teacher"
             element={
               userRole === 'teacher' ? (
-                <MainLayout>
+                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                   <Teacher userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
@@ -152,7 +154,7 @@ const handleLogout = async () => {
             path="/student"
             element={
               userRole === 'student' ? (
-                <MainLayout>
+                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                   <Student userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
