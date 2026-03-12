@@ -65,11 +65,11 @@ function App() {
       });
   }, []);
 
-const handleLogout = async () => {
+  const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/logout', { 
-        method: 'POST', 
-        credentials: 'include' 
+      await fetch('http://localhost:3000/api/logout', {
+        method: 'POST',
+        credentials: 'include'
       });
       // Clear local storage and reset state
       localStorage.removeItem('userId');
@@ -88,7 +88,7 @@ const handleLogout = async () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-return (
+  return (
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
@@ -110,15 +110,15 @@ return (
               </>
             }
           />
-          
+
           {/* Fixed: Only ONE teachers route */}
-          <Route 
-            path="/teachers" 
+          <Route
+            path="/teachers"
             element={
               <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                 <Teachers />
               </MainLayout>
-            } 
+            }
           />
 
           {/* Protected Route: Admin */}
@@ -154,9 +154,7 @@ return (
             path="/student"
             element={
               userRole === 'student' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Student userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
