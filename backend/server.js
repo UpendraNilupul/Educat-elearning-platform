@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import loginRoutes from './routes/login.js';
 import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
+import forgotPasswordRoutes from './routes/forgotPassword.js';
 import session from 'express-session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,9 @@ app.use(session({
 app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
+
+// Add this below your other app.use('/api', ...) lines
+app.use('/api/forgot-password', forgotPasswordRoutes);
 
 
 app.use((req, res) => {

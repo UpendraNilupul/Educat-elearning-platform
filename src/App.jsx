@@ -19,10 +19,10 @@ import Teacher from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 
 // Home Page Component
-const HomePage = () => {
+const HomePage = ({ userRole, userName, onLogout }) => {
   return (
     <>
-      <Header />
+      <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       <Hero />
       <WelcomeSection />
       <LatestUpdates />
@@ -34,10 +34,10 @@ const HomePage = () => {
 };
 
 // Layout Wrapper
-const MainLayout = ({ children }) => {
+const MainLayout = ({ children, userRole, userName, onLogout }) => {
   return (
     <>
-      <Header />
+      <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       {children}
       <Footer />
     </>
@@ -65,11 +65,11 @@ function App() {
       });
   }, []);
 
-const handleLogout = async () => {
+  const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/logout', { 
-        method: 'POST', 
-        credentials: 'include' 
+      await fetch('http://localhost:3000/api/logout', {
+        method: 'POST',
+        credentials: 'include'
       });
       // Clear local storage and reset state
       localStorage.removeItem('userId');
@@ -93,30 +93,32 @@ const handleLogout = async () => {
       <div className="min-h-screen bg-white">
         <Routes>
 
-          <Route path="/" element={<HomePage />} />
+          {/* Passed props to HomePage so its Header can hide Login/Register */}
+          <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
 
           {/* Fixed: Only ONE login route, properly passing setUserRole */}
-          <Route path="/login" element={<Login setUserRole={setUserRole} />} />
+          <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
 
           <Route
             path="/register"
             element={
               <>
-                <Header />
+                {/* Passed props to the standalone Header */}
+                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
                 <Register />
                 <Footer />
               </>
             }
           />
-          
+
           {/* Fixed: Only ONE teachers route */}
-          <Route 
-            path="/teachers" 
+          <Route
+            path="/teachers"
             element={
-              <MainLayout>
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                 <Teachers />
               </MainLayout>
-            } 
+            }
           />
 
           {/* Protected Route: Admin */}
@@ -124,7 +126,7 @@ const handleLogout = async () => {
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <MainLayout>
+                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                   <Admin userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
@@ -138,7 +140,7 @@ const handleLogout = async () => {
             path="/teacher"
             element={
               userRole === 'teacher' ? (
-                <MainLayout>
+                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                   <Teacher userName={userName} onLogout={handleLogout} />
                 </MainLayout>
               ) : (
@@ -152,9 +154,7 @@ const handleLogout = async () => {
             path="/student"
             element={
               userRole === 'student' ? (
-                <MainLayout>
-                  <Student userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
