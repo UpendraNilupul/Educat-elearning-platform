@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import '../styles/login.css';
 
 // 🌟 ADDED setUserName HERE
@@ -7,6 +8,7 @@ const Login = ({ setUserRole, setUserName }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     
     // Forgot Password States
     const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -132,7 +134,12 @@ const Login = ({ setUserRole, setUserName }) => {
                     {forgotStep === 3 && (
                         <form onSubmit={handleResetPassword}>
                             <p className="mb-4 text-gray-600">Create a new password.</p>
-                            <input type="password" placeholder="New Password" className="box" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                            <div className="relative w-full mb-[1.2rem]">
+                                <input type={showPassword ? "text" : "password"} placeholder="New Password" className="box !mb-0 pr-10" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer flex items-center justify-center p-2" onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                             <input type="submit" value="Reset Password" className="btn" />
                         </form>
                     )}
@@ -148,7 +155,12 @@ const Login = ({ setUserRole, setUserName }) => {
                 <h3>login now</h3>
 
                 <input type="email" placeholder="your email" className="box" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <input type="password" placeholder="your password" className="box" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <div className="relative w-full mb-[1.2rem]">
+                    <input type={showPassword ? "text" : "password"} placeholder="your password" className="box !mb-0 pr-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer flex items-center justify-center p-2" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                </div>
 
                 <input type="submit" value="login" className="btn" />
 

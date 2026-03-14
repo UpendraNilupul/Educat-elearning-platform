@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-    LayoutDashboard, 
-    BookOpen, 
-    PlayCircle, 
-    FileText, 
-    Trophy, 
-    Award, 
-    Briefcase, 
+import {
+    LayoutDashboard,
+    BookOpen,
+    PlayCircle,
+    FileText,
+    Trophy,
+    Award,
+    Briefcase,
     Download,
     GraduationCap,
     Calendar,
@@ -34,8 +34,9 @@ const Student = ({ userName, onLogout }) => {
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
                 {/* Logo Section */}
                 <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
-                        Educat Dashboard
+                    <h2 className="text-xl font-bold">
+                        <span className="text-gray-800">Student</span>{" "}
+                        <span className="text-purple-600">Dashboard</span>
                     </h2>
                 </div>
 
@@ -44,11 +45,10 @@ const Student = ({ userName, onLogout }) => {
                     {navItems.map((item) => (
                         <button
                             key={item.name}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                                item.active 
-                                    ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100' 
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                            }`}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${item.active
+                                ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
                         >
                             <item.icon className={`w-5 h-5 ${item.active ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
                             <span className="text-sm">{item.name}</span>
@@ -67,7 +67,7 @@ const Student = ({ userName, onLogout }) => {
                             <p className="text-xs text-gray-500 truncate">Student Account</p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={onLogout}
                         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors"
                     >
@@ -146,7 +146,7 @@ const Student = ({ userName, onLogout }) => {
                                 <span className="text-gray-500 text-sm font-semibold mb-0.5">Badges</span>
                             </div>
                             <div className="flex -space-x-2.5 mt-6">
-                                {[1,2,3,4].map(i => (
+                                {[1, 2, 3, 4].map(i => (
                                     <div key={i} className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center shadow-sm">
                                         <Award className="w-4 h-4 text-orange-500" />
                                     </div>
@@ -166,7 +166,7 @@ const Student = ({ userName, onLogout }) => {
                                 <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
                                 <button className="text-sm font-semibold text-brand-purple hover:underline">View All</button>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 {[
                                     { title: 'AI Ethics Quiz', course: 'Artificial Intelligence', date: 'Oct 24', time: '11:59 PM', urgent: true },
@@ -206,17 +206,17 @@ const Student = ({ userName, onLogout }) => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {[
-                                    { 
-                                        title: 'Full Stack Web Development', 
-                                        instructor: 'Dr. Sarah Jenkins', 
-                                        progress: 65, 
+                                    {
+                                        title: 'Full Stack Web Development',
+                                        instructor: 'Dr. Sarah Jenkins',
+                                        progress: 65,
                                         modules: '14/22',
                                         color: 'purple'
                                     },
-                                    { 
-                                        title: 'UI/UX Design Masterclass', 
-                                        instructor: 'Michael Chen', 
-                                        progress: 42, 
+                                    {
+                                        title: 'UI/UX Design Masterclass',
+                                        instructor: 'Michael Chen',
+                                        progress: 42,
                                         modules: '8/19',
                                         color: 'blue'
                                     }
@@ -231,15 +231,15 @@ const Student = ({ userName, onLogout }) => {
                                         <div className="p-6">
                                             <h4 className="font-bold text-gray-900 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.title}</h4>
                                             <p className="text-xs text-gray-500 font-medium mt-1">{course.instructor}</p>
-                                            
+
                                             <div className="mt-6">
                                                 <div className="flex justify-between items-end mb-2">
                                                     <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Modules</span>
                                                     <span className="text-xs font-extrabold text-gray-900">{course.progress}%</span>
                                                 </div>
                                                 <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
-                                                    <div 
-                                                        className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`} 
+                                                    <div
+                                                        className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
                                                         style={{ width: `${course.progress}%` }}
                                                     ></div>
                                                 </div>
@@ -256,7 +256,7 @@ const Student = ({ userName, onLogout }) => {
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Main content will be rendered here */}
                 </div>
             </main>
@@ -264,4 +264,4 @@ const Student = ({ userName, onLogout }) => {
     );
 };
 
-export default Student;
+export default Student;
