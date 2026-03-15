@@ -1,20 +1,251 @@
-create database educat;
-use educat;
-create table users(id int not null auto_increment primary key, name varchar(150) not null, password varchar(200) not null, role varchar(20) not null, email varchar(100) not null, phone_number varchar(10) not null,
- address varchar(150) not null, dob date not null, gender varchar(6) not null, status varchar(20) default 'active', join_date date not null, picture varchar(300), 2fa_enabled boolean default false);
- create table advertisements(id int not null auto_increment primary key, t_id int not null, ad_link varchar(300), foreign key(t_id) references users(id));
- create table classes_courses(id int not null auto_increment primary key, name varchar(100) not null, title varchar(100) not null,type varchar(20) not null, t_id int not null,
- status varchar(20) default 'not_active', is_published boolean default false, foreign key(t_id) references users(id));
- create table promo_codes(id int not null auto_increment primary key, code varchar(50) not null, c_id int not null, status varchar(20) default 'active', discount_percent decimal(5,3) not null, expire_date date not null, foreign key(c_id) references classes_courses(id));
- create table question_bank(id int not null auto_increment primary key, type varchar(20) not null, marks decimal(4,2) not null, question varchar(1000) not null, c_id int not null,
- t_id int not null, foreign key(c_id) references classes_courses(id), foreign key(t_id) references users(id));
- create table answers(id int not null auto_increment primary key, answer varchar(400) not null, correct boolean default false, q_id int not null, foreign key(q_id) references question_bank(id));
- create table payments(id int not null auto_increment primary key, invoice_link varchar(200) not null, amount decimal(6,2) not null, status varchar(20) not null, c_id int not null, s_id int not null, foreign key(c_id) references classes_courses(id), foreign key(s_id) references users(id));
- create table notifications(id int not null auto_increment primary key, title varchar(100) not null, description varchar(500) not null, s_id int not null, foreign key(s_id) references users(id));
- create table certificates(id int not null auto_increment primary key, link varchar(200) not null, s_id int not null, c_id int not null, foreign key(s_id) references users(id), foreign key(c_id) references classes_courses(id));
- create table reviews(id int not null auto_increment primary key, title varchar(200) not null, description varchar(500) not null, c_id int not null, s_id int not null, foreign key(s_id) references users(id), foreign key(c_id) references classes_courses(id));
- create table modules(id int not null auto_increment primary key, number int not null, title varchar(100) not null, status varchar(20) default 'active', c_id int not null, foreign key(c_id) references classes_courses(id));
- create table lessons(id int not null auto_increment primary key, number decimal(4,2) not null, type varchar(20) not null, link varchar(300) not null, m_id int not null, foreign key(m_id) references modules(id));
- create table resources(id int not null auto_increment primary key, name varchar(100) not null, link varchar(300) not null, number int not null , m_id int not null, foreign key(m_id) references modules(id));
- create table quizes(id int not null auto_increment primary key, number int not null, time_limit time not null, is_peer_reviewed boolean not null default false, m_id int not null, foreign key(m_id) references modules(id));
- create table quiz_questions( qz_id int not null, q_id int not null, primary key (qz_id, q_id), foreign key(qz_id) references quizes(id), foreign key(q_id) references question_bank(id));
+DROP DATABASE IF EXISTS educat;
+CREATE DATABASE educat;
+USE educat;
+
+-- ==========================================
+-- LEVEL 1: CORE TABLES (No Foreign Keys)
+-- ==========================================
+
+CREATE TABLE roles (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    role_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- ==========================================
+-- LEVEL 2: USERS & ROLES
+-- ==========================================
+
+CREATE TABLE users (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    password VARCHAR(200) NOT NULL,
+    role_id INT NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    phone_number VARCHAR(15) NOT NULL,
+    address VARCHAR(150) NOT NULL,
+    dob DATE NOT NULL,
+    gender VARCHAR(10) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    join_date DATE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    picture VARCHAR(300),
+    2fa_enabled BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (role_id) REFERENCES roles(id)
+);
+
+-- ==========================================
+-- LEVEL 3: SPECIFIC USER PROFILES
+-- ==========================================
+
+CREATE TABLE teachers (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    highest_qualification VARCHAR(200),
+    university VARCHAR(200),
+    experience_years INT,
+    bio TEXT,
+    resume_link VARCHAR(300),
+    verification_status VARCHAR(20) DEFAULT 'pending', 
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE students (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    grade_level VARCHAR(50),
+    school_name VARCHAR(150),
+    guardian_name VARCHAR(150),
+    guardian_phone VARCHAR(15),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE admins (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    admin_level VARCHAR(50) DEFAULT 'standard',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_activity (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action_type VARCHAR(50) NOT NULL, 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- LEVEL 4: COURSES & CONTENT
+-- ==========================================
+
+CREATE TABLE advertisements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    t_id INT NOT NULL,
+    ad_link VARCHAR(300),
+    FOREIGN KEY(t_id) REFERENCES teachers(id)
+);
+
+CREATE TABLE classes_courses (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    t_id INT NOT NULL, 
+    status VARCHAR(20) DEFAULT 'not_active',
+    is_published BOOLEAN DEFAULT FALSE,
+    theme_color VARCHAR(20) DEFAULT 'purple', -- Added for Course.jsx UI
+    thumbnail_url VARCHAR(300), -- Added for Course.jsx UI
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(t_id) REFERENCES teachers(id)
+);
+
+CREATE TABLE promo_codes (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL,
+    c_id INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    discount_percent DECIMAL(5,3) NOT NULL,
+    expire_date DATE NOT NULL,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+);
+
+CREATE TABLE modules (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    number INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    c_id INT NOT NULL,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+);
+
+-- ==========================================
+-- LEVEL 5: MODULE ASSETS & ASSESSMENTS
+-- ==========================================
+
+CREATE TABLE lessons (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    number DECIMAL(4,2) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    link VARCHAR(300) NOT NULL,
+    m_id INT NOT NULL,
+    FOREIGN KEY(m_id) REFERENCES modules(id)
+);
+
+CREATE TABLE resources (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    link VARCHAR(300) NOT NULL,
+    number INT NOT NULL,
+    m_id INT NOT NULL,
+    FOREIGN KEY(m_id) REFERENCES modules(id)
+);
+
+CREATE TABLE quizes (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    number INT NOT NULL,
+    time_limit TIME NOT NULL,
+    is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+    m_id INT NOT NULL,
+    FOREIGN KEY(m_id) REFERENCES modules(id)
+);
+
+CREATE TABLE question_bank (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(20) NOT NULL,
+    marks DECIMAL(4,2) NOT NULL,
+    question VARCHAR(1000) NOT NULL,
+    c_id INT NOT NULL,
+    t_id INT NOT NULL,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id),
+    FOREIGN KEY(t_id) REFERENCES teachers(id)
+);
+
+-- ==========================================
+-- LEVEL 6: CONNECTIONS & TRANSACTIONS
+-- ==========================================
+
+CREATE TABLE answers (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    answer VARCHAR(400) NOT NULL,
+    correct BOOLEAN DEFAULT FALSE,
+    q_id INT NOT NULL,
+    FOREIGN KEY(q_id) REFERENCES question_bank(id)
+);
+
+CREATE TABLE quiz_questions (
+    qz_id INT NOT NULL,
+    q_id INT NOT NULL,
+    PRIMARY KEY (qz_id, q_id),
+    FOREIGN KEY(qz_id) REFERENCES quizes(id),
+    FOREIGN KEY(q_id) REFERENCES question_bank(id)
+);
+
+CREATE TABLE payments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    invoice_link VARCHAR(200) NOT NULL,
+    amount DECIMAL(6,2) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    c_id INT NOT NULL,
+    s_id INT NOT NULL,
+    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id),
+    FOREIGN KEY(s_id) REFERENCES students(id)
+);
+
+CREATE TABLE notifications (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100) NOT NULL,
+    description VARCHAR(500) NOT NULL,
+    user_id INT NOT NULL, 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE certificates (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    link VARCHAR(200) NOT NULL,
+    s_id INT NOT NULL,
+    c_id INT NOT NULL,
+    FOREIGN KEY(s_id) REFERENCES students(id),
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+);
+
+CREATE TABLE reviews (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description VARCHAR(500) NOT NULL,
+    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0, -- Added for frontend star rating
+    c_id INT NOT NULL,
+    s_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(s_id) REFERENCES students(id),
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+);
+
+-- ==========================================
+-- LEVEL 7: STUDENT PROGRESS & TRACKING
+-- ==========================================
+
+CREATE TABLE enrollments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    s_id INT NOT NULL,
+    c_id INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'In Progress', 
+    enrolled_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE lesson_completions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    s_id INT NOT NULL,
+    l_id INT NOT NULL,
+    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- SEED DATA
+-- ==========================================
+INSERT INTO roles (role_name) VALUES ('admin'), ('teacher'), ('student');
