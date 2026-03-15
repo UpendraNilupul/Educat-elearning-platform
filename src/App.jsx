@@ -17,6 +17,7 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import Teacher from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
+import CoursesPage from './pages/Course';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -92,13 +93,10 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
-
           {/* Passed props to HomePage so its Header can hide Login/Register */}
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-
           {/* Fixed: Only ONE login route, properly passing setUserRole */}
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
-
           <Route
             path="/register"
             element={
@@ -110,7 +108,6 @@ function App() {
               </>
             }
           />
-
           {/* Fixed: Only ONE teachers route */}
           <Route
             path="/teachers"
@@ -120,7 +117,6 @@ function App() {
               </MainLayout>
             }
           />
-
           {/* Protected Route: Admin */}
           <Route
             path="/admin"
@@ -134,7 +130,6 @@ function App() {
               )
             }
           />
-
           {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
@@ -148,7 +143,6 @@ function App() {
               )
             }
           />
-
           {/* Protected Route: Student */}
           <Route
             path="/student"
@@ -160,7 +154,15 @@ function App() {
               )
             }
           />
-
+          {/* Route for Courses page */}
+          <Route
+            path="/courses"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <CoursesPage />
+              </MainLayout>
+            }
+          />
         </Routes>
       </div>
     </Router>
