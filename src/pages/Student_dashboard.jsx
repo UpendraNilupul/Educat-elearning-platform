@@ -166,7 +166,6 @@ const Student = ({ userName, onLogout }) => {
                                 <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
                                 <button className="text-sm font-semibold text-brand-purple hover:underline">View All</button>
                             </div>
-
                             <div className="space-y-4">
                                 {[
                                     { title: 'AI Ethics Quiz', course: 'Artificial Intelligence', date: 'Oct 24', time: '11:59 PM', urgent: true },
@@ -231,7 +230,6 @@ const Student = ({ userName, onLogout }) => {
                                         <div className="p-6">
                                             <h4 className="font-bold text-gray-900 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.title}</h4>
                                             <p className="text-xs text-gray-500 font-medium mt-1">{course.instructor}</p>
-
                                             <div className="mt-6">
                                                 <div className="flex justify-between items-end mb-2">
                                                     <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Modules</span>
@@ -256,7 +254,6 @@ const Student = ({ userName, onLogout }) => {
                             </div>
                         </div>
                     </div>
-
                     {/* Main content will be rendered here */}
                 </div>
             </main>
