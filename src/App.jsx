@@ -15,7 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
-import Teacher from './pages/Teacher_dashboard';
+import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import CoursesPage from './pages/Course';
 
@@ -130,14 +130,17 @@ function App() {
               )
             }
           />
+<<<<<<< HEAD
           {/* Protected Route: Teacher */}
+=======
+
+          {/* Protected Route: Teacher - no header/footer layout */}
+>>>>>>> d1a8356d0f26452bc8dcc4427fc7db711b3aac3e
           <Route
             path="/teacher"
             element={
               userRole === 'teacher' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Teacher userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
