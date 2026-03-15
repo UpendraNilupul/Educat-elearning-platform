@@ -1,7 +1,7 @@
 import React from 'react';
 import { BadgeCheck, Edit2 } from 'lucide-react';
 
-const DashboardHeader = ({ userName = 'Damitha' }) => {
+const DashboardHeader = ({ userName = 'Damitha', onEditClick }) => {
     // Segmented progress ring calculation
     const radius = 22;
     const circumference = 2 * Math.PI * radius;
@@ -67,7 +67,10 @@ const DashboardHeader = ({ userName = 'Damitha' }) => {
                 </div>
 
                 {/* Edit Icon Button */}
-                <button className="ml-2 p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-brand-purple hover:bg-purple-50 transition-all border border-gray-100">
+                <button 
+                    onClick={onEditClick}
+                    className="ml-2 p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-brand-purple hover:bg-gray-100 transition-colors cursor-pointer border border-gray-100"
+                >
                     <Edit2 className="w-4 h-4" />
                 </button>
             </div>

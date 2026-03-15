@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     LayoutDashboard,
     BookOpen,
@@ -15,8 +15,12 @@ import {
 } from 'lucide-react';
 
 import DashboardHeader from '../components/DashboardHeader';
+import StudentProfileEdit from '../components/StudentProfileEdit';
+import { X } from 'lucide-react'; // For the close button
 
 const Student = ({ userName, onLogout }) => {
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard, active: true },
         { name: 'Courses', icon: BookOpen },
@@ -82,7 +86,10 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-                    <DashboardHeader userName={userName} />
+                    <DashboardHeader 
+                        userName={userName} 
+                        onEditClick={() => setIsEditModalOpen(true)}
+                    />
 
                     {/* Welcome Section */}
                     <div className="mb-10">
@@ -257,6 +264,27 @@ const Student = ({ userName, onLogout }) => {
                     {/* Main content will be rendered here */}
                 </div>
             </main>
+
+            {/* Profile Edit Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
+                        {/* Close Button */}
+                        <button 
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors bg-white z-10"
+                        >
+                            <X className="w-6 h-6 text-gray-500" />
+                        </button>
+                        
+                        {/* Profile Edit Form */}
+                        <StudentProfileEdit 
+                            onClose={() => setIsEditModalOpen(false)} 
+                            initialData={{ fullName: userName || '' }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
