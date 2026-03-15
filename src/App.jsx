@@ -15,7 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
-import Teacher from './pages/Teacher_dashboard';
+import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 
 // Home Page Component
@@ -65,11 +65,11 @@ function App() {
       });
   }, []);
 
-const handleLogout = async () => {
+  const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/logout', { 
-        method: 'POST', 
-        credentials: 'include' 
+      await fetch('http://localhost:3000/api/logout', {
+        method: 'POST',
+        credentials: 'include'
       });
       // Clear local storage and reset state
       localStorage.removeItem('userId');
@@ -88,7 +88,7 @@ const handleLogout = async () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-return (
+  return (
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
@@ -110,15 +110,15 @@ return (
               </>
             }
           />
-          
+
           {/* Fixed: Only ONE teachers route */}
-          <Route 
-            path="/teachers" 
+          <Route
+            path="/teachers"
             element={
               <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                 <Teachers />
               </MainLayout>
-            } 
+            }
           />
 
           {/* Protected Route: Admin */}
@@ -135,14 +135,12 @@ return (
             }
           />
 
-          {/* Protected Route: Teacher */}
+          {/* Protected Route: Teacher - no header/footer layout */}
           <Route
             path="/teacher"
             element={
               userRole === 'teacher' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Teacher userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
@@ -154,9 +152,7 @@ return (
             path="/student"
             element={
               userRole === 'student' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Student userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
