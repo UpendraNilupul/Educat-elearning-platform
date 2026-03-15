@@ -23,7 +23,7 @@ router.post('/register', (req, res) => {
 
         
         const insertQuery = `
-            INSERT INTO users (name, email, password, phoneNumber, address, dob, gender, role)
+            INSERT INTO users (name, email, password, phone_number, address, dob, gender, role)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
