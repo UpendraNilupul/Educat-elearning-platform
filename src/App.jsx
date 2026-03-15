@@ -48,7 +48,7 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 function App() {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Added loading state!
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/status', {
@@ -62,7 +62,7 @@ function App() {
       })
       .catch(err => console.log("User is likely not logged in yet."))
       .finally(() => {
-        setIsLoading(false); // Stop loading once the check is done
+        setIsLoading(false);
       });
   }, []);
 
@@ -72,19 +72,15 @@ function App() {
         method: 'POST',
         credentials: 'include'
       });
-      // Clear local storage and reset state
       localStorage.removeItem('userId');
       localStorage.removeItem('userRole');
       setUserRole(null);
       setUserName('');
-      // Because userRole is now null, React Router will automatically redirect to "/"
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
-
-  // Don't render the routes until we know if the user is logged in
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -93,22 +89,18 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
-          {/* Passed props to HomePage so its Header can hide Login/Register */}
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-          {/* Fixed: Only ONE login route, properly passing setUserRole */}
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
           <Route
             path="/register"
             element={
               <>
-                {/* Passed props to the standalone Header */}
                 <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
                 <Register />
                 <Footer />
               </>
             }
           />
-          {/* Fixed: Only ONE teachers route */}
           <Route
             path="/teachers"
             element={
@@ -117,6 +109,7 @@ function App() {
               </MainLayout>
             }
           />
+          
           {/* Protected Route: Admin */}
           <Route
             path="/admin"
@@ -130,12 +123,8 @@ function App() {
               )
             }
           />
-<<<<<<< HEAD
-          {/* Protected Route: Teacher */}
-=======
 
-          {/* Protected Route: Teacher - no header/footer layout */}
->>>>>>> d1a8356d0f26452bc8dcc4427fc7db711b3aac3e
+          {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
             element={
@@ -146,6 +135,7 @@ function App() {
               )
             }
           />
+
           {/* Protected Route: Student */}
           <Route
             path="/student"
@@ -157,6 +147,7 @@ function App() {
               )
             }
           />
+
           {/* Route for Courses page */}
           <Route
             path="/courses"

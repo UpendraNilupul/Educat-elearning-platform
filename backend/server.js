@@ -228,3 +228,7 @@ const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Educat backend is running on http://localhost:${PORT}`);
 });
+// Test the database connection immediately on startup
+pool.query('SELECT 1')
+    .then(() => console.log('✅ Connected to the MySQL database!'))
+    .catch(err => console.error('❌ Database connection failed:', err));
