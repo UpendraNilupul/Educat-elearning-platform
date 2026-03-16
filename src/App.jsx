@@ -126,9 +126,7 @@ function App() {
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Admin userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <Admin userName={userName} onLogout={handleLogout} /> // Removed <MainLayout> wrapper!
               ) : (
                 <Navigate to="/" />
               )
