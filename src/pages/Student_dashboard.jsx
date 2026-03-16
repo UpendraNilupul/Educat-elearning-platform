@@ -1,23 +1,27 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import CoursesPage from './Course'; 
-import { 
-    LayoutDashboard, 
-    BookOpen, 
-    PlayCircle, 
-    FileText, 
-    Trophy, 
-    Award, 
-    Briefcase, 
+import CoursesPage from './Course';
+import {
+    LayoutDashboard,
+    BookOpen,
+    PlayCircle,
+    FileText,
+    Trophy,
+    Award,
+    Briefcase,
     Download,
     GraduationCap,
     Calendar,
     ChevronRight,
     Play,
-    LogOut
+    LogOut,
+    Edit2,
+    X
 } from 'lucide-react';
 
-import DashboardHeader from '../components/DashboardHeader';
+import StudentProfileEdit from '../components/StudentProfileEdit';
+
+
 
 const Student = ({ userName, onLogout }) => {
     const navItems = [
@@ -30,28 +34,32 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Project', icon: Briefcase },
         { name: 'Download', icon: Download },
     ];
-    
+
     const [selectedSection, setSelectedSection] = useState('Overview');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
-                <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
-                        Educat Dashboard
-                    </h2>
+                <div className="p-6 border-b border-gray-100 mb-2">
+                    <div className="flex items-center gap-2.5">
+                        <GraduationCap className="w-8 h-8 text-orange-500 shrink-0" />
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-gray-900 tracking-tight">Student</span>
+                            <span className="text-xl font-medium text-purple-600">Dashboard</span>
+                        </div>
+                    </div>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                     {navItems.map((item) => (
                         <button
                             key={item.name}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                                selectedSection === item.name
-                                    ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                            }`}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${selectedSection === item.name
+                                ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
                             onClick={() => setSelectedSection(item.name)}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
@@ -61,16 +69,20 @@ const Student = ({ userName, onLogout }) => {
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
+                    <div
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-100 transition-all duration-200 group/profile border border-transparent hover:border-gray-200 shadow-sm"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold shrink-0">
                             {userName?.[0] || 'S'}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate group-hover/profile:text-brand-purple transition-colors">{userName || 'Student'}</p>
                             <p className="text-xs text-gray-500 truncate">Student Account</p>
                         </div>
+                        <Edit2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover/profile:opacity-100 transition-opacity ml-auto" />
                     </div>
-                    <button 
+                    <button
                         onClick={onLogout}
                         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors"
                     >
@@ -82,9 +94,8 @@ const Student = ({ userName, onLogout }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
-                <div className="p-8 max-w-6xl mx-auto">
-                    <DashboardHeader userName={userName} />
-                    
+                <div className="pt-8 px-8 pb-8 max-w-6xl mx-auto">
+
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : (
@@ -146,7 +157,7 @@ const Student = ({ userName, onLogout }) => {
                                         <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Badges</span>
                                     </div>
                                     <div className="flex -space-x-2.5 mt-6">
-                                        {[1,2,3,4].map(i => (
+                                        {[1, 2, 3, 4].map(i => (
                                             <div key={i} className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center shadow-sm">
                                                 <Award className="w-4 h-4 text-orange-500" />
                                             </div>
@@ -155,7 +166,7 @@ const Student = ({ userName, onLogout }) => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                                 <div className="lg:col-span-1">
                                     <div className="flex items-center justify-between mb-6">
                                         <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
@@ -217,6 +228,31 @@ const Student = ({ userName, onLogout }) => {
                     )}
                 </div>
             </main>
+
+            {/* Edit Profile Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+                    <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl relative animate-in zoom-in-95 duration-300">
+                        {/* Modal Header/Close */}
+                        <div className="sticky top-0 z-10 flex justify-end p-4 bg-white/80 backdrop-blur-md">
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-all"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="px-8 pb-10">
+                            <StudentProfileEdit
+                                onClose={() => setIsEditModalOpen(false)}
+                                initialData={{ fullName: userName }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
