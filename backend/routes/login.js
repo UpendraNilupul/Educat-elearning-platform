@@ -1,8 +1,10 @@
 import express from 'express';
 import db from '../db.js';
 import bcrypt from 'bcryptjs';
+import util from 'util';
 
 const router = express.Router();
+const query = util.promisify(db.query).bind(db);
 
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -11,19 +13,16 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    // 🌟 UPDATED: Join the roles table to get the string role_name instead of just role_id
-    const query = `
-        SELECT users.*, roles.role_name 
-        FROM users 
-        JOIN roles ON users.role_id = roles.id 
-        WHERE users.email = ?
-    `;
-    
-    db.query(query, [email], async (err, results) => {
-        if (err) {
-            console.error('Error logging in:', err);
-            return res.status(500).send('Server error');
-        }
+    try {
+        const sqlQuery = `
+            SELECT users.*, roles.role_name 
+            FROM users 
+            JOIN roles ON users.role_id = roles.id 
+            WHERE users.email = ?
+        `;
+        
+        const results = await query(sqlQuery, [email]);
+
         if (results.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
@@ -35,7 +34,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
-        // Save session data using the newly joined role_name
+        // Save session data
         req.session.userId = user.id;
         req.session.userRole = user.role_name; 
         req.session.userName = user.name;
@@ -46,7 +45,11 @@ router.post('/login', async (req, res) => {
             userRole: user.role_name, 
             userName: user.name
         });
-    });
+
+    } catch (error) {
+        console.error('Error logging in:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
 });
 
 router.get('/status', (req, res) => {
@@ -57,11 +60,7 @@ router.get('/status', (req, res) => {
             userName: req.session.userName
         });
     } else {
-        res.json({ 
-            isLoggedIn: false, 
-            userRole: null,
-            userName: null
-        });
+        res.json({ isLoggedIn: false, userRole: null, userName: null });
     }
 });
 
