@@ -17,6 +17,8 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
+import TeacherProfileEdit from './pages/TeacherProfileEdit';
+
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -45,8 +47,8 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(null);
-  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [isLoading, setIsLoading] = useState(true); // Added loading state!
 
   useEffect(() => {
@@ -101,14 +103,7 @@ function App() {
 
           <Route
             path="/register"
-            element={
-              <>
-                {/* Passed props to the standalone Header */}
-                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
-                <Register />
-                <Footer />
-              </>
-            }
+            element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
 
           {/* Fixed: Only ONE teachers route */}
@@ -139,7 +134,7 @@ function App() {
           <Route
             path="/teacher"
             element={
-              userRole === 'teacher' ? (
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
                 <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
@@ -151,7 +146,7 @@ function App() {
           <Route
             path="/student"
             element={
-              userRole === 'student' ? (
+              (userRole === 'student' || localStorage.getItem('userRole') === 'student') ? (
                 <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
@@ -159,6 +154,17 @@ function App() {
             }
           />
 
+          {/* Teacher profile edit route */}
+          <Route
+            path="/teacher-profile-edit/:id?"
+            element={
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
+                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
         </Routes>
       </div>
     </Router>

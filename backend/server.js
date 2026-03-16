@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import loginRoutes from './routes/login.js';
 import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
+import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import session from 'express-session';
 
@@ -39,6 +40,7 @@ app.use(session({
 app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
 
 // Add this below your other app.use('/api', ...) lines
 app.use('/api/forgot-password', forgotPasswordRoutes);
