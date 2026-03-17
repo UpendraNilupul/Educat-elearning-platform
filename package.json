@@ -1,0 +1,54 @@
+{
+  "name": "educat",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node backend/server.js",
+    "start:dev": "nodemon backend/server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "lucide-react": "^0.475.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.19.1",
+    "nodemailer": "^8.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.13.1",
+    "recharts": "^3.8.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "nodemon": "^3.1.11",
+    "vite": "^6.0.0"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "public/*",
+      "tests/*"
+    ],
+    "delay": "2"
+  },
+  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UpendraNilupul/Educat-elearning-platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/UpendraNilupul/Educat-elearning-platform/issues"
+  },
+  "homepage": "https://github.com/UpendraNilupul/Educat-elearning-platform#readme"
+}
