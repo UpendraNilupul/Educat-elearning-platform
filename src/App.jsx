@@ -19,6 +19,7 @@ import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
 
+import CoursesPage from './pages/Course';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -63,7 +64,7 @@ function App() {
       })
       .catch(err => console.log("User is likely not logged in yet."))
       .finally(() => {
-        setIsLoading(false); // Stop loading once the check is done
+        setIsLoading(false);
       });
   }, []);
 
@@ -73,19 +74,15 @@ function App() {
         method: 'POST',
         credentials: 'include'
       });
-      // Clear local storage and reset state
       localStorage.removeItem('userId');
       localStorage.removeItem('userRole');
       setUserRole(null);
       setUserName('');
-      // Because userRole is now null, React Router will automatically redirect to "/"
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
-
-  // Don't render the routes until we know if the user is logged in
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -94,19 +91,12 @@ function App() {
     <Router>
       <div className="min-h-screen bg-white">
         <Routes>
-
-          {/* Passed props to HomePage so its Header can hide Login/Register */}
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-
-          {/* Fixed: Only ONE login route, properly passing setUserRole */}
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
-
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-
-          {/* Fixed: Only ONE teachers route */}
           <Route
             path="/teachers"
             element={
@@ -115,7 +105,7 @@ function App() {
               </MainLayout>
             }
           />
-
+          
           {/* Protected Route: Admin */}
           <Route
             path="/admin"
@@ -130,7 +120,7 @@ function App() {
             }
           />
 
-          {/* Protected Route: Teacher - no header/footer layout */}
+          {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
             element={
@@ -162,7 +152,14 @@ function App() {
                 <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
               ) : (
                 <Navigate to="/" />
-              )
+              )} />
+          {/* Route for Courses page */}
+          <Route
+            path="/courses"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <CoursesPage />
+              </MainLayout>
             }
           />
         </Routes>
