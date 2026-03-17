@@ -8,6 +8,7 @@ import teacherRoutes from './routes/teachers.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import coursesRoutes from './routes/courses.js';
 import session from 'express-session';
+import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -35,6 +36,7 @@ app.use(session({
     }
 }));
 
+
 // 2. Register your database API routes
 // (e.g., http://localhost:3000/api/login)
 app.use('/api', loginRoutes);
@@ -44,6 +46,10 @@ app.use('/api/courses', coursesRoutes);
 
 // Add this below your other app.use('/api', ...) lines
 app.use('/api/forgot-password', forgotPasswordRoutes);
+
+// Add to your route definitions (below your other app.use lines)
+app.use('/api/admin', adminRoutes);
+
 
 
 app.use((req, res) => {
