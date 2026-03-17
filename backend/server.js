@@ -6,6 +6,7 @@ import loginRoutes from './routes/login.js';
 import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
+import coursesRoutes from './routes/courses.js';
 import session from 'express-session';
 import adminRoutes from './routes/admin.js';
 
@@ -41,6 +42,7 @@ app.use(session({
 app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
+app.use('/api/courses', coursesRoutes);
 
 // Add this below your other app.use('/api', ...) lines
 app.use('/api/forgot-password', forgotPasswordRoutes);
