@@ -21,14 +21,13 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [formData, setFormData] = useState({ 
+    name: "",
     title: "", 
-    category: "",
-    description: "",
-    thumbnail: "",
     type: "Class",
-    price: 0,
-    duration: "",
-    level: "Beginner",
+    status: "not_active",
+    is_published: false,
+    theme_color: "purple",
+    thumbnail_url: "",
     students: 0, 
     modules: 0, 
     progress: 0 
@@ -171,14 +170,13 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const handleOpenCreateModal = () => {
     setEditingCourse(null);
     setFormData({ 
+      name: "",
       title: "", 
-      category: "",
-      description: "",
-      thumbnail: "",
       type: "Class",
-      price: 0,
-      duration: "",
-      level: "Beginner",
+      status: "not_active",
+      is_published: false,
+      theme_color: "purple",
+      thumbnail_url: "",
       students: 0, 
       modules: 0, 
       progress: 0 
@@ -189,14 +187,13 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const handleOpenEditModal = (course) => {
     setEditingCourse(course);
     setFormData({ 
+      name: course.name || "",
       title: course.title || "", 
-      category: course.category || "",
-      description: course.description || "",
-      thumbnail: course.thumbnail || "",
       type: course.type || "Class",
-      price: course.price || 0,
-      duration: course.duration || "",
-      level: course.level || "Beginner",
+      status: course.status || "not_active",
+      is_published: course.is_published || false,
+      theme_color: course.theme_color || "purple",
+      thumbnail_url: course.thumbnail_url || "",
       students: course.students || 0, 
       modules: course.modules || 0, 
       progress: course.progress || 0 
@@ -217,19 +214,58 @@ const TeachersCourse = ({ courses, setCourses }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingCourse) {
-      setCourses(courses.map(c => c.id === editingCourse.id ? { ...c, ...formData } : c));
-    } else {
-      setCourses([...courses, { id: Date.now(), ...formData }]);
+    try {
+      if (editingCourse) {
+        // Edit Course
+        const response = await fetch(`http://localhost:3000/api/courses/${editingCourse.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+          const updatedCourse = await response.json();
+          setCourses(courses.map(c => c.id === updatedCourse.id ? { ...c, ...updatedCourse } : c));
+        } else {
+          console.error("Failed to edit course");
+        }
+      } else {
+        // Create Course
+        const response = await fetch('http://localhost:3000/api/courses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+          const newCourse = await response.json();
+          setCourses([...courses, newCourse]);
+        } else {
+          console.error("Failed to create course");
+        }
+      }
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error submitting course:", error);
     }
-    handleCloseModal();
   };
 
-  const handleDeleteCourse = (id) => {
+  const handleDeleteCourse = async (id) => {
     if (window.confirm("Are you sure you want to delete this course?")) {
-      setCourses(courses.filter(c => c.id !== id));
+      try {
+        const response = await fetch(`http://localhost:3000/api/courses/${id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          setCourses(courses.filter(c => c.id !== id));
+        } else {
+          console.error("Failed to delete course");
+        }
+      } catch (error) {
+        console.error("Error deleting course:", error);
+      }
     }
   };
 
@@ -458,64 +494,39 @@ const TeachersCourse = ({ courses, setCourses }) => {
               {editingCourse ? "Edit Course" : "Create New Course"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Course Title</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                  placeholder="e.g. Advanced React Patterns"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
                   <input
                     type="text"
-                    name="category"
-                    value={formData.category}
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
+                    required
                     className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                    placeholder="e.g. Programming"
+                    placeholder="Internal reference name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
-                  <select
-                    name="level"
-                    value={formData.level}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Display Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                  >
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option>
-                  </select>
+                    required
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                    placeholder="Public facing title"
+                  />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Course Description</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none resize-none"
-                  placeholder="Briefly describe the course..."
-                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail Image URL</label>
                 <input
                   type="url"
-                  name="thumbnail"
-                  value={formData.thumbnail}
+                  name="thumbnail_url"
+                  value={formData.thumbnail_url}
                   onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
                   placeholder="https://example.com/image.jpg"
@@ -536,42 +547,47 @@ const TeachersCourse = ({ courses, setCourses }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-                  <input
-                    type="number"
-                    name="price"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Color</label>
+                  <select
+                    name="theme_color"
+                    value={formData.theme_color}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                    placeholder="0 for free"
-                  />
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="purple">Purple</option>
+                    <option value="blue">Blue</option>
+                    <option value="green">Green</option>
+                    <option value="orange">Orange</option>
+                    <option value="red">Red</option>
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <input
-                    type="text"
-                    name="duration"
-                    value={formData.duration}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                    placeholder="e.g. 4 Weeks or 12 Hours"
-                  />
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="not_active">Not Active</option>
+                  </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Modules</label>
+                <div className="flex items-center gap-2 mt-7">
                   <input
-                    type="number"
-                    name="modules"
-                    min="0"
-                    value={formData.modules}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                    type="checkbox"
+                    id="is_published"
+                    name="is_published"
+                    checked={formData.is_published}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_published: e.target.checked }))}
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                   />
+                  <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
+                    Publish Course
+                  </label>
                 </div>
               </div>
 

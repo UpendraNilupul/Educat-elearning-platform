@@ -24,42 +24,34 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
     { name: "Virtual Classroom", icon: Video },
   ];
 
-  const [courses, setCourses] = useState([
-    {
-      id: 1,
-      title: "Full Stack Web Development",
-      students: 120,
-      modules: 14,
-      progress: 70,
-      chapters: [
-        {
-          id: 101,
-          title: "Chapter 1: Introduction to Web Dev",
-          isVisible: true,
-          resources: [
-            { id: 1001, title: "Course Syllabus", type: "pdf", url: "#" },
-            { id: 1002, title: "Intro Video Link", type: "link", url: "https://youtube.com" }
-          ]
-        },
-        {
-          id: 102,
-          title: "Chapter 2: HTML & CSS Basics",
-          isVisible: true,
-          resources: [
-            { id: 1003, title: "HTML Cheat Sheet", type: "pdf", url: "#" }
-          ]
+  const [courses, setCourses] = useState([]);
+
+  React.useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/courses');
+        if (response.ok) {
+          const data = await response.json();
+          // Map database columns to expected frontend structure if needed
+          // Some mock defaults are added to prevent crashing the UI
+          const formattedCourses = data.map(course => ({
+            ...course,
+            students: course.students || 0,
+            modules: course.modules || 0,
+            progress: course.progress || 0,
+            chapters: course.chapters || []
+          }));
+          setCourses(formattedCourses);
+        } else {
+          console.error("Failed to fetch courses");
         }
-      ]
-    },
-    {
-      id: 2,
-      title: "UI/UX Design Masterclass",
-      students: 85,
-      modules: 10,
-      progress: 45,
-      chapters: []
-    },
-  ]);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
 
   const classes = [
     {
