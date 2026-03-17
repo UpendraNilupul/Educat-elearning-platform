@@ -9,6 +9,7 @@ import {
   Users,
   Calendar
 } from "lucide-react";
+import DashboardHeaderTeacher from "../components/DashboardHeaderTeacher"; // Your header component
 import DashboardHeaderTeacher from "../components/DashboardHeader"; // Your header component
 import TeachersCourse from "./TeachersCourse";
 
