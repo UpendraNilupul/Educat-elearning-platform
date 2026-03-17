@@ -9,27 +9,34 @@ import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import session from 'express-session';
 
+import forgotPasswordRoutes from './routes/forgotPassword.js';
+import coursesRoutes from './routes/courses.js';
+import session from 'express-session';
+import adminRoutes from './routes/admin.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const port = 3000;
 
-// ==========================================
-// 1. MIDDLEWARE & SESSIONS
-// ==========================================
+app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true
+}));
 
-// Allow React to communicate with Express and send cookies
-app.use(cors({ 
-    origin: 'http://localhost:5173', 
-    credentials: true 
-})); 
-app.use(express.json()); 
+app.use(express.json());
 
-// Set up sessions to remember who is logged in (Needed for your App.jsx)
+// 1. Serve the static React files from the 'dist' folder
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
 app.use(session({
-    secret: 'educat_super_secret_key_123', // In production, put this in a .env file
+    secret: 'a_very_long_random_secret_string', // Used to sign the session ID
     resave: false,
     saveUninitialized: false,
-    cookie: { 
-        secure: false, // Set to true if using HTTPS
-        maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    cookie: {
+        httpOnly: true, // 🛡️ CRITICAL: Hides the cookie from hackers' JavaScript!
+        secure: false, // Set to true later when you launch with HTTPS
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24 // Cookie lasts for 1 day
     }
 }));
 
@@ -119,124 +126,23 @@ app.post('/api/login', async (req, res) => {
             WHERE u.email = ?
         `, [email]);
 
-        if (users.length === 0) return res.status(401).json({ error: "Invalid email or password" });
+// 2. Register your database API routes
+// (e.g., http://localhost:3000/api/login)
+app.use('/api', loginRoutes);
+app.use('/api', registerRoutes);
+app.use('/api', teacherRoutes);
+app.use('/api/courses', coursesRoutes);
 
-        const user = users[0];
+// Add this below your other app.use('/api', ...) lines
+app.use('/api/forgot-password', forgotPasswordRoutes);
 
-        // 2. Compare the hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ error: "Invalid email or password" });
+// Add to your route definitions (below your other app.use lines)
+app.use('/api/admin', adminRoutes);
 
-        // 3. Save user info to the session
-        req.session.userId = user.id;
-        req.session.userRole = user.role_name;
-        req.session.userName = user.name;
 
-        // Send back to React
-        res.json({ 
-            message: "Logged in successfully", 
-            userId: user.id,
-            userName: user.name, 
-            userRole: user.role_name 
-        });
-    } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ error: "Login failed" });
-    }
-});
 
-// Status Route (Called by App.jsx inside useEffect on load)
-app.get('/api/status', (req, res) => {
-    if (req.session.userId) {
-        res.json({ 
-            isLoggedIn: true, 
-            userId: req.session.userId,
-            userName: req.session.userName, 
-            userRole: req.session.userRole 
-        });
-    } else {
-        res.status(401).json({ isLoggedIn: false });
-    }
-});
-
-// Logout Route (Called by App.jsx handleLogout)
-app.post('/api/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) return res.status(500).json({ error: "Could not log out" });
-        res.clearCookie('connect.sid'); // Clear the session cookie
-        res.json({ message: "Logged out successfully" });
-    });
-});
-
-// ==========================================
-// 4. COURSE ROUTES
-// ==========================================
-
-app.get('/api/courses/student/:userId', async (req, res) => {
-    const userId = req.params.userId;
-
-    try {
-        // Step A: Find the specific student_id associated with this user_id
-        const [studentRes] = await pool.query('SELECT id FROM students WHERE user_id = ?', [userId]);
-        
-        if (studentRes.length === 0) {
-            return res.status(404).json({ message: "Student profile not found." });
-        }
-        
-        const studentId = studentRes[0].id;
-
-        // Step B: Fetch courses, instructor name, and calculate progress
-        const query = `
-            SELECT 
-                c.id, 
-                c.title, 
-                u.name AS instructor,
-                c.theme_color AS color,
-                c.thumbnail_url AS thumbnail,
-                e.status,
-                IFNULL(r.rating, 5.0) AS rating,
-                (SELECT COUNT(*) FROM modules m WHERE m.c_id = c.id) AS totalModules,
-                (SELECT COUNT(*) FROM lessons l JOIN modules m ON l.m_id = m.id WHERE m.c_id = c.id) AS totalLessons,
-                (SELECT COUNT(*) FROM lesson_completions lc 
-                 JOIN lessons l ON lc.l_id = l.id 
-                 JOIN modules m ON l.m_id = m.id 
-                 WHERE m.c_id = c.id AND lc.s_id = ?) AS lessonsCompleted
-            FROM enrollments e
-            JOIN classes_courses c ON e.c_id = c.id
-            JOIN teachers t ON c.t_id = t.id
-            JOIN users u ON t.user_id = u.id
-            LEFT JOIN reviews r ON r.c_id = c.id AND r.s_id = ?
-            WHERE e.s_id = ?;
-        `;
-
-        const [courses] = await pool.query(query, [studentId, studentId, studentId]);
-
-        // Step C: Format the data exactly how your React Course.jsx expects it
-        const formattedCourses = courses.map(course => {
-            const progress = course.totalLessons > 0 
-                ? Math.round((course.lessonsCompleted / course.totalLessons) * 100) 
-                : 0;
-
-            return {
-                id: course.id,
-                title: course.title,
-                instructor: course.instructor,
-                progress: progress,
-                modulesCompleted: Math.floor((progress / 100) * course.totalModules),
-                totalModules: course.totalModules || 0,
-                rating: course.rating,
-                status: course.status,
-                color: course.color || 'purple',
-                thumbnail: course.thumbnail || 'bg-gradient-to-br from-purple-500 to-indigo-600'
-            };
-        });
-
-        res.json(formattedCourses);
-
-    } catch (error) {
-        console.error("Error fetching courses:", error);
-        res.status(500).json({ error: "Failed to fetch courses" });
-    }
+app.use((req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
 // ==========================================
@@ -250,3 +156,6 @@ app.listen(PORT, () => {
 pool.query('SELECT 1')
     .then(() => console.log('✅ Connected to the MySQL database!'))
     .catch(err => console.error('❌ Database connection failed:', err));
+app.listen(port, () => {
+    console.log(`🌱 Server running at http://localhost:${port}`);
+});

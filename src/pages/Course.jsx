@@ -12,13 +12,13 @@ import {
 } from 'lucide-react';
 
 const CoursesPage = () => {
-        const [showFilter, setShowFilter] = useState(false);
-        const [filterStatus, setFilterStatus] = useState('All');
+    const [showFilter, setShowFilter] = useState(false);
+    const [filterStatus, setFilterStatus] = useState('All');
     const [activeTab, setActiveTab] = useState('In Progress');
     const [searchTerm, setSearchTerm] = useState('');
     const navigate = useNavigate();
 
-    // Sample data - eventually, this will be fetched from your Laravel backend
+    // Sample data - eventually, this will be fetched from your backend
     const courses = [
         {
             id: 1,
@@ -114,15 +114,15 @@ const CoursesPage = () => {
                             className="pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-brand-purple transition-all w-full md:w-64 shadow-sm"
                         />
                     </div>
-                    <button className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-brand-purple hover:border-purple-200 hover:bg-purple-50 transition-all shadow-sm">
+                    <button className="relative p-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-brand-purple hover:border-purple-200 hover:bg-purple-50 transition-all shadow-sm">
                         <Filter className="w-4 h-4" onClick={() => setShowFilter(!showFilter)} />
                         {showFilter && (
-                            <div className="absolute z-10 mt-2 right-0 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-48">
+                            <div className="absolute z-10 mt-2 right-0 bg-white border border-gray-200 rounded-xl shadow-lg p-4 w-48 text-left">
                                 <div className="mb-2 font-bold text-gray-700">Filter by Status</div>
                                 {['All', 'In Progress', 'Completed', 'Not Started'].map(status => (
                                     <button
                                         key={status}
-                                        className={`w-full text-left px-3 py-2 rounded-lg mb-1 font-medium ${filterStatus === status ? 'bg-purple-50 text-brand-purple' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        className={`block w-full text-left px-3 py-2 rounded-lg mb-1 font-medium ${filterStatus === status ? 'bg-purple-50 text-brand-purple' : 'text-gray-700 hover:bg-gray-50'}`}
                                         onClick={() => { setFilterStatus(status); setShowFilter(false); }}
                                     >
                                         {status}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course'; 
+import StudentProfileEdit from '../components/StudentProfileEdit';
 import { 
     LayoutDashboard, 
     BookOpen, 
@@ -15,11 +16,16 @@ import {
     ChevronRight,
     Play,
     LogOut
+    Settings,
+    X
 } from 'lucide-react';
 
 import DashboardHeader from '../components/DashboardHeader';
 
 const Student = ({ userName, onLogout }) => {
+    const [selectedSection, setSelectedSection] = useState('Overview');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Courses', icon: BookOpen },
@@ -40,6 +46,9 @@ const Student = ({ userName, onLogout }) => {
                 <div className="p-6 border-b border-gray-100">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
                         Educat Dashboard
+                    <h2 className="text-xl font-bold">
+                        <span className="text-gray-800">Student</span>{" "}
+                        <span className="text-purple-600">Dashboard</span>
                     </h2>
                 </div>
 
@@ -62,6 +71,10 @@ const Student = ({ userName, onLogout }) => {
 
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3">
+                    <div
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group"
+                    >
                         <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
                             {userName?.[0] || 'S'}
                         </div>
@@ -71,6 +84,9 @@ const Student = ({ userName, onLogout }) => {
                         </div>
                     </div>
                     <button 
+                        <Settings className="w-4 h-4 ml-auto text-gray-400 group-hover:text-purple-600 transition-colors" />
+                    </div>
+                    <button
                         onClick={onLogout}
                         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors"
                     >
@@ -98,6 +114,7 @@ const Student = ({ userName, onLogout }) => {
                                 </p>
                             </div>
 
+                            {/* Stats Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                                 <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
                                     <div className="flex items-center justify-between mb-5">
@@ -117,6 +134,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
+                                {/* Card 2: Active Enrollments */}
                                 <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
                                     <div className="flex items-center justify-between mb-5">
                                         <div className="p-2.5 bg-blue-50 rounded-xl group-hover:scale-110 transition-transform">
@@ -134,6 +152,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
+                                {/* Card 3: Achievement Badges */}
                                 <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
                                     <div className="flex items-center justify-between mb-5">
                                         <div className="p-2.5 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
@@ -146,7 +165,7 @@ const Student = ({ userName, onLogout }) => {
                                         <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Badges</span>
                                     </div>
                                     <div className="flex -space-x-2.5 mt-6">
-                                        {[1,2,3,4].map(i => (
+                                        {[1, 2, 3, 4].map(i => (
                                             <div key={i} className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center shadow-sm">
                                                 <Award className="w-4 h-4 text-orange-500" />
                                             </div>
@@ -156,6 +175,9 @@ const Student = ({ userName, onLogout }) => {
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            {/* Two-Column Grid: Deadlines and Recent Courses */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                                {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
                                 <div className="lg:col-span-1">
                                     <div className="flex items-center justify-between mb-6">
                                         <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
@@ -183,15 +205,31 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
+                                {/* Recent Courses Column (Spans 2 columns on large screens) */}
                                 <div className="lg:col-span-2">
                                     <div className="flex items-center justify-between mb-6">
                                         <h2 className="text-xl font-bold text-gray-900">Recent Courses</h2>
                                         <button className="text-sm font-semibold text-brand-purple hover:underline">View My Learning</button>
                                     </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {[
                                             { title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins', progress: 65, color: 'purple' },
                                             { title: 'UI/UX Design Masterclass', instructor: 'Michael Chen', progress: 42, color: 'blue' }
+                                            {
+                                                title: 'Full Stack Web Development',
+                                                instructor: 'Dr. Sarah Jenkins',
+                                                progress: 65,
+                                                modules: '14/22',
+                                                color: 'purple'
+                                            },
+                                            {
+                                                title: 'UI/UX Design Masterclass',
+                                                instructor: 'Michael Chen',
+                                                progress: 42,
+                                                modules: '8/19',
+                                                color: 'blue'
+                                            }
                                         ].map((course, idx) => (
                                             <div key={idx} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
                                                 <div className={`h-32 bg-${course.color === 'purple' ? 'purple' : 'blue'}-600`}></div>
@@ -204,6 +242,16 @@ const Student = ({ userName, onLogout }) => {
                                                         </div>
                                                     </div>
                                                     <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all">
+                                                        <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
+                                                            <div
+                                                                className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
+                                                                style={{ width: `${course.progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase">{course.modules} Completed</p>
+                                                    </div>
+
+                                                    <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95">
                                                         <Play className="w-4 h-4 fill-white" />
                                                         Resume
                                                     </button>
@@ -217,6 +265,24 @@ const Student = ({ userName, onLogout }) => {
                     )}
                 </div>
             </main>
+
+            {/* Profile Edit Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
+                        <button
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors bg-white z-10"
+                        >
+                            <X className="w-6 h-6 text-gray-500" />
+                        </button>
+                        <StudentProfileEdit
+                            onClose={() => setIsEditModalOpen(false)}
+                            initialData={{ fullName: userName || '' }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -58,7 +58,6 @@ function App() {
     })
       .then(response => response.json())
       .then(data => {
-        console.log("The server says this user's role is:", data.userRole);
         setUserRole(data.userRole);
         setUserName(data.userName);
       })
@@ -92,11 +91,22 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
+          
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
+          
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
+            element={
+              <>
+                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
+                <Register />
+                <Footer />
+              </>
+            }
+          />
+          
           <Route
             path="/teachers"
             element={
@@ -106,21 +116,18 @@ function App() {
             }
           />
           
-          {/* Protected Route: Admin */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                  <Admin userName={userName} onLogout={handleLogout} />
-                </MainLayout>
+                <Admin userName={userName} onLogout={handleLogout} /> 
               ) : (
                 <Navigate to="/" />
               )
             }
           />
 
-          {/* Protected Route: Teacher */}
+          {/* Protected Route: Teacher - no header/footer layout */}
           <Route
             path="/teacher"
             element={
@@ -131,8 +138,7 @@ function App() {
               )
             }
           />
-
-          {/* Protected Route: Student */}
+          
           <Route
             path="/student"
             element={
@@ -154,6 +160,7 @@ function App() {
                 <Navigate to="/" />
               )} />
           {/* Route for Courses page */}
+          
           <Route
             path="/courses"
             element={
