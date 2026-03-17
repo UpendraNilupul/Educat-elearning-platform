@@ -1,8 +1,10 @@
 import express from 'express';
-import db from '../db.js'; // IMPORTANT: Added .js extension
+import db from '../db.js';
 import bcrypt from 'bcryptjs';
+import util from 'util';
 
 const router = express.Router();
+const query = util.promisify(db.query).bind(db);
 
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -11,12 +13,16 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    const query = 'SELECT * FROM users WHERE email = ?'; // Changed to SELECT * to get the whole user object
-    db.query(query, [email], async (err, results) => {
-        if (err) {
-            console.error('Error logging in:', err);
-            return res.status(500).send('Server error');
-        }
+    try {
+        const sqlQuery = `
+            SELECT users.*, roles.role_name 
+            FROM users 
+            JOIN roles ON users.role_id = roles.id 
+            WHERE users.email = ?
+        `;
+        
+        const results = await query(sqlQuery, [email]);
+
         if (results.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
@@ -28,45 +34,22 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
-        
+        // Save session data
         req.session.userId = user.id;
-        req.session.userRole = user.role;
+        req.session.userRole = user.role_name; 
         req.session.userName = user.name;
-        res.status(200).json({ message: 'Logged in successfully!', userId: user.id, userRole: user.role, userName: user.name});
-    });
-});
-
-router.post('/register', async (req, res) => {
-    const { name, email, password, phoneNumber, address, dob, gender, role } = req.body;
-
-    if (!name || !email || !password || !phoneNumber || !address || !dob || !gender || !role) {
-        return res.status(400).json({ message: 'All fields are required.' });
-    }
-
-    // Check if user already exists
-    const checkQuery = 'SELECT * FROM users WHERE email = ?';
-    db.query(checkQuery, [email], async (err, results) => {
-        if (err) {
-            console.error('Error checking user:', err);
-            return res.status(500).send('Server error');
-        }
-        if (results.length > 0) {
-            return res.status(409).json({ message: 'User with this email already exists.' });
-        }
-
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert new user
-        const insertQuery = 'INSERT INTO users (name, password, role, email, phone_number, address, dob, gender, join_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())';
-        db.query(insertQuery, [name, hashedPassword, role, email, phoneNumber, address, dob, gender], (err, results) => {
-            if (err) {
-                console.error('Error registering user:', err);
-                return res.status(500).send('Server error');
-            }
-            res.status(201).json({ message: 'User registered successfully!' });
+        
+        res.status(200).json({ 
+            message: 'Logged in successfully!', 
+            userId: user.id, 
+            userRole: user.role_name, 
+            userName: user.name
         });
-    });
+
+    } catch (error) {
+        console.error('Error logging in:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
 });
 
 router.get('/status', (req, res) => {
@@ -77,11 +60,7 @@ router.get('/status', (req, res) => {
             userName: req.session.userName
         });
     } else {
-        res.json({ 
-            isLoggedIn: false, 
-            userRole: null,
-            userName: null
-        });
+        res.json({ isLoggedIn: false, userRole: null, userName: null });
     }
 });
 
@@ -90,9 +69,9 @@ router.post('/logout', (req, res) => {
         if (err) {
             return res.status(500).json({ message: 'Could not log out.' });
         }
-        res.clearCookie('connect.sid'); // Clears the session cookie
+        res.clearCookie('connect.sid'); 
         res.status(200).json({ message: 'Logged out successfully' });
     });
 });
 
-export default router; // IMPORTANT: Replaced module.exports with ES export
+export default router;
