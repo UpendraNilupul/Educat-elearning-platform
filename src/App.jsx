@@ -17,6 +17,8 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
+import TeacherProfileEdit from './pages/TeacherProfileEdit';
+
 import CoursesPage from './pages/Course';
 
 // Home Page Component
@@ -46,9 +48,9 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
+  const [isLoading, setIsLoading] = useState(true); // Added loading state!
 
   useEffect(() => {
     fetch('http://localhost:3000/api/status', {
@@ -106,20 +108,12 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-          
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
           
           <Route
             path="/register"
-            element={
-              <>
-                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
-                <Register />
-                <Footer />
-              </>
-            }
+            element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-          
           <Route
             path="/teachers"
             element={
@@ -129,6 +123,7 @@ function App() {
             }
           />
           
+          {/* Protected Route: Admin */}
           <Route
             path="/admin"
             element={
@@ -140,29 +135,40 @@ function App() {
             }
           />
 
-          {/* Protected Route: Teacher - no header/footer layout */}
+          {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
             element={
-              userRole === 'teacher' ? (
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
                 <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-          
+
+          {/* Protected Route: Student */}
           <Route
             path="/student"
             element={
-              userRole === 'student' ? (
+              (userRole === 'student' || localStorage.getItem('userRole') === 'student') ? (
                 <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-          
+
+          {/* Teacher profile edit route */}
+          <Route
+            path="/teacher-profile-edit/:id?"
+            element={
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
+                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+              ) : (
+                <Navigate to="/" />
+              )} />
+          {/* Route for Courses page */}
           <Route
             path="/courses"
             element={
