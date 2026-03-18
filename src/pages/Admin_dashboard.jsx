@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone, 
+import {
+    LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone,
     Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Admin = ({ userName, onLogout }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // 🌟 Time and Role Filters
+    const [timeFilter, setTimeFilter] = useState('today');
+    const [roleFilter, setRoleFilter] = useState('both');
+
     // Fetch dynamic database stats
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/admin/dashboard-stats', {
+                // 🌟 Append BOTH filters to the URL
+                const response = await fetch(`http://localhost:3000/api/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`, {
                     credentials: 'include'
                 });
                 const data = await response.json();
@@ -29,7 +34,7 @@ const Admin = ({ userName, onLogout }) => {
         };
 
         fetchStats();
-    }, []);
+    }, [timeFilter, roleFilter]); // 🌟 React will re-fetch if EITHER dropdown is changed
 
     const navItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -41,13 +46,13 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
-    if (loading) {
+    if (loading && !stats) {
         return <div className="h-screen flex items-center justify-center bg-gray-50">Loading Dashboard...</div>;
     }
 
     return (
         <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
-            
+
             {/* ================= SIDEBAR ================= */}
             <aside className="w-64 bg-white border-r border-gray-100 flex flex-col shadow-sm z-10 hidden md:flex">
                 <div className="p-6">
@@ -62,11 +67,10 @@ const Admin = ({ userName, onLogout }) => {
                             <button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
-                                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
-                                    isActive 
-                                    ? 'bg-[#4a0b59]/10 text-[#4a0b59] font-bold' 
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-[#4a0b59]'
-                                }`}
+                                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${isActive
+                                        ? 'bg-[#4a0b59]/10 text-[#4a0b59] font-bold'
+                                        : 'text-gray-500 hover:bg-gray-50 hover:text-[#4a0b59]'
+                                    }`}
                             >
                                 <Icon size={20} className={isActive ? 'text-[#4a0b59]' : ''} />
                                 <span>{item.label}</span>
@@ -85,7 +89,7 @@ const Admin = ({ userName, onLogout }) => {
                             <p className="text-xs text-gray-400">Super Admin</p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={onLogout}
                         className="w-full flex items-center space-x-3 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
                     >
@@ -97,14 +101,14 @@ const Admin = ({ userName, onLogout }) => {
 
             {/* ================= MAIN CONTENT AREA ================= */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                
+
                 {/* Top Header */}
                 <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 shrink-0 z-0">
                     <div className="relative w-96">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Search students, teachers, or courses..." 
+                        <input
+                            type="text"
+                            placeholder="Search students, teachers, or courses..."
                             className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-full focus:ring-2 focus:ring-[#4a0b59]/20 outline-none text-sm"
                         />
                     </div>
@@ -145,24 +149,64 @@ const Admin = ({ userName, onLogout }) => {
 
                     {/* Charts & Highlights Area */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        
+
                         {/* Line Chart: Student Usage */}
-                        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800">Student Activity</h3>
-                                    <p className="text-sm text-gray-500">Platform logins today</p>
+                                    <h3 className="text-lg font-bold text-gray-800">Platform Logins</h3>
+                                    <p className="text-sm text-gray-500">Track student activity over time</p>
+                                </div>
+
+                                {/* 🌟 NEW: Dual Dropdown Menus */}
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        className="bg-gray-50 border border-gray-200 text-sm rounded-lg px-3 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59]"
+                                        value={roleFilter}
+                                        onChange={(e) => setRoleFilter(e.target.value)}
+                                    >
+                                        <option value="both">All Users</option>
+                                        <option value="student">Students Only</option>
+                                        <option value="teacher">Teachers Only</option>
+                                    </select>
+
+                                    <select
+                                        className="bg-gray-50 border border-gray-200 text-sm rounded-lg px-3 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59]"
+                                        value={timeFilter}
+                                        onChange={(e) => setTimeFilter(e.target.value)}
+                                    >
+                                        <option value="today">Today (Hourly)</option>
+                                        <option value="week">Last 7 Days</option>
+                                        <option value="month">Last 30 Days</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div className="h-64 w-full">
+
+                            <div className="flex-1 w-full min-h-[250px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={stats?.usageData || []}>
+                                    <BarChart data={stats?.usageData || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+
+                                        {/* Background Grid */}
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} dx={-10} />
-                                        <Tooltip cursor={{stroke: '#f3f4f6', strokeWidth: 2}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                                        <Line type="monotone" dataKey="students" stroke="#4a0b59" strokeWidth={4} dot={{r: 4, strokeWidth: 2}} activeDot={{r: 6, fill: '#ed8936', stroke: '#fff'}} />
-                                    </LineChart>
+
+                                        {/* X and Y Axes */}
+                                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dx={-10} allowDecimals={false} />
+
+                                        {/* Tooltip Hover Effect (Changed cursor from a stroke to a subtle background fill) */}
+                                        <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+
+                                        {/* 🌟 THE NEW BAR COMPONENT */}
+                                        {/* radius={[top-left, top-right, bottom-right, bottom-left]} gives it rounded top corners */}
+                                        <Bar
+                                            dataKey="students"
+                                            fill="#4a0b59"
+                                            radius={[6, 6, 0, 0]}
+                                            maxBarSize={60}
+                                            animationDuration={1500}
+                                        />
+
+                                    </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
@@ -171,7 +215,6 @@ const Admin = ({ userName, onLogout }) => {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col">
                             <h3 className="text-lg font-bold text-gray-800 mb-4">Top Performers</h3>
                             <div className="space-y-6 flex-1">
-                                {/* Most Active Teacher */}
                                 {stats?.mostActiveTeacher ? (
                                     <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
                                         <p className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2">Most Active Teacher</p>
@@ -186,8 +229,7 @@ const Admin = ({ userName, onLogout }) => {
                                 ) : (
                                     <p className="text-sm text-gray-500">No teacher activity recorded yet.</p>
                                 )}
-                                
-                                {/* Top Earning Teacher */}
+
                                 {stats?.topEarner ? (
                                     <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
                                         <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Top Earner (Month)</p>
@@ -208,7 +250,7 @@ const Admin = ({ userName, onLogout }) => {
 
                     {/* Action Required Sections */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
-                        
+
                         {/* New Teachers to Accept */}
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <div className="flex justify-between items-center mb-6">
@@ -268,7 +310,6 @@ const Admin = ({ userName, onLogout }) => {
                                 )}
                             </div>
                         </div>
-
                     </div>
                 </div>
             </main>

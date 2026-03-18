@@ -65,6 +65,23 @@ function App() {
       });
   }, []);
 
+  // 🌟 THE HEARTBEAT
+  useEffect(() => {
+    // If no one is logged in, don't send a heartbeat
+    if (!userRole) return;
+
+    // Set up a timer to ping the server every 60 seconds (60000 milliseconds)
+    const heartbeatInterval = setInterval(() => {
+      fetch('http://localhost:3000/api/heartbeat', {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(err => console.log("Heartbeat skipped"));
+    }, 60000);
+
+    // Cleanup: Stop the heartbeat if the user logs out or closes the app
+    return () => clearInterval(heartbeatInterval);
+  }, [userRole]); // This effect restarts anytime the userRole changes
+
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:3000/api/logout', {
