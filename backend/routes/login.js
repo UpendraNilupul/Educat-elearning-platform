@@ -21,6 +21,7 @@ router.post('/login', async (req, res) => {
             JOIN roles ON users.role_id = roles.id 
             WHERE users.email = ?
         `;
+        
         const results = await query(sqlQuery, [email]);
 
         if (results.length === 0) {
@@ -49,6 +50,7 @@ router.post('/login', async (req, res) => {
         // =========================================================
 
         // 4. Save session data
+        // Save session data
         req.session.userId = user.id;
         req.session.userRole = user.role_name; 
         req.session.userName = user.name;
@@ -100,4 +102,5 @@ router.post('/logout', async (req, res) => {
         res.status(200).json({ message: 'Logged out successfully' });
     });
 });
+
 export default router;

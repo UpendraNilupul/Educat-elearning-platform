@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import util from 'util';
 
 const router = express.Router();
+// Promisify the database query to escape "callback hell"
 const query = util.promisify(db.query).bind(db);
 
 router.post('/register', async (req, res) => {
