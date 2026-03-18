@@ -8,6 +8,7 @@ import teacherRoutes from './routes/teachers.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import session from 'express-session';
+import mysql from 'mysql2/promise';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
 // ==========================================
 // 2. DATABASE CONFIGURATION
 // ==========================================
