@@ -1,4 +1,4 @@
-import db from './backend/db.js';
+import db from '../db.js';
 
 const seed = () => {
     // 1. Insert User

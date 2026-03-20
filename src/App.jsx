@@ -98,14 +98,6 @@ function App() {
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-            element={
-              <>
-                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
-                <Register />
-                <Footer />
-              </>
-            }
-          />
           
           <Route
             path="/teachers"

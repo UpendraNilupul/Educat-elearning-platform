@@ -15,7 +15,7 @@ import {
     Calendar,
     ChevronRight,
     Play,
-    LogOut
+    LogOut,
     Settings,
     X
 } from 'lucide-react';
@@ -36,8 +36,6 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Project', icon: Briefcase },
         { name: 'Download', icon: Download },
     ];
-    
-    const [selectedSection, setSelectedSection] = useState('Overview');
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -45,10 +43,7 @@ const Student = ({ userName, onLogout }) => {
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
                 <div className="p-6 border-b border-gray-100">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
-                        Educat Dashboard
-                    <h2 className="text-xl font-bold">
-                        <span className="text-gray-800">Student</span>{" "}
-                        <span className="text-purple-600">Dashboard</span>
+                        Student Dashboard
                     </h2>
                 </div>
 
@@ -71,20 +66,21 @@ const Student = ({ userName, onLogout }) => {
 
                 <div className="p-4 border-t border-gray-100">
                     <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3">
-                    <div
-                        onClick={() => setIsEditModalOpen(true)}
-                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
-                            {userName?.[0] || 'S'}
+                        <div
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group flex-1"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
+                                {userName?.[0] || 'S'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
+                                <p className="text-xs text-gray-500 truncate">Student Account</p>
+                            </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
-                            <p className="text-xs text-gray-500 truncate">Student Account</p>
-                        </div>
-                    </div>
-                    <button 
-                        <Settings className="w-4 h-4 ml-auto text-gray-400 group-hover:text-purple-600 transition-colors" />
+                        <button className="flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 transition-colors group">
+                            <Settings className="w-5 h-5 text-gray-500 group-hover:text-brand-purple transition-colors" />
+                        </button>
                     </div>
                     <button
                         onClick={onLogout}
@@ -174,7 +170,6 @@ const Student = ({ userName, onLogout }) => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                                 {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
@@ -214,8 +209,6 @@ const Student = ({ userName, onLogout }) => {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {[
-                                            { title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins', progress: 65, color: 'purple' },
-                                            { title: 'UI/UX Design Masterclass', instructor: 'Michael Chen', progress: 42, color: 'blue' }
                                             {
                                                 title: 'Full Stack Web Development',
                                                 instructor: 'Dr. Sarah Jenkins',
@@ -241,7 +234,7 @@ const Student = ({ userName, onLogout }) => {
                                                             <div className="bg-brand-purple h-full rounded-full transition-all" style={{ width: `${course.progress}%` }}></div>
                                                         </div>
                                                     </div>
-                                                    <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all">
+                                                    <div>
                                                         <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
                                                             <div
                                                                 className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
