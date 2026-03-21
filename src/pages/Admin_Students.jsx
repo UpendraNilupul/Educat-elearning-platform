@@ -19,7 +19,7 @@ const Admin_Students = ({ userName, onLogout }) => {
     // UI States
     const [openMenuId, setOpenMenuId] = useState(null);
     
-    // 🌟 NEW: Bulk Action States
+    // Bulk Action States
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [bulkType, setBulkType] = useState('announcement'); // 'announcement' or 'offer'
@@ -48,7 +48,7 @@ const Admin_Students = ({ userName, onLogout }) => {
         return () => clearTimeout(delayDebounceFn);
     }, [searchQuery, statusFilter]);
 
-    // 🌟 NEW: Checkbox Logic
+    // Checkbox Logic
     const handleSelectAll = () => {
         if (selectedUsers.length === students.length) {
             setSelectedUsers([]);
@@ -65,11 +65,12 @@ const Admin_Students = ({ userName, onLogout }) => {
         }
     };
 
-    // 🌟 NEW: Submit Bulk Action
+    // Submit Bulk Action
     const handleBulkSubmit = async () => {
         if (!bulkMessage.trim()) return;
 
-        const title = bulkType === 'offer' ? '🎁 Exclusive Discount Offer!' : '📢 Platform Announcement';
+        // 🌟 FIX 1: Strip out the emojis so the database accepts the string without crashing
+        const title = bulkType === 'offer' ? 'Exclusive Discount Offer!' : 'Platform Announcement';
 
         try {
             const response = await fetch('http://localhost:3000/api/admin/students/bulk-notify', {
@@ -89,6 +90,8 @@ const Admin_Students = ({ userName, onLogout }) => {
                 setIsBulkModalOpen(false);
                 setBulkMessage('');
                 setSelectedUsers([]); // Clear selection after success
+            } else {
+                alert(result.message);
             }
         } catch (error) {
             alert("Failed to process bulk action.");
@@ -145,7 +148,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             </div>
 
-            {/* 🌟 NEW: Bulk Action Floating Bar */}
+            {/* Bulk Action Floating Bar */}
             {selectedUsers.length > 0 && (
                 <div className="bg-[#4a0b59] text-white px-6 py-4 rounded-2xl shadow-lg mb-6 flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 transition-all">
                     <div className="flex items-center space-x-4">
@@ -177,7 +180,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                                {/* 🌟 NEW: Select All Checkbox */}
+                                {/* Select All Checkbox */}
                                 <th className="p-4 rounded-tl-2xl w-12 text-center">
                                     <input 
                                         type="checkbox" 
@@ -202,7 +205,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                                 students.map((student) => (
                                     <tr key={student.student_id} className={`transition-colors ${selectedUsers.includes(student.user_id) ? 'bg-purple-50/50' : 'hover:bg-gray-50/50'}`}>
                                         
-                                        {/* 🌟 NEW: Individual Checkbox */}
+                                        {/* Individual Checkbox */}
                                         <td className="p-4 text-center">
                                             <input 
                                                 type="checkbox" 
@@ -273,7 +276,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             </div>
 
-            {/* 🌟 NEW: Bulk Action Modal */}
+            {/* Bulk Action Modal */}
             {isBulkModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
@@ -291,13 +294,20 @@ const Admin_Students = ({ userName, onLogout }) => {
 
                         <div className="p-6">
                             <p className="text-sm text-gray-500 mb-4 font-medium">
-                                This message will be sent directly to the dashboards of the <span className="font-bold text-gray-900">{selectedUsers.length} selected students</span>.
+                                This message will be sent directly to the inbox of the <span className="font-bold text-gray-900">{selectedUsers.length} selected students</span>.
                             </p>
                             
+                            {/* 🌟 FIX 2: Added a helper warning for the Promo Offer so the admin knows how the system works */}
+                            {bulkType === 'offer' && (
+                                <div className="mb-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-800">
+                                    <strong>Heads up!</strong> This sends a message to the students telling them about an offer. Make sure you have actually created the code in your <strong>Marketing & Offers</strong> tab first!
+                                </div>
+                            )}
+
                             <textarea 
                                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white resize-none"
                                 rows="5"
-                                placeholder={bulkType === 'offer' ? "Enter the discount code and details here..." : "Type your announcement here..."}
+                                placeholder={bulkType === 'offer' ? "Hey! Use code ZIRON50 at checkout to get 50% off your next course..." : "Type your announcement here..."}
                                 value={bulkMessage}
                                 onChange={(e) => setBulkMessage(e.target.value)}
                             ></textarea>

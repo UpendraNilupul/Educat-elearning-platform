@@ -569,14 +569,15 @@ router.post('/students/bulk-notify', async (req, res) => {
             return res.status(400).json({ success: false, message: "No students selected." });
         }
 
-        // Map the array into the format MySQL needs for a lightning-fast bulk INSERT:
-        // [ [id1, title, msg], [id2, title, msg], [id3, title, msg] ]
-        const insertValues = userIds.map(id => [id, title, message]);
+        // 🌟 THE FIX: Use Promise.all for guaranteed, bulletproof inserts
+        const insertPromises = userIds.map(id => {
+            return query(
+                'INSERT INTO notifications (user_id, title, description) VALUES (?, ?, ?)', 
+                [id, title, message]
+            );
+        });
 
-        await query(
-            'INSERT INTO notifications (user_id, title, description) VALUES ?', 
-            [insertValues]
-        );
+        await Promise.all(insertPromises);
 
         res.status(200).json({ success: true, message: `Successfully sent to ${userIds.length} students!` });
     } catch (error) {
