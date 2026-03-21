@@ -1,0 +1,329 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+    Search, Filter, MoreVertical, ShieldAlert, 
+    Mail, Eye, X, Megaphone, Gift 
+} from 'lucide-react';
+
+const Admin_Students = ({ userName, onLogout }) => {
+    const navigate = useNavigate();
+    
+    // Data States
+    const [students, setStudents] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // Filter States
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+    
+    // UI States
+    const [openMenuId, setOpenMenuId] = useState(null);
+    
+    // 🌟 NEW: Bulk Action States
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkType, setBulkType] = useState('announcement'); // 'announcement' or 'offer'
+    const [bulkMessage, setBulkMessage] = useState('');
+
+    useEffect(() => {
+        const fetchStudents = async () => {
+            setLoading(true);
+            try {
+                const queryParams = new URLSearchParams({ search: searchQuery, status: statusFilter }).toString();
+                const response = await fetch(`http://localhost:3000/api/admin/students-list?${queryParams}`, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    setStudents(data.data);
+                    setSelectedUsers([]); // Clear selections when search changes
+                }
+            } catch (error) {
+                console.error("Failed to load students list:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const delayDebounceFn = setTimeout(() => fetchStudents(), 300);
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, statusFilter]);
+
+    // 🌟 NEW: Checkbox Logic
+    const handleSelectAll = () => {
+        if (selectedUsers.length === students.length) {
+            setSelectedUsers([]);
+        } else {
+            setSelectedUsers(students.map(s => s.user_id));
+        }
+    };
+
+    const handleSelectStudent = (userId) => {
+        if (selectedUsers.includes(userId)) {
+            setSelectedUsers(selectedUsers.filter(id => id !== userId));
+        } else {
+            setSelectedUsers([...selectedUsers, userId]);
+        }
+    };
+
+    // 🌟 NEW: Submit Bulk Action
+    const handleBulkSubmit = async () => {
+        if (!bulkMessage.trim()) return;
+
+        const title = bulkType === 'offer' ? '🎁 Exclusive Discount Offer!' : '📢 Platform Announcement';
+
+        try {
+            const response = await fetch('http://localhost:3000/api/admin/students/bulk-notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userIds: selectedUsers,
+                    title: title,
+                    message: bulkMessage
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                setIsBulkModalOpen(false);
+                setBulkMessage('');
+                setSelectedUsers([]); // Clear selection after success
+            }
+        } catch (error) {
+            alert("Failed to process bulk action.");
+        }
+    };
+
+    const openBulkModal = (type) => {
+        setBulkType(type);
+        setIsBulkModalOpen(true);
+    };
+
+    return (
+        <div className="p-8 font-sans bg-gray-50 min-h-screen relative">
+            
+            {/* Header Area */}
+            <div className="flex justify-between items-end mb-8">
+                <div>
+                    <h1 className="text-3xl font-black text-gray-900">Student Directory</h1>
+                    <p className="text-gray-500 mt-1">Manage, monitor, and assist the learners on your platform.</p>
+                </div>
+                <button 
+                    onClick={() => navigate('/admin')}
+                    className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-colors"
+                >
+                    Back to Dashboard
+                </button>
+            </div>
+
+            {/* Filters Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
+                <div className="flex-1 min-w-[250px] relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="Search by name, email, or phone..." 
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-sm transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                    <Filter className="text-gray-400" size={18} />
+                    <select 
+                        className="py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 text-sm font-medium text-gray-700 cursor-pointer"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                        <option value="All">All Active Students</option>
+                        <option value="active">Active</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="banned">Banned</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* 🌟 NEW: Bulk Action Floating Bar */}
+            {selectedUsers.length > 0 && (
+                <div className="bg-[#4a0b59] text-white px-6 py-4 rounded-2xl shadow-lg mb-6 flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 transition-all">
+                    <div className="flex items-center space-x-4">
+                        <span className="bg-white/20 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                            {selectedUsers.length}
+                        </span>
+                        <span className="font-bold text-lg">Students Selected</span>
+                    </div>
+                    <div className="flex space-x-3">
+                        <button 
+                            onClick={() => openBulkModal('announcement')} 
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-medium flex items-center transition-colors"
+                        >
+                            <Megaphone size={16} className="mr-2" /> Make Announcement
+                        </button>
+                        <button 
+                            onClick={() => openBulkModal('offer')} 
+                            className="px-4 py-2 bg-white text-[#4a0b59] hover:bg-gray-100 rounded-xl font-bold flex items-center shadow-sm transition-colors"
+                        >
+                            <Gift size={16} className="mr-2" /> Send Discount Offer
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Data Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible min-h-[400px] mb-12">
+                <div className="overflow-visible w-full">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
+                                {/* 🌟 NEW: Select All Checkbox */}
+                                <th className="p-4 rounded-tl-2xl w-12 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 cursor-pointer accent-[#4a0b59]"
+                                        checked={students.length > 0 && selectedUsers.length === students.length}
+                                        onChange={handleSelectAll}
+                                    />
+                                </th>
+                                <th className="p-4 font-bold">Student</th>
+                                <th className="p-4 font-bold">Grade / School</th>
+                                <th className="p-4 font-bold text-center">Active Enrollments</th>
+                                <th className="p-4 font-bold">Account Status</th>
+                                <th className="p-4 font-bold text-center rounded-tr-2xl">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {loading ? (
+                                <tr><td colSpan="6" className="text-center py-10 text-gray-500">Loading students...</td></tr>
+                            ) : students.length === 0 ? (
+                                <tr><td colSpan="6" className="text-center py-10 text-gray-500">No students found matching your filters.</td></tr>
+                            ) : (
+                                students.map((student) => (
+                                    <tr key={student.student_id} className={`transition-colors ${selectedUsers.includes(student.user_id) ? 'bg-purple-50/50' : 'hover:bg-gray-50/50'}`}>
+                                        
+                                        {/* 🌟 NEW: Individual Checkbox */}
+                                        <td className="p-4 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 cursor-pointer accent-[#4a0b59]"
+                                                checked={selectedUsers.includes(student.user_id)}
+                                                onChange={() => handleSelectStudent(student.user_id)}
+                                            />
+                                        </td>
+
+                                        {/* Student Info */}
+                                        <td className="p-4">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
+                                                    {student.picture ? (
+                                                        <img src={`http://localhost:3000/uploads/${student.picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                    ) : student.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900">{student.name}</p>
+                                                    <p className="text-xs text-gray-500">{student.email}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td className="p-4">
+                                            <p className="text-sm text-gray-900 font-bold">{student.grade_level || 'N/A'}</p>
+                                            <p className="text-xs text-gray-500">{student.school_name || 'School not provided'}</p>
+                                        </td>
+
+                                        <td className="p-4 text-center">
+                                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 text-sm font-bold text-gray-700">
+                                                {student.active_enrollments}
+                                            </span>
+                                        </td>
+
+                                        <td className="p-4">
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
+                                                ${student.account_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                {student.account_status}
+                                            </span>
+                                        </td>
+
+                                        {/* Action Menu */}
+                                        <td className="p-4 text-center relative">
+                                            <button 
+                                                onClick={() => setOpenMenuId(openMenuId === student.student_id ? null : student.student_id)}
+                                                className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500"
+                                            >
+                                                <MoreVertical size={18} />
+                                            </button>
+
+                                            {openMenuId === student.student_id && (
+                                                <div className="absolute right-8 top-10 w-48 bg-white border border-gray-100 rounded-xl shadow-lg py-2 z-50 text-left">
+                                                    <Link 
+                                                        to={`/admin/student-profile/${student.student_id}`} 
+                                                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                                    >
+                                                        <Eye size={16} className="mr-2" /> View Profile
+                                                    </Link>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* 🌟 NEW: Bulk Action Modal */}
+            {isBulkModalOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+                        
+                        <div className={`p-6 border-b border-gray-100 flex justify-between items-center text-white
+                            ${bulkType === 'offer' ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-[#4a0b59] to-purple-700'}`}>
+                            <h2 className="text-xl font-bold flex items-center">
+                                {bulkType === 'offer' ? <Gift className="mr-2" /> : <Megaphone className="mr-2" />}
+                                {bulkType === 'offer' ? 'Send Group Offer' : 'Group Announcement'}
+                            </h2>
+                            <button onClick={() => setIsBulkModalOpen(false)} className="text-white/70 hover:text-white transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <p className="text-sm text-gray-500 mb-4 font-medium">
+                                This message will be sent directly to the dashboards of the <span className="font-bold text-gray-900">{selectedUsers.length} selected students</span>.
+                            </p>
+                            
+                            <textarea 
+                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white resize-none"
+                                rows="5"
+                                placeholder={bulkType === 'offer' ? "Enter the discount code and details here..." : "Type your announcement here..."}
+                                value={bulkMessage}
+                                onChange={(e) => setBulkMessage(e.target.value)}
+                            ></textarea>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3">
+                            <button 
+                                onClick={() => setIsBulkModalOpen(false)}
+                                className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleBulkSubmit}
+                                disabled={!bulkMessage.trim()}
+                                className={`px-6 py-2 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed
+                                    ${bulkType === 'offer' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-[#4a0b59] hover:bg-purple-900'}`}
+                            >
+                                Send to {selectedUsers.length} Students
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Admin_Students;
