@@ -18,6 +18,12 @@ import Admin from './pages/Admin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
+import TeacherReview from './pages/TeacherReview';
+import Admin_Teachers from './pages/Admin_Teachers';
+import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
+import Admin_Students from './pages/Admin_Students';
+import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Admin_PromoCodes from './pages/Admin_PromoCodes';
 
 import CoursesPage from './pages/Course';
 
@@ -109,7 +115,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
-          
+
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
@@ -122,17 +128,53 @@ function App() {
               </MainLayout>
             }
           />
-          
+
           {/* Protected Route: Admin */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <Admin userName={userName} onLogout={handleLogout} /> 
+                <Admin userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
+          />
+
+          {/*Admin's teacher page*/}
+          <Route
+            path="/admin/teachers"
+            element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* 🌟 UPDATED: Admin Teacher Analytics Dashboard */}
+          <Route
+            path="/admin/teacher-analytics/:id"
+            element={userRole === 'admin' ? <Admin_TeacherAnalytics userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* 🌟 NEW: The Dedicated Admin Review Page */}
+          <Route
+            path="/admin/review-teacher/:id"
+            element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Students Page */}
+          <Route
+            path="/admin/students"
+            element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Student Profile Page */}
+          <Route
+            path="/admin/student-profile/:id"
+            element={userRole === 'admin' ? <Admin_StudentProfile userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Promo Codes Page */}
+          <Route
+            path="/admin/promos"
+            element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           {/* Protected Route: Teacher */}
