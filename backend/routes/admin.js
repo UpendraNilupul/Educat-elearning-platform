@@ -33,7 +33,7 @@ router.get('/dashboard-stats', async (req, res) => {
             SELECT t.id, u.name, u.created_at, t.highest_qualification 
             FROM teachers t 
             JOIN users u ON t.user_id = u.id 
-            WHERE t.verification_status = 'pending'
+            WHERE t.verification_status != 'Approved'
             LIMIT 5
         `);
 
