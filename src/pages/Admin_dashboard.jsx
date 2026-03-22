@@ -4,13 +4,16 @@ import {
     Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Admin = ({ userName, onLogout }) => {
+    const navigate = useNavigate(); 
+    
     const [activeTab, setActiveTab] = useState('dashboard');
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // 🌟 Time and Role Filters
+    // Time and Role Filters
     const [timeFilter, setTimeFilter] = useState('today');
     const [roleFilter, setRoleFilter] = useState('both');
 
@@ -18,7 +21,6 @@ const Admin = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // 🌟 Append BOTH filters to the URL
                 const response = await fetch(`http://localhost:3000/api/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`, {
                     credentials: 'include'
                 });
@@ -34,16 +36,17 @@ const Admin = ({ userName, onLogout }) => {
         };
 
         fetchStats();
-    }, [timeFilter, roleFilter]); // 🌟 React will re-fetch if EITHER dropdown is changed
+    }, [timeFilter, roleFilter]); 
 
+    // The navigation items with their respective paths
     const navItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'courses', label: 'Classes', icon: BookOpen },
-        { id: 'teachers', label: 'Teachers', icon: Users },
-        { id: 'students', label: 'Students', icon: Users },
-        { id: 'review', label: 'To Review', icon: CheckSquare },
-        { id: 'announcements', label: 'Announcements', icon: Megaphone },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
+        { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
+        { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
+        { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
+        { id: 'promo', label: 'Promo cods', icon: CheckSquare, path: '/admin/promos' },
+        { id: 'announcements', label: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
+        { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
     ];
 
     if (loading && !stats) {
@@ -63,9 +66,11 @@ const Admin = ({ userName, onLogout }) => {
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeTab === item.id;
+                        
                         return (
-                            <button
+                            <Link
                                 key={item.id}
+                                to={item.path}
                                 onClick={() => setActiveTab(item.id)}
                                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${isActive
                                         ? 'bg-[#4a0b59]/10 text-[#4a0b59] font-bold'
@@ -74,7 +79,7 @@ const Admin = ({ userName, onLogout }) => {
                             >
                                 <Icon size={20} className={isActive ? 'text-[#4a0b59]' : ''} />
                                 <span>{item.label}</span>
-                            </button>
+                            </Link>
                         );
                     })}
                 </nav>
@@ -150,7 +155,7 @@ const Admin = ({ userName, onLogout }) => {
                     {/* Charts & Highlights Area */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-                        {/* Line Chart: Student Usage */}
+                        {/* Bar Chart: Student Usage */}
                         <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
@@ -158,7 +163,7 @@ const Admin = ({ userName, onLogout }) => {
                                     <p className="text-sm text-gray-500">Track student activity over time</p>
                                 </div>
 
-                                {/* 🌟 NEW: Dual Dropdown Menus */}
+                                {/* Dual Dropdown Menus */}
                                 <div className="flex items-center gap-3">
                                     <select
                                         className="bg-gray-50 border border-gray-200 text-sm rounded-lg px-3 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59]"
@@ -186,20 +191,16 @@ const Admin = ({ userName, onLogout }) => {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={stats?.usageData || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
 
-                                        {/* Background Grid */}
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
 
-                                        {/* X and Y Axes */}
                                         <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dy={10} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dx={-10} allowDecimals={false} />
 
-                                        {/* Tooltip Hover Effect (Changed cursor from a stroke to a subtle background fill) */}
                                         <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
 
-                                        {/* 🌟 THE NEW BAR COMPONENT */}
-                                        {/* radius={[top-left, top-right, bottom-right, bottom-left]} gives it rounded top corners */}
                                         <Bar
-                                            dataKey="students"
+                                            dataKey="logins"
+                                            name={roleFilter === 'student' ? 'Students' : roleFilter === 'teacher' ? 'Teachers' : 'Total Logins'}
                                             fill="#4a0b59"
                                             radius={[6, 6, 0, 0]}
                                             maxBarSize={60}
@@ -219,7 +220,7 @@ const Admin = ({ userName, onLogout }) => {
                                     <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
                                         <p className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2">Most Active Teacher</p>
                                         <div className="flex items-center space-x-3">
-                                            <img src={stats.mostActiveTeacher.picture || "https://ui-avatars.com/api/?name=Teacher&background=random"} alt="Avatar" className="w-10 h-10 rounded-full" />
+                                            <img src={stats.mostActiveTeacher.picture ? `http://localhost:3000/uploads/${stats.mostActiveTeacher.picture}` : "https://ui-avatars.com/api/?name=Teacher&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                             <div>
                                                 <p className="font-bold text-gray-800">{stats.mostActiveTeacher.name}</p>
                                                 <p className="text-xs text-gray-500">{stats.mostActiveTeacher.course_count} courses created</p>
@@ -234,7 +235,7 @@ const Admin = ({ userName, onLogout }) => {
                                     <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
                                         <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Top Earner (Month)</p>
                                         <div className="flex items-center space-x-3">
-                                            <img src={stats.topEarner.picture || "https://ui-avatars.com/api/?name=Earner&background=random"} alt="Avatar" className="w-10 h-10 rounded-full" />
+                                            <img src={stats.topEarner.picture ? `http://localhost:3000/uploads/${stats.topEarner.picture}` : "https://ui-avatars.com/api/?name=Earner&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                             <div>
                                                 <p className="font-bold text-gray-800">{stats.topEarner.name}</p>
                                                 <p className="text-xs text-gray-500">${stats.topEarner.total_earned} revenue generated</p>
@@ -271,7 +272,12 @@ const Admin = ({ userName, onLogout }) => {
                                                 </div>
                                             </div>
                                             <div className="flex space-x-2">
-                                                <button className="px-3 py-1.5 bg-[#4a0b59] text-white text-xs font-bold rounded-lg hover:bg-purple-900 transition-colors">Review</button>
+                                                <Link 
+                                                    to={`/admin/review-teacher/${teacher.id}`}
+                                                    className="px-4 py-1.5 bg-[#4a0b59] text-white text-xs font-bold rounded-lg hover:bg-purple-900 transition-colors inline-block"
+                                                >
+                                                    Review
+                                                </Link>
                                             </div>
                                         </div>
                                     ))

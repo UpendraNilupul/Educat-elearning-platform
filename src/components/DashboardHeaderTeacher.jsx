@@ -1,7 +1,8 @@
 import React from 'react';
+import { useNavigate } from "react-router-dom";
 import { BadgeCheck, Edit2 } from 'lucide-react';
 
-const DashboardHeader = ({ userName = 'Damitha' }) => {
+const DashboardHeaderTeacher = ({ userName = 'Damitha' }) => {
     // Segmented progress ring calculation
     const radius = 22;
     const circumference = 2 * Math.PI * radius;
@@ -13,6 +14,15 @@ const DashboardHeader = ({ userName = 'Damitha' }) => {
     const progress = 75; 
     const dashArray = `${segmentLength} ${gap}`;
 
+    const navigate = useNavigate();
+    const handleEditClick = () => {
+        const teacherId = localStorage.getItem('userId');
+        if (!teacherId) {
+            alert('Teacher ID not found. Please login again.');
+            return;
+        }
+        navigate(`/teacher-profile-edit/${teacherId}`);
+    };
     return (
         <header className="flex items-center justify-between mb-8 bg-transparent">
             {/* Left Side: Title */}
@@ -67,12 +77,15 @@ const DashboardHeader = ({ userName = 'Damitha' }) => {
                 </div>
 
                 {/* Edit Icon Button */}
-                <button className="ml-2 p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-brand-purple hover:bg-purple-50 transition-all border border-gray-100">
+                <button
+                    onClick={handleEditClick}
+                    className="ml-2 p-2 rounded-xl bg-gray-50 text-gray-400 hover:text-brand-purple hover:bg-purple-50 transition-all border border-gray-100"
+                    >
                     <Edit2 className="w-4 h-4" />
-                </button>
+                    </button>
             </div>
         </header>
     );
 };
 
-export default DashboardHeader;
+export default DashboardHeaderTeacher;

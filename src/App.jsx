@@ -17,6 +17,14 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
+import TeacherProfileEdit from './pages/TeacherProfileEdit';
+import TeacherReview from './pages/TeacherReview';
+import Admin_Teachers from './pages/Admin_Teachers';
+import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
+import Admin_Students from './pages/Admin_Students';
+import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Admin_PromoCodes from './pages/Admin_PromoCodes';
+
 import CoursesPage from './pages/Course';
 
 // Home Page Component
@@ -46,9 +54,9 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
+  const [isLoading, setIsLoading] = useState(true); // Added loading state!
 
   useEffect(() => {
     fetch('http://localhost:3000/api/status', {
@@ -106,20 +114,12 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-          
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
-          
+
           <Route
             path="/register"
-            element={
-              <>
-                <Header userRole={userRole} userName={userName} onLogout={handleLogout} />
-                <Register />
-                <Footer />
-              </>
-            }
+            element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-          
           <Route
             path="/teachers"
             element={
@@ -128,41 +128,89 @@ function App() {
               </MainLayout>
             }
           />
-          
+
+          {/* Protected Route: Admin */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <Admin userName={userName} onLogout={handleLogout} /> 
+                <Admin userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
           />
 
-          {/* Protected Route: Teacher - no header/footer layout */}
+          {/*Admin's teacher page*/}
+          <Route
+            path="/admin/teachers"
+            element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* 🌟 UPDATED: Admin Teacher Analytics Dashboard */}
+          <Route
+            path="/admin/teacher-analytics/:id"
+            element={userRole === 'admin' ? <Admin_TeacherAnalytics userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* 🌟 NEW: The Dedicated Admin Review Page */}
+          <Route
+            path="/admin/review-teacher/:id"
+            element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Students Page */}
+          <Route
+            path="/admin/students"
+            element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Student Profile Page */}
+          <Route
+            path="/admin/student-profile/:id"
+            element={userRole === 'admin' ? <Admin_StudentProfile userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Promo Codes Page */}
+          <Route
+            path="/admin/promos"
+            element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
             element={
-              userRole === 'teacher' ? (
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
                 <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-          
+
+          {/* Protected Route: Student */}
           <Route
             path="/student"
             element={
-              userRole === 'student' ? (
+              (userRole === 'student' || localStorage.getItem('userRole') === 'student') ? (
                 <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-          
+
+          {/* Teacher profile edit route */}
+          <Route
+            path="/teacher-profile-edit/:id?"
+            element={
+              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
+                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+              ) : (
+                <Navigate to="/" />
+              )} />
+          {/* Route for Courses page */}
           <Route
             path="/courses"
             element={
