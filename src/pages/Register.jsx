@@ -53,7 +53,7 @@ const Register = ({ setUserName, setUserRole }) => {
     if (!validateForm()) return;
 
     try {
-      const res = await fetch('http://localhost:3000/api/register', {
+      const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -75,7 +75,7 @@ const Register = ({ setUserName, setUserRole }) => {
         if (setUserName) setUserName(finalName);
 
         if (finalRole === 'admin') navigate('/admin');
-        else if (finalRole === 'teacher') navigate('/teacher');
+        else if (finalRole === 'teacher') navigate(`/verify-teacher/${data.userId}`);
         else if (finalRole === 'student') navigate('/student');
         else navigate('/login');
       } else {
