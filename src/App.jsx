@@ -24,6 +24,7 @@ import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
+import VerifyTeacher from './pages/verifyTeacher';
 
 import CoursesPage from './pages/Course';
 
@@ -108,6 +109,8 @@ function App() {
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
+  //verification status
+  const verificationStatus = localStorage.getItem('verificationStatus');
 
   return (
     <Router>
@@ -181,10 +184,10 @@ function App() {
           <Route
             path="/teacher"
             element={
-              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
+              (userRole === 'teacher' && verificationStatus === 'approved') ? (
                 <TeacherDashboard userName={userName} onLogout={handleLogout} />
               ) : (
-                <Navigate to="/" />
+                <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
               )
             }
           />
@@ -219,6 +222,7 @@ function App() {
               </MainLayout>
             }
           />
+          <Route path="/verify-teacher/:userId" element={<VerifyTeacher />} />
         </Routes>
       </div>
     </Router>
