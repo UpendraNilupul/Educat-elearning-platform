@@ -19,7 +19,7 @@ import {
     X
 } from 'lucide-react';
 
-import DashboardHeader from '../components/DashboardHeader';
+
 
 const Student = ({ userName, onLogout }) => {
     const [selectedSection, setSelectedSection] = useState('Overview');
@@ -94,15 +94,13 @@ const Student = ({ userName, onLogout }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
-                <div className="p-8 max-w-6xl mx-auto">
-                    <DashboardHeader userName={userName} />
-                    
+                <div className="p-8 pt-6 max-w-6xl mx-auto">
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : (
                         <>
                             {/* Welcome Section */}
-                            <div className="mb-10">
+                            <div className="pt-2 mb-10">
                                 <h2 className="text-3xl font-bold text-gray-900 leading-tight">
                                     Welcome back, {userName || 'Student'}! 👋
                                 </h2>
