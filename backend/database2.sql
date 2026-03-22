@@ -50,6 +50,7 @@ CREATE TABLE teachers (
     verification_status VARCHAR(20) DEFAULT 'pending', 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+ALTER TABLE teachers ADD COLUMN nic_path VARCHAR(300) AFTER resume_link;
 
 CREATE TABLE students (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
