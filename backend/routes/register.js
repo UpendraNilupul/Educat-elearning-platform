@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs';
 import util from 'util';
 
 const router = express.Router();
-// Promisify the database query to escape "callback hell"
 const query = util.promisify(db.query).bind(db);
 
 router.post('/register', async (req, res) => {
@@ -31,12 +30,21 @@ router.post('/register', async (req, res) => {
         // 3. Hash the password before saving
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 4. Insert the new user
-        const insertQuery = `
+        // 4. Insert the new user into the core USERS table
+        const insertUserQuery = `
             INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
         `;
-        await query(insertQuery, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
+        const userResult = await query(insertUserQuery, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
+
+        // 🌟 5. NEW: Grab their brand new ID and assign them to their specific profile table!
+        const newUserId = userResult.insertId; // This grabs the ID MySQL just generated
+
+        if (role === 'student') {
+            await query('INSERT INTO students (user_id) VALUES (?)', [newUserId]);
+        } else if (role === 'teacher') {
+            await query('INSERT INTO teachers (user_id) VALUES (?)', [newUserId]);
+        }
 
         res.status(201).json({ message: 'User registered successfully!' });
 
