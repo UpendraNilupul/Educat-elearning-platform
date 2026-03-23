@@ -26,6 +26,7 @@ import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
 
 import CoursesPage from './pages/Course';
+import AssessmentsPage from './pages/AssessmentsPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -216,6 +217,14 @@ function App() {
             element={
               <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
                 <CoursesPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/assessments"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <AssessmentsPage />
               </MainLayout>
             }
           />
