@@ -16,9 +16,10 @@ router.post('/login', async (req, res) => {
     try {
         // 1. Find the user
         const sqlQuery = `
-            SELECT users.*, roles.role_name 
+            SELECT users.*, roles.role_name, teachers.verification_status 
             FROM users 
             JOIN roles ON users.role_id = roles.id 
+            LEFT JOIN teachers ON users.id = teachers.user_id
             WHERE users.email = ?
         `;
         const results = await query(sqlQuery, [email]);
@@ -57,7 +58,8 @@ router.post('/login', async (req, res) => {
             message: 'Logged in successfully!', 
             userId: user.id, 
             userRole: user.role_name, 
-            userName: user.name
+            userName: user.name,
+            verificationStatus: user.verification_status || null
         });
 
     } catch (error) {
