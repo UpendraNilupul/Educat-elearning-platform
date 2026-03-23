@@ -6,7 +6,7 @@ const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
 // GET all courses
-router.get('/', (req, res) => {
+router.get('/courses', (req, res) => {
     const query = 'SELECT * FROM classes_courses';
     db.query(query, (err, results) => {
         if (err) {
@@ -18,7 +18,7 @@ router.get('/', (req, res) => {
 });
 
 // POST a new course
-router.post('/', (req, res) => {
+router.post('/courses', (req, res) => {
     // For now we will hardcode t_id as 1 (assuming teacher ID 1 exists) or fall back since the frontend isn't passing it yet.
     // In a real app, you would get this from req.session.userId or similar
     const t_id = 1; 
@@ -47,7 +47,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT (update) a course
-router.put('/:id', (req, res) => {
+router.put('/courses/:id', (req, res) => {
     const { id } = req.params;
     const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
     
@@ -72,7 +72,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE a course
-router.delete('/:id', (req, res) => {
+router.delete('/courses/:id', (req, res) => {
     const { id } = req.params;
     const query = 'DELETE FROM classes_courses WHERE id = ?';
     

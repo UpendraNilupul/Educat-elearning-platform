@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -19,11 +20,12 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3000;
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
