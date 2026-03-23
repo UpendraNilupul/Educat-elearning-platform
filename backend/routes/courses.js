@@ -18,32 +18,36 @@ router.get('/courses', (req, res) => {
 });
 
 // POST a new course
-router.post('/courses', (req, res) => {
-    // For now we will hardcode t_id as 1 (assuming teacher ID 1 exists) or fall back since the frontend isn't passing it yet.
-    // In a real app, you would get this from req.session.userId or similar
-    const t_id = 1; 
-
-    const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
+router.post('/courses', async (req, res) => {
+    const { name, title, type, status, is_published, theme_color, thumbnail_url, userId } = req.body;
     
-    // We expect these fields based on the updated TeachersCourse form
-    const query = `
-        INSERT INTO classes_courses 
-        (name, title, type, status, is_published, theme_color, thumbnail_url, t_id) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, t_id];
-    
-    db.query(query, values, (err, result) => {
-        if (err) {
-            console.error('Error creating course:', err);
-            return res.status(500).json({ message: 'Server error' });
+    try {
+        // Fetch teacher associated with this user
+        let t_id = 1; // Fallback, but we should find the actual teacher
+        if (userId) {
+            const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+            if (tRes.length > 0) t_id = tRes[0].id;
+            else return res.status(404).json({ message: 'Teacher profile not found for user' });
         }
+
+        const insertQuery = `
+            INSERT INTO classes_courses 
+            (name, title, type, status, is_published, theme_color, thumbnail_url, t_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, t_id];
+        
+        const result = await query(insertQuery, values);
+        
         res.status(201).json({ 
             id: result.insertId, 
             name, title, type, status, is_published, theme_color, thumbnail_url, t_id 
         });
-    });
+    } catch (err) {
+        console.error('Error creating course:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
 });
 
 // PUT (update) a course

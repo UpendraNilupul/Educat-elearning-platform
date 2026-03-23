@@ -233,10 +233,14 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }
       } else {
         // Create Course
+        const payload = {
+          ...formData,
+          userId: localStorage.getItem('userId')
+        };
         const response = await fetch('http://localhost:3000/api/courses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(payload)
         });
         
         if (response.ok) {
