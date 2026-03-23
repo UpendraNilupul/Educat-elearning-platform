@@ -6,15 +6,24 @@ const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
 // GET all courses
-router.get('/courses', (req, res) => {
-    const query = 'SELECT * FROM classes_courses';
-    db.query(query, (err, results) => {
-        if (err) {
-            console.error('Error fetching courses:', err);
-            return res.status(500).json({ message: 'Server error' });
+router.get('/courses', async (req, res) => {
+    try {
+        const courses = await query('SELECT * FROM classes_courses ORDER BY id DESC');
+        for (let course of courses) {
+            const modules = await query('SELECT * FROM modules WHERE c_id = ? ORDER BY id ASC', [course.id]);
+            course.chapters = modules.map(m => ({ id: m.id, title: m.title, isVisible: m.isVisible === 1 }));
+            for (let mod of course.chapters) {
+                const resources = await query('SELECT * FROM resources WHERE m_id = ? ORDER BY id ASC', [mod.id]);
+                mod.resources = resources.map(r => ({
+                    id: r.id, title: r.name, type: r.type || 'pdf', url: r.link
+                }));
+            }
         }
-        res.status(200).json(results);
-    });
+        res.status(200).json(courses);
+    } catch (err) {
+        console.error('Error fetching courses:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
 
 // POST a new course
@@ -78,9 +87,9 @@ router.put('/courses/:id', (req, res) => {
 // DELETE a course
 router.delete('/courses/:id', (req, res) => {
     const { id } = req.params;
-    const query = 'DELETE FROM classes_courses WHERE id = ?';
+    const delQuery = 'DELETE FROM classes_courses WHERE id = ?';
     
-    db.query(query, [id], (err, result) => {
+    db.query(delQuery, [id], (err, result) => {
         if (err) {
             console.error('Error deleting course:', err);
             return res.status(500).json({ message: 'Server error' });
@@ -90,6 +99,61 @@ router.delete('/courses/:id', (req, res) => {
         }
         res.status(200).json({ message: 'Course deleted successfully' });
     });
+});
+
+// --- MODULES / CHAPTERS ---
+router.post('/modules', async (req, res) => {
+    const { title, c_id, isVisible } = req.body;
+    try {
+        const result = await query('INSERT INTO modules (title, c_id, number, isVisible) VALUES (?, ?, ?, ?)', [title, c_id, 1, isVisible ? 1 : 0]);
+        res.status(201).json({ id: result.insertId, title, isVisible: isVisible ? true : false, resources: [] });
+    } catch (err) {
+        console.error('Error adding module:', err);
+        res.status(500).json({ message: 'Error adding module' });
+    }
+});
+
+router.put('/modules/:id', async (req, res) => {
+    const { title, isVisible } = req.body;
+    try {
+        let updateQuery = 'UPDATE modules SET ';
+        const params = [];
+        if (title !== undefined) { updateQuery += 'title = ?, '; params.push(title); }
+        if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
+        if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
+        
+        updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
+        params.push(req.params.id);
+        
+        await query(updateQuery, params);
+        res.status(200).json({ id: req.params.id, title, isVisible: isVisible ? true : false });
+    } catch (err) {
+        console.error('Error updating module:', err);
+        res.status(500).json({ message: 'Error updating module' });
+    }
+});
+
+router.delete('/modules/:id', async (req, res) => {
+    try {
+        await query('DELETE FROM resources WHERE m_id = ?', [req.params.id]);
+        await query('DELETE FROM modules WHERE id = ?', [req.params.id]);
+        res.status(200).json({ message: 'Deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting module:', err);
+        res.status(500).json({ message: 'Error deleting module' });
+    }
+});
+
+// --- RESOURCES ---
+router.post('/modules/:m_id/resources', async (req, res) => {
+    const { title, type, url } = req.body;
+    try {
+        const result = await query('INSERT INTO resources (name, type, link, m_id, number) VALUES (?, ?, ?, ?, ?)', [title, type, url, req.params.m_id, 1]);
+        res.status(201).json({ id: result.insertId, title, type, url, m_id: req.params.m_id });
+    } catch (err) {
+        console.error('Error adding resource:', err);
+        res.status(500).json({ message: 'Error adding resource' });
+    }
 });
 
 router.get('/courses/student/:userId', async (req, res) => {
