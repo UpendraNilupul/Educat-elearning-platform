@@ -1,59 +1,78 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import session from 'express-session';
 import { fileURLToPath } from 'url';
+
+import db from './db.js'; 
+import util from 'util';
+const query = util.promisify(db.query).bind(db);
+
+// Route Imports
 import loginRoutes from './routes/login.js';
 import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
-import forgotPasswordRoutes from './routes/forgotPassword.js';
-import session from 'express-session';
 import adminRoutes from './routes/admin.js';
+import forgotPasswordRoutes from './routes/forgotPassword.js';
+
+// 🌟 THE NEW TEAMMATE ROUTES
+import courseRoutes from './routes/courses.js';
+import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
+import verifyRoutes from './routes/verify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const port = 3000;
+const PORT = 3000;
 
-app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
-
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
-
-// 1. Serve the static React files from the 'dist' folder
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 app.use(session({
-    secret: 'a_very_long_random_secret_string', // Used to sign the session ID
+    secret: 'a_very_long_random_secret_string',
     resave: false,
     saveUninitialized: false,
-    cookie: {
-        httpOnly: true, // 🛡️ CRITICAL: Hides the cookie from hackers' JavaScript!
-        secure: false, // Set to true later when you launch with HTTPS
-        sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 24 // Cookie lasts for 1 day
-    }
+    cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
+// FOOTPRINT TRACKER
+app.use('/api', async (req, res, next) => {
+    if (req.session && req.session.userId) {
+        try {
+            await query('UPDATE users SET last_active = NOW() WHERE id = ?', [req.session.userId]);
+        } catch (error) {
+            console.error("Failed to update last_active:", error);
+        }
+    }
+    next();
+});
 
-// 2. Register your database API routes
-// (e.g., http://localhost:3000/api/login)
+// Heartbeat
+app.post('/api/heartbeat', (req, res) => {
+    res.status(200).json({ message: 'Heartbeat received' });
+});
+
+// 🌟 ROUTE MOUNTING
 app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
-
-// Add this below your other app.use('/api', ...) lines
+app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 
-// Add to your route definitions (below your other app.use lines)
-app.use('/api/admin', adminRoutes);
+// Mount the new routes
+app.use('/api', courseRoutes); 
+app.use('/api/teacher', teacherProfileRoutes); 
+app.use('/api', verifyRoutes); 
 
+// 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use('/uploads', express.static('uploads'));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
-app.listen(port, () => {
-    console.log(`🌱 Server running at http://localhost:${port}`);
+app.listen(PORT, () => {
+    console.log(`🌱 Server running on http://localhost:${PORT}`);
 });

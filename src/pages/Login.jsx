@@ -20,43 +20,61 @@ const Login = ({ setUserRole, setUserName }) => {
 
     // --- STANDARD LOGIN LOGIC ---
     const handleLogin = async (e) => {
-        e.preventDefault();
-        try {
-            const response = await fetch('http://localhost:3000/api/login', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
+    e.preventDefault();
 
-            const data = await response.json();
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
 
-            if (response.ok) {
-                localStorage.setItem('userId', data.userId);
-                localStorage.setItem('userRole', data.userRole);
-                if (setUserRole) setUserRole(data.userRole); 
-                
-                // 🌟 ADDED THIS: Instantly update the name so the header changes!
-                if (setUserName) setUserName(data.userName);
+        const data = await response.json();
 
-                if (data.userRole === 'admin') navigate('/admin');
-                else if (data.userRole === 'teacher') navigate('/teacher');
-                else if (data.userRole === 'student') navigate('/student');
-                else navigate('/');
+        if (response.ok) {
+            // Save data
+            localStorage.setItem('userId', data.userId);
+            localStorage.setItem('userRole', data.userRole);
+            localStorage.setItem('verificationStatus', data.verificationStatus || '');
+
+            if (setUserRole) setUserRole(data.userRole);
+            if (setUserName) setUserName(data.userName);
+
+            // 🔥 Redirect logic
+            if (data.userRole === 'admin') {
+                navigate('/admin');
+
+            } else if (data.userRole === 'teacher') {
+
+                if (data.verificationStatus !== 'approved') {
+                    navigate(`/verify-teacher/${data.userId}`);
+                } else {
+                    navigate('/teacher');
+                }
+
+            } else if (data.userRole === 'student') {
+                navigate('/student');
+
             } else {
-                alert(data.message);
+                navigate('/');
             }
-        } catch (error) {
-            console.error('Error during login:', error);
-            alert('Something went wrong connecting to the server.');
+
+        } else {
+            alert(data.message);
         }
-    };
+
+    } catch (error) {
+        console.error('Error during login:', error);
+        alert('Something went wrong connecting to the server.');
+    }
+};
 
     // --- FORGOT PASSWORD LOGIC ---
     const handleSendOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:3000/api/forgot-password/send-otp', {
+            const res = await fetch('/api/forgot-password/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -74,7 +92,7 @@ const Login = ({ setUserRole, setUserName }) => {
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:3000/api/forgot-password/verify-otp', {
+            const res = await fetch('/api/forgot-password/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })

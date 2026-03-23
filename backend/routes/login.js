@@ -14,19 +14,21 @@ router.post('/login', async (req, res) => {
     }
 
     try {
+        // 1. Find the user
         const sqlQuery = `
-            SELECT users.*, roles.role_name 
+            SELECT users.*, roles.role_name, teachers.verification_status 
             FROM users 
             JOIN roles ON users.role_id = roles.id 
+            LEFT JOIN teachers ON users.id = teachers.user_id
             WHERE users.email = ?
         `;
-        
         const results = await query(sqlQuery, [email]);
 
         if (results.length === 0) {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
+        // 2. Verify password
         const user = results[0];
         const isMatch = await bcrypt.compare(password, user.password);
 
@@ -34,7 +36,20 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password.' });
         }
 
-        // Save session data
+        // =========================================================
+        // 🌟 3. THIS IS THE MISSING PIECE! Log the activity!
+        // =========================================================
+        try {
+            await query(
+                'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+                [user.id, 'login']
+            );
+        } catch (logError) {
+            console.error('Non-critical error: Failed to log activity:', logError);
+        }
+        // =========================================================
+
+        // 4. Save session data
         req.session.userId = user.id;
         req.session.userRole = user.role_name; 
         req.session.userName = user.name;
@@ -43,7 +58,8 @@ router.post('/login', async (req, res) => {
             message: 'Logged in successfully!', 
             userId: user.id, 
             userRole: user.role_name, 
-            userName: user.name
+            userName: user.name,
+            verificationStatus: user.verification_status || null
         });
 
     } catch (error) {
@@ -64,7 +80,20 @@ router.get('/status', (req, res) => {
     }
 });
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+    // 🌟 NEW: Record the logout in the database before destroying the session
+    if (req.session && req.session.userId) {
+        try {
+            await query(
+                'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+                [req.session.userId, 'logout']
+            );
+        } catch (logError) {
+            console.error('Non-critical error: Failed to log logout activity:', logError);
+        }
+    }
+
+    // Now destroy the session as usual
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).json({ message: 'Could not log out.' });
@@ -73,5 +102,4 @@ router.post('/logout', (req, res) => {
         res.status(200).json({ message: 'Logged out successfully' });
     });
 });
-
 export default router;
