@@ -64,14 +64,14 @@ app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
 
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-});
-
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/uploads', express.static('uploads'));
+
+app.use((req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
 
 app.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
