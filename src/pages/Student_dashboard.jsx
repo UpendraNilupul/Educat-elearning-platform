@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course'; 
+import TuitionClass from './Class'; // <-- Added the import for the new Lessons page
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import { 
     LayoutDashboard, 
@@ -94,9 +95,14 @@ const Student = ({ userName, onLogout }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
-                <div className="p-8 pt-6 max-w-6xl mx-auto">
+                <div className="p-8 max-w-6xl mx-auto">
+                    <DashboardHeader userName={userName} />
+                    
+                    {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
+                    ) : selectedSection === 'Lessons' ? (
+                        <TuitionClass /> /* <-- Renders the new Lessons page */
                     ) : (
                         <>
                             {/* Welcome Section */}
