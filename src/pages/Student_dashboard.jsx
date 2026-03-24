@@ -16,6 +16,7 @@ import {
     Calendar,
     ChevronRight,
     Play,
+    LogOut,
     Settings,
     X
 } from 'lucide-react';
@@ -52,13 +53,11 @@ const Student = ({ userName, onLogout }) => {
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
                 <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold">
-                        <span className="text-gray-800">Student</span>{" "}
-                        <span className="text-purple-600">Dashboard</span>
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
+                        Student Dashboard
                     </h2>
                 </div>
 
-                {/* Navigation Menu */}
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                     {navItems.map((item) => (
                         <button
@@ -76,28 +75,29 @@ const Student = ({ userName, onLogout }) => {
                     ))}
                 </nav>
 
-                {/* Bottom Section (User/Logout) */}
                 <div className="p-4 border-t border-gray-100">
-                    <div
-                        onClick={() => setIsEditModalOpen(true)}
-                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
-                            {userName?.[0] || 'S'}
+                    <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3">
+                        <div
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group flex-1"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
+                                {userName?.[0] || 'S'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
+                                <p className="text-xs text-gray-500 truncate">Student Account</p>
+                            </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
-                            <p className="text-xs text-gray-500 truncate">Student Account</p>
-                        </div>
-                        <Settings className="w-4 h-4 ml-auto text-gray-400 group-hover:text-purple-600 transition-colors" />
+                        <button className="flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 transition-colors group">
+                            <Settings className="w-5 h-5 text-gray-500 group-hover:text-brand-purple transition-colors" />
+                        </button>
                     </div>
                     <button
                         onClick={onLogout}
                         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
+                        <LogOut className="w-5 h-5" />
                         Logout
                     </button>
                 </div>
@@ -105,7 +105,10 @@ const Student = ({ userName, onLogout }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
-                <div className="p-8 pt-6 max-w-6xl mx-auto">
+                <div className="p-8 max-w-6xl mx-auto">
+                    <DashboardHeader userName={userName} />
+                    
+                    {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
@@ -146,7 +149,6 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Stats Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                                {/* Card 1: Course Completion */}
                                 <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
                                     <div className="flex items-center justify-between mb-5">
                                         <div className="p-2.5 bg-purple-50 rounded-xl group-hover:scale-110 transition-transform">
@@ -175,7 +177,7 @@ const Student = ({ userName, onLogout }) => {
                                     <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Active Enrollments</h3>
                                     <div className="flex items-end gap-2 mt-2">
                                         <span className="text-3xl font-extrabold text-gray-900 leading-none">4</span>
-                                        <span className="text-gray-500 text-sm font-semibold mb-0.5">Courses</span>
+                                        <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Courses</span>
                                     </div>
                                     <div className="mt-6 flex items-center gap-2">
                                         <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
@@ -193,7 +195,7 @@ const Student = ({ userName, onLogout }) => {
                                     <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Achievement Badges</h3>
                                     <div className="flex items-end gap-2 mt-2">
                                         <span className="text-3xl font-extrabold text-gray-900 leading-none">12</span>
-                                        <span className="text-gray-500 text-sm font-semibold mb-0.5">Badges</span>
+                                        <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Badges</span>
                                     </div>
                                     <div className="flex -space-x-2.5 mt-6">
                                         {[1, 2, 3, 4].map(i => (
@@ -201,9 +203,6 @@ const Student = ({ userName, onLogout }) => {
                                                 <Award className="w-4 h-4 text-orange-500" />
                                             </div>
                                         ))}
-                                        <div className="w-8 h-8 rounded-full bg-gray-50 border-2 border-white flex items-center justify-center text-[10px] font-bold text-gray-400 shadow-sm">
-                                            +8
-                                        </div>
                                     </div>
                                 </div>
                             </div>

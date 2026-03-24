@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -18,12 +19,14 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
+import verifyRoutes from './routes/verify.js';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3000;
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
@@ -61,13 +64,16 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 // Mount the new routes
 app.use('/api', courseRoutes); 
 app.use('/api/teacher', teacherProfileRoutes); 
+app.use('/api', verifyRoutes); 
+
+// 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', express.static('uploads'));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
-
-// 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);

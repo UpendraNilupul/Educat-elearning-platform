@@ -32,6 +32,8 @@ CREATE TABLE users (
     2fa_enabled BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (role_id) REFERENCES roles(id)
 );
+ALTER TABLE users 
+ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP;
 
 -- ==========================================
 -- LEVEL 3: SPECIFIC USER PROFILES
@@ -244,6 +246,48 @@ CREATE TABLE lesson_completions (
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
+
+CREATE TABLE teacher_reviews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id INT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    feedback TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
+-- Create a master list of all subjects offered on the platform
+CREATE TABLE subjects (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- Create the bridge table linking teachers to their subjects
+CREATE TABLE teacher_subjects (
+    t_id INT NOT NULL,
+    sub_id INT NOT NULL,
+    PRIMARY KEY (t_id, sub_id),
+    FOREIGN KEY (t_id) REFERENCES teachers(id) ON DELETE CASCADE,
+    FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+-- (Optional) Insert some default subjects to get you started!
+INSERT INTO subjects (name) VALUES 
+('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages');
+
+CREATE TABLE timetables (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    duration_minutes INT DEFAULT 60,
+    meeting_link VARCHAR(300),
+    status VARCHAR(20) DEFAULT 'scheduled', -- 'scheduled', 'completed', 'cancelled'
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
+
 
 -- ==========================================
 -- SEED DATA

@@ -33,7 +33,7 @@ router.get('/dashboard-stats', async (req, res) => {
             SELECT t.id, u.name, u.created_at, t.highest_qualification 
             FROM teachers t 
             JOIN users u ON t.user_id = u.id 
-            WHERE t.verification_status = 'pending'
+            WHERE t.verification_status != 'Approved'
             LIMIT 5
         `);
 
@@ -177,11 +177,15 @@ router.get('/dashboard-stats', async (req, res) => {
 // ==========================================
 // 6. FETCH FULL TEACHER DETAILS & HISTORY
 // ==========================================
+// ==========================================
+// 6. FETCH FULL TEACHER DETAILS & HISTORY
+// ==========================================
 router.get('/teacher-details/:id', async (req, res) => {
     try {
         const teacherData = await query(`
             SELECT u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.created_at,
-                   t.id as teacher_id, t.highest_qualification, t.verification_status
+                   t.id as teacher_id, t.highest_qualification, t.verification_status,
+                   t.university, t.experience_years, t.bio, t.resume_link
             FROM teachers t
             JOIN users u ON t.user_id = u.id
             WHERE t.id = ?
