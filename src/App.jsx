@@ -27,6 +27,7 @@ import Admin_PromoCodes from './pages/Admin_PromoCodes';
 import VerifyTeacher from './pages/verifyTeacher';
 
 import CoursesPage from './pages/Course';
+import AssessmentsPage from './pages/AssessmentsPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -222,7 +223,14 @@ function App() {
               </MainLayout>
             }
           />
-          <Route path="/verify-teacher/:userId" element={<VerifyTeacher />} />
+          <Route
+            path="/assessments"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <AssessmentsPage />
+              </MainLayout>
+            }
+          />
         </Routes>
       </div>
     </Router>

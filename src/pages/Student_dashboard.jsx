@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course'; 
-import TuitionClass from './Class'; // <-- Added the import for the new Lessons page
+import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import { 
     LayoutDashboard, 
@@ -26,6 +26,16 @@ import {
 const Student = ({ userName, onLogout }) => {
     const [selectedSection, setSelectedSection] = useState('Overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const ads = ['/add1.png', '/add2.png', '/add3.png', '/add4.png'];
+    const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentAdIndex((prevIndex) => (prevIndex === ads.length - 1 ? 0 : prevIndex + 1));
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [ads.length]);
 
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
@@ -101,8 +111,8 @@ const Student = ({ userName, onLogout }) => {
                     {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
-                    ) : selectedSection === 'Lessons' ? (
-                        <TuitionClass /> /* <-- Renders the new Lessons page */
+                    ) : selectedSection === 'Assessments' ? (
+                        <AssessmentsPage />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -114,6 +124,28 @@ const Student = ({ userName, onLogout }) => {
                                     Ready to continue your learning journey? You're making great progress this month.
                                 </p>
                             </div>
+
+                            {/* Advertisement Slideshow Sections */}
+                            {(() => {
+                                const visibleAds = [
+                                    ads[currentAdIndex % ads.length],
+                                    ads[(currentAdIndex + 1) % ads.length],
+                                    ads[(currentAdIndex + 2) % ads.length]
+                                ];
+                                return (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8">
+                                        {visibleAds.map((ad, index) => (
+                                            <div key={index} className="w-full h-[200px] relative overflow-hidden rounded-xl bg-gray-50 flex items-center justify-center">
+                                                <img
+                                                    src={ad}
+                                                    alt={`Ad ${index + 1}`}
+                                                    className="w-full h-full object-contain transition-opacity duration-700 ease-in-out"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
 
                             {/* Stats Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -179,83 +211,99 @@ const Student = ({ userName, onLogout }) => {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                                 {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
                                 <div className="lg:col-span-1">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
-                                        <button className="text-sm font-semibold text-brand-purple hover:underline">View All</button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {[
-                                            { title: 'AI Ethics Quiz', course: 'Artificial Intelligence', date: 'Oct 24', time: '11:59 PM', urgent: true },
-                                            { title: 'UX Case Study #2', course: 'UI/UX Design', date: 'Oct 26', time: '10:00 AM', urgent: false }
-                                        ].map((item, idx) => (
-                                            <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-start gap-4 group">
-                                                <div className={`p-3 rounded-xl shrink-0 ${item.urgent ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'}`}>
-                                                    <Calendar className="w-5 h-5" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h4 className="font-bold text-gray-900 group-hover:text-brand-purple transition-colors">{item.title}</h4>
-                                                    <p className="text-xs text-gray-500 font-medium mt-0.5">{item.course}</p>
-                                                    <div className="flex items-center gap-3 mt-3">
-                                                        <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md uppercase">{item.date}</span>
-                                                        <span className="text-[11px] font-bold text-gray-400">{item.time}</span>
+                                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h2 className="text-xl font-semibold text-gray-950">Upcoming Deadlines</h2>
+                                            <button className="text-sm font-semibold text-brand-purple hover:underline">View All</button>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {[
+                                                { title: 'AI Ethics Quiz', course: 'Artificial Intelligence', date: 'Oct 24', time: '11:59 PM', urgent: true },
+                                                { title: 'UX Case Study #2', course: 'UI/UX Design', date: 'Oct 26', time: '10:00 AM', urgent: false },
+                                                { title: 'SQL Advanced Lab', course: 'Database Systems', date: 'Oct 28', time: '11:59 PM', urgent: false }
+                                            ].map((item, idx) => (
+                                                <div key={idx} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-start gap-4 group">
+                                                    <div className={`p-3 rounded-xl shrink-0 ${item.urgent ? 'bg-red-50 text-red-500' : 'bg-white text-gray-400'}`}>
+                                                        <Calendar className="w-5 h-5" />
                                                     </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-gray-900 group-hover:text-brand-purple transition-colors">{item.title}</h4>
+                                                        <p className="text-xs text-gray-700 font-medium mt-0.5">{item.course}</p>
+                                                        <div className="flex items-center gap-3 mt-3">
+                                                            <span className="text-[11px] font-bold text-gray-700 bg-gray-200 px-2 py-0.5 rounded-md uppercase">
+                                                                {item.date}
+                                                            </span>
+                                                            <span className="text-[11px] font-bold text-gray-500">
+                                                                {item.time}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100">
+                                                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                                                    </button>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Recent Courses Column (Spans 2 columns on large screens) */}
                                 <div className="lg:col-span-2">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h2 className="text-xl font-bold text-gray-900">Recent Courses</h2>
-                                        <button className="text-sm font-semibold text-brand-purple hover:underline">View My Learning</button>
-                                    </div>
+                                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h2 className="text-xl font-semibold text-gray-950">Recent Courses</h2>
+                                            <button className="text-sm font-semibold text-brand-purple hover:underline">View My Learning</button>
+                                        </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {[
-                                            {
-                                                title: 'Full Stack Web Development',
-                                                instructor: 'Dr. Sarah Jenkins',
-                                                progress: 65,
-                                                modules: '14/22',
-                                                color: 'purple'
-                                            },
-                                            {
-                                                title: 'UI/UX Design Masterclass',
-                                                instructor: 'Michael Chen',
-                                                progress: 42,
-                                                modules: '8/19',
-                                                color: 'blue'
-                                            }
-                                        ].map((course, idx) => (
-                                            <div key={idx} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
-                                                <div className={`h-32 bg-${course.color === 'purple' ? 'purple' : 'blue'}-600`}></div>
-                                                <div className="p-6">
-                                                    <h4 className="font-bold text-gray-900 group-hover:text-brand-purple transition-colors">{course.title}</h4>
-                                                    <p className="text-xs text-gray-500 font-medium mt-1">{course.instructor}</p>
-                                                    <div className="mt-6">
-                                                        <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100">
-                                                            <div className="bg-brand-purple h-full rounded-full transition-all" style={{ width: `${course.progress}%` }}></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {[
+                                                {
+                                                    title: 'Full Stack Web Development',
+                                                    instructor: 'Dr. Sarah Jenkins',
+                                                    progress: 65,
+                                                    modules: '14/22',
+                                                    color: 'purple'
+                                                },
+                                                {
+                                                    title: 'UI/UX Design Masterclass',
+                                                    instructor: 'Michael Chen',
+                                                    progress: 42,
+                                                    modules: '8/19',
+                                                    color: 'blue'
+                                                }
+                                            ].map((course, idx) => (
+                                                <div key={idx} className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
+                                                    <div className={`h-32 bg-${course.color}-600 relative overflow-hidden`}>
+                                                        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
+                                                        <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+                                                            In Progress
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
-                                                            <div
-                                                                className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
-                                                                style={{ width: `${course.progress}%` }}
-                                                            ></div>
+                                                    <div className="p-6">
+                                                        <h4 className="font-bold text-gray-950 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.title}</h4>
+                                                        <p className="text-xs text-gray-700 font-medium mt-1">{course.instructor}</p>
+                                                        <div className="mt-6">
+                                                            <div className="flex justify-between items-end mb-2">
+                                                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Modules</span>
+                                                                <span className="text-xs font-extrabold text-gray-950">{course.progress}%</span>
+                                                            </div>
+                                                            <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
+                                                                <div
+                                                                    className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
+                                                                    style={{ width: `${course.progress}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <p className="text-[10px] text-gray-500 font-bold mt-2 uppercase">{course.modules} Completed</p>
                                                         </div>
-                                                        <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase">{course.modules} Completed</p>
-                                                    </div>
 
-                                                    <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95">
-                                                        <Play className="w-4 h-4 fill-white" />
-                                                        Resume
-                                                    </button>
+                                                        <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95">
+                                                            <Play className="w-4 h-4 fill-white" />
+                                                            Resume Course
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
