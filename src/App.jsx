@@ -25,6 +25,9 @@ import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
 import VerifyTeacher from './pages/verifyTeacher';
+import Admin_Courses from './pages/Admin_Courses';
+import Admin_Announcements from './pages/Admin_Announcements';
+import Admin_Settings from './pages/Admin_Settings';
 
 import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
@@ -181,6 +184,24 @@ function App() {
           <Route
             path="/admin/promos"
             element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Course Management Page */}
+          <Route
+            path="/admin/courses"
+            element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Global Announcements Page */}
+          <Route
+            path="/admin/announcements"
+            element={userRole === 'admin' ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Settings Page */}
+          <Route
+            path="/admin/settings"
+            element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           {/* Protected Route: Teacher */}
