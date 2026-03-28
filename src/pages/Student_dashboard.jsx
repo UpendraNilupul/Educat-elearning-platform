@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course'; 
+import TuitionClass from './Class'; 
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
+import DashboardHeader from '../components/DashboardHeader'; 
+
 import { 
     LayoutDashboard, 
     BookOpen, 
@@ -12,16 +15,13 @@ import {
     Award, 
     Briefcase, 
     Download,
+    Settings,
+    LogOut,
     GraduationCap,
     Calendar,
-    ChevronRight,
     Play,
-    LogOut,
-    Settings,
     X
 } from 'lucide-react';
-
-
 
 const Student = ({ userName, onLogout }) => {
     const [selectedSection, setSelectedSection] = useState('Overview');

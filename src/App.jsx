@@ -66,7 +66,9 @@ function App() {
     })
       .then(response => response.json())
       .then(data => {
-        setUserRole(data.userRole);
+        // 🌟 THE FIX: Ensure the role from the session check is also forced to lowercase
+        const safeRole = String(data.userRole || '').toLowerCase().trim();
+        setUserRole(safeRole);
         setUserName(data.userName);
       })
       .catch(err => console.log("User is likely not logged in yet."))
