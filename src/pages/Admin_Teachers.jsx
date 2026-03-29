@@ -232,11 +232,14 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                                     </Link>
 
                                                     {/* Conditional: Review Application */}
-                                                    {teacher.verification_status != '' && (
+                                                    {/*teacher.verification_status != '' && (
                                                         <Link to={`/admin/review-teacher/${teacher.teacher_id}`} className="w-full flex items-center px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors">
                                                             <FileText size={16} className="mr-2" /> Review Application
                                                         </Link>
-                                                    )}
+                                                    )*/}
+                                                    <Link to={`/admin/review-teacher/${teacher.teacher_id}`} className="w-full flex items-center px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors">
+                                                        <FileText size={16} className="mr-2" /> Review Application
+                                                    </Link>
 
                                                     {/* Message */}
                                                     <button className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">

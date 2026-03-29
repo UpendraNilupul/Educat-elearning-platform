@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -21,11 +22,12 @@ import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import verifyRoutes from './routes/verify.js';
 import classRoutes from './routes/class.js';
 
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3000;
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
@@ -67,8 +69,6 @@ app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-app.use('/uploads', express.static('uploads'));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));

@@ -55,49 +55,88 @@ const TeachersCourse = ({ courses, setCourses }) => {
     );
   };
 
-  const submitChapter = (e) => {
+  const submitChapter = async (e) => {
     e.preventDefault();
     if (!chapterTitle.trim()) return;
-    setCourses(courses.map(course => {
-      if (course.id === selectedCourse.id) {
-        if (editingChapterId) {
-          // Edit existing chapter
-          const updatedChapters = (course.chapters || []).map(c => 
-            c.id === editingChapterId ? { ...c, title: chapterTitle } : c
-          );
-          const updatedCourse = { ...course, chapters: updatedChapters };
-          setSelectedCourse(updatedCourse);
-          return updatedCourse;
-        } else {
-          // Add new chapter
-          const newChap = { id: Date.now(), title: chapterTitle, isVisible: true, resources: [] };
-          const updatedCourse = { ...course, chapters: [...(course.chapters || []), newChap] };
-          setSelectedCourse(updatedCourse);
-          setExpandedChapters([...expandedChapters, newChap.id]);
-          return updatedCourse;
-        }
+
+    try {
+      if (editingChapterId) {
+        const response = await fetch(`http://localhost:3000/api/modules/${editingChapterId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: chapterTitle })
+        });
+        if (!response.ok) throw new Error('Failed to update chapter');
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = (course.chapters || []).map(c => 
+              c.id === editingChapterId ? { ...c, title: chapterTitle } : c
+            );
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } else {
+        const response = await fetch('http://localhost:3000/api/modules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: chapterTitle, c_id: selectedCourse.id, isVisible: true })
+        });
+        if (!response.ok) throw new Error('Failed to add chapter');
+        const newChap = await response.json();
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedCourse = { ...course, chapters: [...(course.chapters || []), newChap] };
+            setSelectedCourse(updatedCourse);
+            setExpandedChapters([...expandedChapters, newChap.id]);
+            return updatedCourse;
+          }
+          return course;
+        }));
       }
-      return course;
-    }));
+    } catch (err) {
+      console.error(err);
+      alert('Error saving chapter');
+    }
+
     setChapterTitle("");
     setEditingChapterId(null);
     setIsChapterModalOpen(false);
   };
 
-  const submitResource = (e) => {
+  const submitResource = async (e) => {
     e.preventDefault();
     if (!resourceData.title.trim()) return;
-    setCourses(courses.map(course => {
-      if (course.id === selectedCourse.id) {
-        const updatedChapters = (course.chapters || []).map(c => 
-          c.id === activeChapterId ? { ...c, resources: [...(c.resources || []), { id: Date.now(), ...resourceData }] } : c
-        );
-        const updatedCourse = { ...course, chapters: updatedChapters };
-        setSelectedCourse(updatedCourse);
-        return updatedCourse;
-      }
-      return course;
-    }));
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/modules/${activeChapterId}/resources`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resourceData)
+      });
+      if (!response.ok) throw new Error('Failed to add resource');
+      const newResource = await response.json();
+
+      setCourses(courses.map(course => {
+        if (course.id === selectedCourse.id) {
+          const updatedChapters = (course.chapters || []).map(c => 
+            c.id === activeChapterId ? { ...c, resources: [...(c.resources || []), newResource] } : c
+          );
+          const updatedCourse = { ...course, chapters: updatedChapters };
+          setSelectedCourse(updatedCourse);
+          return updatedCourse;
+        }
+        return course;
+      }));
+    } catch (err) {
+      console.error(err);
+      alert('Error adding resource');
+    }
+
     setResourceData({ title: "", type: "pdf", url: "" });
     setIsResourceModalOpen(false);
   };
@@ -134,30 +173,54 @@ const TeachersCourse = ({ courses, setCourses }) => {
     }));
   };
 
-  const handleToggleChapterVisibility = (chapterId) => {
-    setCourses(courses.map(course => {
-      if (course.id === selectedCourse.id) {
-        const updatedChapters = (course.chapters || []).map(c => 
-          c.id === chapterId ? { ...c, isVisible: c.isVisible === false ? true : false } : c
-        );
-        const updatedCourse = { ...course, chapters: updatedChapters };
-        setSelectedCourse(updatedCourse);
-        return updatedCourse;
-      }
-      return course;
-    }));
-  };
+  const handleToggleChapterVisibility = async (chapterId) => {
+    const chapter = selectedCourse.chapters.find(c => c.id === chapterId);
+    if (!chapter) return;
+    const newVisibility = chapter.isVisible === false ? true : false;
 
-  const handleDeleteChapter = (chapterId) => {
-    if (window.confirm("Are you sure you want to delete this chapter and all its resources?")) {
+    try {
+      await fetch(`http://localhost:3000/api/modules/${chapterId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisible: newVisibility })
+      });
+
       setCourses(courses.map(course => {
         if (course.id === selectedCourse.id) {
-          const updatedCourse = { ...course, chapters: course.chapters.filter(c => c.id !== chapterId) };
+          const updatedChapters = (course.chapters || []).map(c => 
+            c.id === chapterId ? { ...c, isVisible: newVisibility } : c
+          );
+          const updatedCourse = { ...course, chapters: updatedChapters };
           setSelectedCourse(updatedCourse);
           return updatedCourse;
         }
         return course;
       }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId) => {
+    if (window.confirm("Are you sure you want to delete this chapter and all its resources?")) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/modules/${chapterId}`, {
+          method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete chapter');
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedCourse = { ...course, chapters: course.chapters.filter(c => c.id !== chapterId) };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } catch (err) {
+        console.error(err);
+        alert('Error deleting chapter');
+      }
     }
   };
 
@@ -233,10 +296,14 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }
       } else {
         // Create Course
+        const payload = {
+          ...formData,
+          userId: localStorage.getItem('userId')
+        };
         const response = await fetch('http://localhost:3000/api/courses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(payload)
         });
         
         if (response.ok) {
