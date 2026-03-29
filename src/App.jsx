@@ -25,8 +25,12 @@ import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
 import VerifyTeacher from './pages/verifyTeacher';
+import Admin_Courses from './pages/Admin_Courses';
+import Admin_Announcements from './pages/Admin_Announcements';
+import Admin_Settings from './pages/Admin_Settings';
 
 import CoursesPage from './pages/Course';
+import AssessmentsPage from './pages/AssessmentsPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -65,7 +69,9 @@ function App() {
     })
       .then(response => response.json())
       .then(data => {
-        setUserRole(data.userRole);
+        // 🌟 THE FIX: Ensure the role from the session check is also forced to lowercase
+        const safeRole = String(data.userRole || '').toLowerCase().trim();
+        setUserRole(safeRole);
         setUserName(data.userName);
       })
       .catch(err => console.log("User is likely not logged in yet."))
@@ -180,6 +186,24 @@ function App() {
             element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
+          {/* Admin's Course Management Page */}
+          <Route
+            path="/admin/courses"
+            element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Global Announcements Page */}
+          <Route
+            path="/admin/announcements"
+            element={userRole === 'admin' ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin's Settings Page */}
+          <Route
+            path="/admin/settings"
+            element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
           {/* Protected Route: Teacher */}
           <Route
             path="/teacher"
@@ -222,7 +246,14 @@ function App() {
               </MainLayout>
             }
           />
-          <Route path="/verify-teacher/:userId" element={<VerifyTeacher />} />
+          <Route
+            path="/assessments"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <AssessmentsPage />
+              </MainLayout>
+            }
+          />
         </Routes>
       </div>
     </Router>
