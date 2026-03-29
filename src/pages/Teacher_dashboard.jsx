@@ -29,7 +29,9 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
   React.useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/courses');
+        const teacherId = localStorage.getItem('userId');
+        const url = teacherId ? `http://localhost:3000/api/courses?teacherId=${teacherId}` : 'http://localhost:3000/api/courses';
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           // Map database columns to expected frontend structure if needed
@@ -85,7 +87,7 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
               onClick={() => {
                 setActiveTab(item.name);
               }}
-              className={`flex items-center gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === item.name
                   ? "bg-purple-50 text-purple-700 font-semibold shadow-md"
                   : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
