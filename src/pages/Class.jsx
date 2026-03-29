@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     PlayCircle, 
     Video, 
@@ -17,73 +17,88 @@ import {
 } from 'lucide-react';
 
 const TuitionClass = () => {
-    // State to track which view we are on
+    // View state
     const [selectedClassId, setSelectedClassId] = useState(null);
-    
-    // State for the detailed view
     const [activeMonth, setActiveMonth] = useState('March');
     const [activeVideo, setActiveVideo] = useState(1);
     const [activeTab, setActiveTab] = useState('Recordings');
 
-    // Mock Data: List of classes this student has paid for/enrolled in
-    const enrolledClasses = [
-        {
-            id: 1,
-            grade: 'Grade 9',
-            subject: 'Mathematics',
-            teacher: {
-                name: 'Mr. Bhanuka Gunarathna',
-                image: 'https://ui-avatars.com/api/?name=Bhanuka+Gunarathna&background=4a0b59&color=fff'
-            },
-            monthlyFee: 2500,
-            schedule: 'Every Sunday 8:00 AM - 11:00 AM',
-            zoomLink: 'https://zoom.us/j/123456789',
-            studentsCount: 1240,
-            months: [
-                {
-                    id: 'March', name: 'March 2026', isPaid: true, topics: 'Algebraic Fractions & Graphs',
-                    videos: [
-                        { id: 1, title: 'Week 1: Introduction to Algebraic Fractions', date: 'March 01', duration: '2h 15m' },
-                        { id: 2, title: 'Week 2: Addition and Subtraction', date: 'March 08', duration: '2h 30m' },
-                    ],
-                    tutes: [
-                        { id: 1, name: 'March_Week_1_Tute.pdf', type: 'Theory', size: '2.4 MB' },
-                    ]
+    // Database state
+    const [enrolledClasses, setEnrolledClasses] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Fetch data from your Node.js backend when the component loads
+    useEffect(() => {
+        const fetchClasses = async () => {
+            try {
+                const userId = localStorage.getItem('userId');
+                
+                const response = await fetch(`http://localhost:3000/api/student/classes?userId=${userId}`, {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setEnrolledClasses(data);
+                } else {
+                    console.error("Failed to fetch classes.");
+                }
+            } catch (error) {
+                console.error("Error fetching classes:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchClasses();
+    }, []);
+
+    // Function to handle the payment button click
+    const handlePayment = async (classId, moduleId, amount) => {
+        setIsProcessing(true);
+        try {
+            const userId = localStorage.getItem('userId');
+            
+            const response = await fetch('http://localhost:3000/api/student/pay', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                {
-                    id: 'April', name: 'April 2026', isPaid: false, topics: 'Geometry & Theorems',
-                    videos: [
-                        { id: 3, title: 'Week 1: Angles and Straight Lines', date: 'April 05', duration: '2h 20m' },
-                    ],
-                    tutes: []
-                }
-            ]
-        },
-        {
-            id: 2,
-            grade: 'Grade 9',
-            subject: 'Science',
-            teacher: {
-                name: 'Mr. Ravin Tharuka',
-                image: 'https://ui-avatars.com/api/?name=Ravin+Tharuka&background=0ea5e9&color=fff'
-            },
-            monthlyFee: 2000,
-            schedule: 'Every Tuesday 3:30 PM - 6:00 PM',
-            zoomLink: 'https://zoom.us/j/987654321',
-            studentsCount: 850,
-            months: [
-                {
-                    id: 'March', name: 'March 2026', isPaid: true, topics: 'Human Digestive System',
-                    videos: [
-                        { id: 4, title: 'Week 1: Enzymes and Digestion', date: 'March 03', duration: '2h 00m' },
-                    ],
-                    tutes: [
-                        { id: 2, name: 'Digestive_System_Note.pdf', type: 'Theory', size: '5.1 MB' },
-                    ]
-                }
-            ]
+                credentials: 'include',
+                body: JSON.stringify({
+                    userId: userId,
+                    classId: classId,
+                    moduleId: moduleId,
+                    amount: amount
+                })
+            });
+
+            if (response.ok) {
+                alert("Payment Successful! The month is now unlocked.");
+                // Hard refresh the page to fetch the newly unlocked data
+                window.location.reload(); 
+            } else {
+                alert("Payment failed. Please try again.");
+            }
+        } catch (error) {
+            console.error("Payment error:", error);
+            alert("An error occurred while processing your payment.");
+        } finally {
+            setIsProcessing(false);
         }
-    ];
+    };
+
+    // Loading Screen
+    if (isLoading) {
+        return (
+            <div className="flex h-[600px] items-center justify-center">
+                <div className="text-xl font-bold text-brand-purple animate-pulse">
+                    Loading your classes from database...
+                </div>
+            </div>
+        );
+    }
 
     // Get the data for the currently selected class
     const currentClass = enrolledClasses.find(c => c.id === selectedClassId);
@@ -100,57 +115,67 @@ const TuitionClass = () => {
                     <p className="text-gray-500 mt-2 font-medium">Select a class to access live links, recordings, and tutes.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {enrolledClasses.map((cls) => (
-                        <div key={cls.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden">
-                            {/* Card Header (Teacher Banner) */}
-                            <div className="p-6 border-b border-gray-50 flex items-center gap-4 bg-gradient-to-r from-gray-50 to-white">
-                                <img 
-                                    src={cls.teacher.image} 
-                                    alt={cls.teacher.name}
-                                    className="w-16 h-16 rounded-xl shadow-md object-cover group-hover:scale-105 transition-transform"
-                                />
-                                <div>
-                                    <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher.name}</h3>
-                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 mt-1">
-                                        <Users className="w-3.5 h-3.5" />
-                                        {cls.studentsCount} Students
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card Body */}
-                            <div className="p-6 flex-1 flex flex-col">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-[10px] font-bold text-brand-purple bg-purple-50 px-2 py-1 rounded uppercase tracking-wider">
-                                        {cls.grade}
-                                    </span>
-                                </div>
-                                <h2 className="text-xl font-black text-gray-900 mb-4 group-hover:text-brand-purple transition-colors">
-                                    {cls.subject}
-                                </h2>
-                                
-                                <div className="mt-auto bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-start gap-3">
-                                    <Calendar className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                {enrolledClasses.length === 0 ? (
+                    <div className="text-center p-12 bg-white rounded-2xl shadow-sm border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-700">No active classes found.</h2>
+                        <p className="text-gray-500 mt-2">You are not currently enrolled in any classes.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {enrolledClasses.map((cls) => (
+                            <div key={cls.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden">
+                                <div className="p-6 border-b border-gray-50 flex items-center gap-4 bg-gradient-to-r from-gray-50 to-white">
+                                    <img 
+                                        src={cls.teacher.image} 
+                                        alt={cls.teacher.name}
+                                        className="w-16 h-16 rounded-xl shadow-md object-cover group-hover:scale-105 transition-transform"
+                                    />
                                     <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Live Schedule</p>
-                                        <p className="text-sm font-semibold text-gray-700">{cls.schedule}</p>
+                                        <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher.name}</h3>
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 mt-1">
+                                            <Users className="w-3.5 h-3.5" />
+                                            {cls.studentsCount} Students
+                                        </div>
                                     </div>
                                 </div>
 
-                                <button 
-                                    onClick={() => {
-                                        setSelectedClassId(cls.id);
-                                        setActiveMonth(cls.months[0].id); // Reset month tab
-                                    }}
-                                    className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95"
-                                >
-                                    Enter Class Portal
-                                </button>
+                                <div className="p-6 flex-1 flex flex-col">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="text-[10px] font-bold text-brand-purple bg-purple-50 px-2 py-1 rounded uppercase tracking-wider">
+                                            {cls.grade}
+                                        </span>
+                                    </div>
+                                    <h2 className="text-xl font-black text-gray-900 mb-4 group-hover:text-brand-purple transition-colors">
+                                        {cls.subject}
+                                    </h2>
+                                    
+                                    <div className="mt-auto bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-start gap-3">
+                                        <Calendar className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">Live Schedule</p>
+                                            <p className="text-sm font-semibold text-gray-700">{cls.schedule}</p>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedClassId(cls.id);
+                                            if (cls.months && cls.months.length > 0) {
+                                                setActiveMonth(cls.months[0].id);
+                                                if (cls.months[0].videos && cls.months[0].videos.length > 0) {
+                                                    setActiveVideo(cls.months[0].videos[0].id);
+                                                }
+                                            }
+                                        }}
+                                        className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95"
+                                    >
+                                        Enter Class Portal
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     }
@@ -161,7 +186,6 @@ const TuitionClass = () => {
     return (
         <div className="p-8 max-w-[1400px] mx-auto animate-in slide-in-from-right-4 duration-300">
             
-            {/* Back Button */}
             <button 
                 onClick={() => setSelectedClassId(null)}
                 className="mb-6 flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-brand-purple transition-colors bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm w-fit hover:border-purple-200"
@@ -170,7 +194,6 @@ const TuitionClass = () => {
                 Back to My Classes
             </button>
 
-            {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-6">
                     <img 
@@ -196,7 +219,6 @@ const TuitionClass = () => {
                     </div>
                 </div>
                 
-                {/* Quick Class Info */}
                 <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <Calendar className="w-5 h-5 text-gray-400" />
                     <div>
@@ -206,13 +228,10 @@ const TuitionClass = () => {
                 </div>
             </div>
 
-            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                {/* LEFT COLUMN: Main Viewing Area (Spans 2 columns) */}
                 <div className="lg:col-span-2 space-y-6">
                     
-                    {/* Navigation Tabs */}
                     <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
                         {['Recordings', 'Live Class', 'Tutes', 'Payments'].map((tab) => (
                             <button
@@ -233,31 +252,49 @@ const TuitionClass = () => {
                         ))}
                     </div>
 
-                    {/* Tab Content Area */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[500px]">
                         
-                        {/* 1. RECORDINGS TAB */}
-                        {activeTab === 'Recordings' && (
+                        {activeTab === 'Recordings' && currentMonthData && (
                             <div className="flex flex-col h-full">
                                 {currentMonthData.isPaid ? (
                                     <>
-                                        <div className="bg-gray-900 aspect-video relative group flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-gradient-to-tr from-brand-purple/20 to-transparent opacity-50"></div>
-                                            <button className="relative z-10 w-20 h-20 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 hover:bg-brand-purple hover:border-brand-purple transition-all duration-300">
+                                        <div className="bg-gray-900 w-full h-64 md:h-80 relative group flex items-center justify-center rounded-b-2xl shadow-inner border-b-4 border-gray-800">
+                                            <div className="absolute inset-0 bg-gradient-to-tr from-brand-purple/20 to-transparent opacity-50 rounded-b-2xl"></div>
+                                            
+                                            <button 
+                                                onClick={() => {
+                                                    const video = currentMonthData.videos.find(v => v.id === activeVideo);
+                                                    if (video && video.link) {
+                                                        window.open(video.link, '_blank', 'noopener,noreferrer');
+                                                    } else {
+                                                        alert("Video link will be available soon!");
+                                                    }
+                                                }}
+                                                className="relative z-10 w-20 h-20 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 hover:bg-brand-purple hover:border-brand-purple hover:scale-110 transition-all duration-300 shadow-[0_0_30px_rgba(126,34,206,0.3)]"
+                                            >
                                                 <PlayCircle className="w-10 h-10 ml-1" />
                                             </button>
                                         </div>
-                                        <div className="p-6">
-                                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md uppercase tracking-wider mb-3 inline-block">
-                                                {currentMonthData.name} Recording
-                                            </span>
-                                            <h2 className="text-xl font-bold text-gray-900">
-                                                {currentMonthData.videos.find(v => v.id === activeVideo)?.title || 'Select a video'}
+                                        <div className="p-8">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-md uppercase tracking-wider">
+                                                    {currentMonthData.name} Recording
+                                                </span>
+                                                <span className="text-sm font-bold text-gray-500 flex items-center gap-1.5">
+                                                    <Clock className="w-4 h-4" /> 
+                                                    {currentMonthData.videos?.find(v => v.id === activeVideo)?.duration || '--'}
+                                                </span>
+                                            </div>
+                                            <h2 className="text-2xl font-black text-gray-900 leading-tight">
+                                                {currentMonthData.videos?.find(v => v.id === activeVideo)?.title || 'Select a video'}
                                             </h2>
+                                            <p className="text-sm font-medium text-gray-500 mt-2">
+                                                Click the play button above to watch this lesson in a new tab.
+                                            </p>
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50">
+                                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50 min-h-[400px]">
                                         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4">
                                             <Lock className="w-10 h-10 text-red-500" />
                                         </div>
@@ -266,17 +303,17 @@ const TuitionClass = () => {
                                             You need to pay the class fees for {currentMonthData.name} to access these recordings and tutes.
                                         </p>
                                         <button 
-                                            onClick={() => setActiveTab('Payments')}
-                                            className="mt-6 px-6 py-3 bg-brand-purple text-white rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-md"
+                                            onClick={() => handlePayment(currentClass.id, currentMonthData.id, currentClass.monthlyFee)}
+                                            disabled={isProcessing}
+                                            className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-md disabled:opacity-50"
                                         >
-                                            Pay Rs. {currentClass.monthlyFee} Now
+                                            {isProcessing ? "Processing..." : `Pay Rs. ${currentClass.monthlyFee} Now`}
                                         </button>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* 2. LIVE CLASS TAB */}
                         {activeTab === 'Live Class' && (
                             <div className="p-10 flex flex-col items-center justify-center h-full text-center">
                                 <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 relative">
@@ -302,13 +339,12 @@ const TuitionClass = () => {
                             </div>
                         )}
 
-                        {/* 3. TUTES TAB */}
-                        {activeTab === 'Tutes' && (
+                        {activeTab === 'Tutes' && currentMonthData && (
                             <div className="p-6">
                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Class Tutes & Materials - {currentMonthData.name}</h2>
                                 {currentMonthData.isPaid ? (
                                     <div className="space-y-3">
-                                        {currentMonthData.tutes.length > 0 ? currentMonthData.tutes.map(tute => (
+                                        {currentMonthData.tutes?.length > 0 ? currentMonthData.tutes.map(tute => (
                                             <div key={tute.id} className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-colors group">
                                                 <div className="flex items-center gap-4">
                                                     <div className="p-3 bg-purple-100 text-brand-purple rounded-xl">
@@ -342,7 +378,6 @@ const TuitionClass = () => {
                             </div>
                         )}
 
-                        {/* 4. PAYMENTS TAB */}
                         {activeTab === 'Payments' && (
                             <div className="p-6">
                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Monthly Fees</h2>
@@ -360,8 +395,12 @@ const TuitionClass = () => {
                                                         <CheckCircle className="w-4 h-4" /> Paid
                                                     </span>
                                                 ) : (
-                                                    <button className="px-6 py-2 bg-brand-purple text-white text-sm font-bold rounded-lg hover:bg-purple-700 shadow-sm transition-colors">
-                                                        Pay Now
+                                                    <button 
+                                                        onClick={() => handlePayment(currentClass.id, month.id, currentClass.monthlyFee)}
+                                                        disabled={isProcessing}
+                                                        className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-lg hover:bg-purple-700 shadow-sm transition-colors disabled:opacity-50"
+                                                    >
+                                                        {isProcessing ? "Processing..." : "Pay Now"}
                                                     </button>
                                                 )}
                                             </div>
@@ -411,7 +450,7 @@ const TuitionClass = () => {
                                     {/* Video List inside Month */}
                                     {activeMonth === month.id && (
                                         <div className="bg-white py-2 border-t border-gray-50">
-                                            {month.videos.map((video) => (
+                                            {month.videos?.map((video) => (
                                                 <button 
                                                     key={video.id}
                                                     onClick={() => {

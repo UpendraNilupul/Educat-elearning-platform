@@ -19,6 +19,7 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import verifyRoutes from './routes/verify.js';
+import classRoutes from './routes/class.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -63,7 +64,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api', courseRoutes); 
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
-
+app.use('/api', classRoutes);
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
