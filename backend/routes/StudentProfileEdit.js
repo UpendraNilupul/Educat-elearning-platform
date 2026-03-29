@@ -110,7 +110,8 @@ router.put('/profile/:userId', (req, res, next) => {
     const userId = req.params.userId;
     const {
         name, email, phone_number, address, dob, gender,
-        school_name, grade_level, guardian_name, guardian_phone
+        school_name, grade_level, guardian_name, guardian_phone,
+        removePhoto
     } = req.body;
 
     let connection;
@@ -133,6 +134,8 @@ router.put('/profile/:userId', (req, res, next) => {
             userSQL += `, picture = ?`;
             // Save the secure Cloudinary URL (path) instead of just the filename
             userParams.push(req.file.path);
+        } else if (removePhoto === 'true') {
+            userSQL += `, picture = NULL`;
         }
 
         userSQL += ` WHERE id = ?`;
