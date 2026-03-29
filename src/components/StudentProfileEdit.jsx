@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Camera, Save, User, Mail, Phone, Calendar,
-  Users, GraduationCap, BookOpen, Layers, MapPin, Shield
+  Users, GraduationCap, BookOpen, Layers, MapPin, Shield,
+  Loader2
 } from 'lucide-react';
 
 // Configuration for image validation
@@ -40,6 +41,8 @@ const profileSchema = z.object({
 const StudentProfileEdit = ({ onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // 2. Initialize React Hook Form
   const {
@@ -137,11 +140,17 @@ const StudentProfileEdit = ({ onClose }) => {
     formData.append('guardian_name', data.guardianName);
     formData.append('guardian_phone', data.guardianPhone);
 
+    // Append removePhoto flag if true
+    if (removePhoto) {
+      formData.append('removePhoto', 'true');
+    }
+
     // Append file if present
     if (data.picture && data.picture[0]) {
       formData.append('picture', data.picture[0]);
     }
 
+    setIsUploading(true);
     try {
       const response = await fetch(`http://localhost:3000/api/student/profile/${userId}`, {
         method: 'PUT',
@@ -159,6 +168,8 @@ const StudentProfileEdit = ({ onClose }) => {
     } catch (error) {
       console.error('Update Error:', error);
       alert('Network Error: Could not reach the server.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -191,11 +202,17 @@ const StudentProfileEdit = ({ onClose }) => {
         {/* Profile Photo Section */}
         <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl border border-gray-100 shadow-sm flex items-start gap-6">
           <div className="relative group shrink-0">
-            <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center border-4 border-white shadow-sm overflow-hidden text-purple-400">
-              {previewImage ? (
+            <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center border-4 border-white shadow-sm overflow-hidden text-purple-400 relative">
+              {(previewImage && !removePhoto) ? (
                 <img src={previewImage} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-10 h-10" />
+              )}
+              
+              {isUploading && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+                  <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                </div>
               )}
             </div>
             <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer pointer-events-none">
@@ -205,22 +222,43 @@ const StudentProfileEdit = ({ onClose }) => {
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900">Profile Photo</h3>
             <p className="text-sm text-gray-500 mb-3">Upload a professional looking portrait (Max 5MB).</p>
-            <div className="relative inline-block">
-              <input
-                type="file"
-                {...register("picture")}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                accept="image/png, image/jpeg, image/webp"
-              />
-              <button
-                type="button"
-                className={`px-5 py-2.5 font-semibold text-sm rounded-lg transition-colors border ${errors.picture
-                  ? "bg-red-50 text-red-600 border-red-200"
-                  : "bg-purple-50 text-brand-purple hover:bg-purple-100 border-purple-200"
-                  }`}
-              >
-                Choose File
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="relative inline-block">
+                <input
+                  type="file"
+                  {...register("picture", {
+                    onChange: (e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setRemovePhoto(false);
+                        const reader = new FileReader();
+                        reader.onload = (event) => setPreviewImage(event.target.result);
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }
+                  })}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  accept="image/png, image/jpeg, image/webp"
+                />
+                <button
+                  type="button"
+                  className={`px-5 py-2.5 font-semibold text-sm rounded-lg transition-colors border ${errors.picture
+                    ? "bg-red-50 text-red-600 border-red-200"
+                    : "bg-purple-50 text-brand-purple hover:bg-purple-100 border-purple-200"
+                    }`}
+                >
+                  Choose File
+                </button>
+              </div>
+
+              {previewImage && !removePhoto && (
+                <button
+                  type="button"
+                  onClick={() => setRemovePhoto(true)}
+                  className="px-5 py-2.5 font-semibold text-sm rounded-lg transition-colors border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white"
+                >
+                  Remove
+                </button>
+              )}
             </div>
             {errors.picture && (
               <p className="text-red-500 text-xs mt-2 font-medium">{errors.picture.message}</p>
@@ -403,10 +441,24 @@ const StudentProfileEdit = ({ onClose }) => {
         <div className="flex justify-end pt-2 pb-6">
           <button
             type="submit"
-            className="flex items-center gap-2 px-8 py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-brand-purple transition-all shadow-lg hover:shadow-brand-purple/30 active:scale-95"
+            disabled={isUploading}
+            className={`flex items-center gap-2 px-8 py-3.5 font-bold rounded-xl transition-all shadow-lg active:scale-95 ${
+              isUploading 
+                ? "bg-gray-400 cursor-not-allowed shadow-none" 
+                : "bg-gray-900 text-white hover:bg-brand-purple hover:shadow-brand-purple/30"
+            }`}
           >
-            <Save className="w-5 h-5" />
-            Save Changes
+            {isUploading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Save Changes
+              </>
+            )}
           </button>
         </div>
 
