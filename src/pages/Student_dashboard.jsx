@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course'; 
-import TuitionClass from './Class'; 
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import DashboardHeader from '../components/DashboardHeader'; 
@@ -20,7 +19,8 @@ import {
     GraduationCap,
     Calendar,
     Play,
-    X
+    X,
+    ChevronRight
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
