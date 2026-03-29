@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -13,6 +14,7 @@ import DashboardHeaderTeacher from "../components/DashboardHeaderTeacher"; // Yo
 import TeachersCourse from "./TeachersCourse";
 
 const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
 
   const navItems = [
@@ -109,7 +111,10 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
             </div>
           </div>
           <button
-            onClick={onLogout}
+            onClick={() => {
+              if (onLogout) onLogout();
+              navigate('/');
+            }}
             className="text-red-500 text-sm hover:underline hover:text-red-600 font-medium transition-colors"
           >
             Logout
