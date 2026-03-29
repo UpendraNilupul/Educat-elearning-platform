@@ -184,10 +184,14 @@ function App() {
           <Route
             path="/teacher"
             element={
-              (userRole === 'teacher' && verificationStatus === 'approved') ? (
-                <TeacherDashboard userName={userName} onLogout={handleLogout} />
+              userRole === 'teacher' ? (
+                verificationStatus === 'approved' ? (
+                  <TeacherDashboard userName={userName} onLogout={handleLogout} />
+                ) : (
+                  <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+                )
               ) : (
-                <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+                <Navigate to="/" />
               )
             }
           />
