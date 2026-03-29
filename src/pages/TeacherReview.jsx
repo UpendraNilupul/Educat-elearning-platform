@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, IdCard } from 'lucide-react';
 
 const TeacherReview = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -142,7 +142,10 @@ const TeacherReview = ({ userName, onLogout }) => {
                             </div>
                         </div>
 
+                        {/* 🌟 NEW: Grid for Multiple Documents */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            
+                            {/* Document 1: CV */}
                             <a 
                                 href={teacher.resume_link ? (teacher.resume_link.startsWith('http') ? teacher.resume_link : `http://localhost:3000/uploads/verification/${teacher.resume_link}`) : '#'} 
                                 target="_blank" rel="noreferrer"
@@ -150,9 +153,22 @@ const TeacherReview = ({ userName, onLogout }) => {
                                     ${teacher.resume_link ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}
                             >
                                 <FileText className={`mb-2 ${teacher.resume_link ? 'text-[#4a0b59]' : 'text-gray-400'}`} size={32} />
-                                <span className="font-bold text-gray-800">Curriculum Vitae (CV)</span>
+                                <span className="font-bold text-gray-800 text-center">Curriculum Vitae (CV)</span>
                                 <span className="text-xs text-gray-500 mt-1">{teacher.resume_link ? 'Click to view document' : 'No CV uploaded'}</span>
                             </a>
+
+                            {/* Document 2: NIC */}
+                            <a 
+                                href={teacher.nic_path ? (teacher.nic_path.startsWith('http') ? teacher.nic_path : `http://localhost:3000/uploads/verification/${teacher.nic_path}`) : '#'} 
+                                target="_blank" rel="noreferrer"
+                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all
+                                    ${teacher.nic_path ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}
+                            >
+                                <IdCard className={`mb-2 ${teacher.nic_path ? 'text-[#4a0b59]' : 'text-gray-400'}`} size={32} />
+                                <span className="font-bold text-gray-800 text-center">National ID Card</span>
+                                <span className="text-xs text-gray-500 mt-1">{teacher.nic_path ? 'Click to view image' : 'No NIC uploaded'}</span>
+                            </a>
+
                         </div>
                     </div>
                 </div>

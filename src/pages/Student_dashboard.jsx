@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import CoursesPage from './Course'; 
+import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
-import { 
-    LayoutDashboard, 
-    BookOpen, 
-    PlayCircle, 
-    FileText, 
-    Trophy, 
-    Award, 
-    Briefcase, 
+
+import {
+    LayoutDashboard,
+    BookOpen,
+    PlayCircle,
+    FileText,
+    Trophy,
+    Award,
+    Briefcase,
     Download,
+    Settings,
+    LogOut,
     GraduationCap,
     Calendar,
-    ChevronRight,
     Play,
-    LogOut,
-    Settings,
-    X
+    X,
+    ChevronRight,
+    Edit2
 } from 'lucide-react';
-
-
 
 const Student = ({ userName, onLogout }) => {
     const [selectedSection, setSelectedSection] = useState('Overview');
@@ -51,22 +51,24 @@ const Student = ({ userName, onLogout }) => {
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
-                <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-brand-purple to-purple-600 bg-clip-text text-transparent">
-                        Student Dashboard
-                    </h2>
+            <aside className="w-52 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
+                <div className="px-4 py-5 mb-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-extrabold text-gray-900 tracking-tight">Student</span>
+                            <span className="text-xl font-medium text-purple-400">Dashboard</span>
+                        </div>
+                    </div>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                     {navItems.map((item) => (
                         <button
                             key={item.name}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                                selectedSection === item.name
-                                    ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                            }`}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${selectedSection === item.name
+                                ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
                             onClick={() => setSelectedSection(item.name)}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
@@ -76,22 +78,18 @@ const Student = ({ userName, onLogout }) => {
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3">
-                        <div
-                            onClick={() => setIsEditModalOpen(true)}
-                            className="flex items-center gap-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group flex-1"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold">
-                                {userName?.[0] || 'S'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
-                                <p className="text-xs text-gray-500 truncate">Student Account</p>
-                            </div>
+                    <div
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold group-hover:bg-purple-200 transition-colors">
+                            {userName?.[0] || 'S'}
                         </div>
-                        <button className="flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 transition-colors group">
-                            <Settings className="w-5 h-5 text-gray-500 group-hover:text-brand-purple transition-colors" />
-                        </button>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
+                            <p className="text-xs text-gray-500 truncate">Student Account</p>
+                        </div>
+                        <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-brand-purple transition-colors ml-auto" />
                     </div>
                     <button
                         onClick={onLogout}
@@ -106,8 +104,7 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-                    <DashboardHeader userName={userName} />
-                    
+
                     {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
@@ -116,7 +113,7 @@ const Student = ({ userName, onLogout }) => {
                     ) : (
                         <>
                             {/* Welcome Section */}
-                            <div className="pt-2 mb-10">
+                            <div className="pt-6 mb-10">
                                 <h2 className="text-3xl font-bold text-gray-900 leading-tight">
                                     Welcome back, {userName || 'Student'}! 👋
                                 </h2>
