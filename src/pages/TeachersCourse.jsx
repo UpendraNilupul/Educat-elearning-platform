@@ -103,7 +103,12 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
-            const updatedCourse = { ...course, chapters: [...(course.chapters || []), newChap] };
+            const updatedChapters = [...(course.chapters || []), newChap];
+            const updatedCourse = { 
+                ...course, 
+                chapters: updatedChapters, 
+                modules: updatedChapters.length 
+            };
             setSelectedCourse(updatedCourse);
             setExpandedChapters([...expandedChapters, newChap.id]);
             return updatedCourse;
@@ -400,7 +405,12 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
-            const updatedCourse = { ...course, chapters: course.chapters.filter(c => c.id !== chapterId) };
+            const updatedChapters = course.chapters.filter(c => c.id !== chapterId);
+            const updatedCourse = { 
+                ...course, 
+                chapters: updatedChapters,
+                modules: updatedChapters.length 
+            };
             setSelectedCourse(updatedCourse);
             return updatedCourse;
           }

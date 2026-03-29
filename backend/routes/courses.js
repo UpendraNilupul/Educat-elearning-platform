@@ -26,13 +26,19 @@ router.get('/courses', async (req, res) => {
         let q = 'SELECT * FROM classes_courses ORDER BY id DESC';
         let params = [];
         if (req.query.teacherId) {
-            q = 'SELECT * FROM classes_courses WHERE teacher_id = ? ORDER BY id DESC';
-            params.push(req.query.teacherId);
+            const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [req.query.teacherId]);
+            if (tRes.length > 0) {
+                q = 'SELECT * FROM classes_courses WHERE t_id = ? ORDER BY id DESC';
+                params.push(tRes[0].id);
+            } else {
+                return res.status(200).json([]);
+            }
         }
         const courses = await query(q, params);
         for (let course of courses) {
             const modules = await query('SELECT * FROM modules WHERE c_id = ? ORDER BY number ASC, id ASC', [course.id]);
             course.chapters = modules.map(m => ({ id: m.id, title: m.title, isVisible: m.isVisible === 1 }));
+            course.modules = course.chapters.length; // Override stale db property with dynamic calculation
             for (let mod of course.chapters) {
                 const lessons = await query('SELECT * FROM lessons WHERE m_id = ? ORDER BY number ASC, id ASC', [mod.id]);
                 mod.lessons = [];
@@ -55,31 +61,16 @@ router.get('/courses', async (req, res) => {
 
 // POST a new course
 router.post('/courses', async (req, res) => {
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, userId } = req.body;
-    
+    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId } = req.body;
     try {
-        // Fetch teacher associated with this user
-        let t_id = 1; // Fallback, but we should find the actual teacher
-        if (userId) {
-            const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
-            if (tRes.length > 0) t_id = tRes[0].id;
-            else return res.status(404).json({ message: 'Teacher profile not found for user' });
-        }
-
-        const insertQuery = `
-            INSERT INTO classes_courses 
-            (name, title, type, status, is_published, theme_color, thumbnail_url, t_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+        const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+        const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
         
-        const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, t_id];
-        
-        const result = await query(insertQuery, values);
-        
-        res.status(201).json({ 
-            id: result.insertId, 
-            name, title, type, status, is_published, theme_color, thumbnail_url, t_id 
-        });
+        const result = await query(
+            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, students || 0, 0, progress || 0, actualTeacherId]
+        );
+        res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
         console.error('Error creating course:', err);
         return res.status(500).json({ message: 'Server error' });

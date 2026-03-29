@@ -130,6 +130,10 @@ function App() {
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
           <Route
+            path="/verify-teacher/:id"
+            element={<VerifyTeacher />}
+          />
+          <Route
             path="/teachers"
             element={
               <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
