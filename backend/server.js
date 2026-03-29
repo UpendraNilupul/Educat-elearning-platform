@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -20,6 +20,7 @@ import forgotPasswordRoutes from './routes/forgotPassword.js';
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import verifyRoutes from './routes/verify.js';
+import studentProfileRoutes from './routes/StudentProfileEdit.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api', courseRoutes); 
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
+app.use('/api/student', studentProfileRoutes);
 
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
