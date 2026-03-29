@@ -38,7 +38,10 @@ const VerifyTeacher = () => {
           <input type="file" onChange={(e) => setFiles({...files, cv: e.target.files[0]})} required className="w-full border p-2 rounded" />
         </div>
 
-        <button type="submit" className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700">
+        <button
+          type="submit"
+          className="w-full bg-orange-600 text-white py-3 rounded-xl font-bold cursor-pointer"
+        >
           Submit Documents
         </button>
       </form>
