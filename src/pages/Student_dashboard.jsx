@@ -26,6 +26,40 @@ import {
 const Student = ({ userName, onLogout }) => {
     const [selectedSection, setSelectedSection] = useState('Overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [profileData, setProfileData] = useState({ name: '', picture: '' });
+    const [firstName, setFirstName] = useState('Student');
+
+    // 1. Fetch Basic Info for Sidebar & Welcome Message
+    useEffect(() => {
+        const fetchBasicInfo = async () => {
+            const userId = localStorage.getItem('userId') || '2';
+            try {
+                const response = await fetch(`http://localhost:3000/api/student/basic-info/${userId}`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    let picUrl = result.picture;
+                    if (picUrl && !picUrl.startsWith('http')) {
+                        picUrl = `http://localhost:3000/uploads/${picUrl}`;
+                    }
+                    
+                    setProfileData({
+                        name: result.name,
+                        picture: picUrl
+                    });
+
+                    // Set first name for the welcome section
+                    if (result.name) {
+                        setFirstName(result.name.split(' ')[0]);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching basic dashboard info:", error);
+            }
+        };
+        fetchBasicInfo();
+    }, []);
 
     const ads = ['/add1.png', '/add2.png', '/add3.png', '/add4.png'];
     const [currentAdIndex, setCurrentAdIndex] = useState(0);
@@ -82,11 +116,15 @@ const Student = ({ userName, onLogout }) => {
                         onClick={() => setIsEditModalOpen(true)}
                         className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-50 mb-3 cursor-pointer hover:bg-gray-200 transition-colors duration-200 group"
                     >
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold group-hover:bg-purple-200 transition-colors">
-                            {userName?.[0] || 'S'}
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-brand-purple font-bold group-hover:bg-purple-200 transition-colors overflow-hidden">
+                            {profileData.picture ? (
+                                <img src={profileData.picture} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                profileData.name?.charAt(0) || userName?.[0] || 'S'
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{userName || 'Student'}</p>
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{profileData.name || userName || 'Student'}</h4>
                             <p className="text-xs text-gray-500 truncate">Student Account</p>
                         </div>
                         <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-brand-purple transition-colors ml-auto" />
@@ -115,7 +153,7 @@ const Student = ({ userName, onLogout }) => {
                             {/* Welcome Section */}
                             <div className="pt-6 mb-10">
                                 <h2 className="text-3xl font-bold text-gray-900 leading-tight">
-                                    Welcome back, {userName || 'Student'}! 👋
+                                    Welcome back, {firstName}! 👋
                                 </h2>
                                 <p className="text-gray-500 mt-2 text-lg font-medium max-w-2xl">
                                     Ready to continue your learning journey? You're making great progress this month.

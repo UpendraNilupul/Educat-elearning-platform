@@ -1,40 +1,183 @@
-import React, { useState } from 'react';
-import { Camera, Save, User, Mail, Phone, Calendar, Users, GraduationCap, Hash, BookOpen, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Camera, Save, User, Mail, Phone, Calendar,
+  Users, GraduationCap, BookOpen, Layers, MapPin, Shield
+} from 'lucide-react';
 
-const StudentProfileEdit = ({ onClose, initialData = {} }) => {
-  const [formData, setFormData] = useState({
-    fullName: initialData.fullName || '',
-    email: initialData.email || '',
-    phone: initialData.phone || '',
-    dob: initialData.dob || '',
-    gender: initialData.gender || '',
-    schoolName: initialData.schoolName || '',
-    gradeLevel: initialData.gradeLevel || '',
-    stream: initialData.stream || '',
-    studentId: initialData.studentId || '',
+// Configuration for image validation
+const MAX_FILE_SIZE = 5000000; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+// 1. Updated validation rules using Zod based on SQL tables
+const profileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+  address: z.string().min(5, "Address is required"),
+  dob: z.string().min(1, "Date of birth is required"),
+  gender: z.string().min(1, "Please select a gender"),
+  schoolName: z.string().min(2, "School name is required"),
+  gradeLevel: z.string().min(1, "Grade level is required"),
+  guardianName: z.string().min(2, "Guardian name is required"),
+  guardianPhone: z.string().min(10, "Guardian phone must be at least 10 digits"),
+
+  // New: Optional picture validation
+  picture: z.any()
+    .optional()
+    .refine(
+      (files) => !files || files.length === 0 || files[0]?.size <= MAX_FILE_SIZE,
+      "Max file size is 5MB."
+    )
+    .refine(
+      (files) => !files || files.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files[0]?.type),
+      "Only .jpg, .jpeg, .png and .webp formats are supported."
+    ),
+});
+
+const StudentProfileEdit = ({ onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [previewImage, setPreviewImage] = useState(null);
+
+  // 2. Initialize React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phoneNumber: '',
+      address: '',
+      dob: '',
+      gender: '',
+      schoolName: '',
+      gradeLevel: '',
+      guardianName: '',
+      guardianPhone: '',
+    },
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  // 3. Fetch data on mount
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Form data to save:', formData);
-    // Add API logic here
-    
-    // Simulate successful save and close the modal
-    if (onClose) {
-      onClose();
+      try {
+        const response = await fetch(`http://localhost:3000/api/student/profile/${userId}`, {
+          credentials: 'include'
+        });
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const dbData = result.data;
+          // Map snake_case from DB to camelCase for React Hook Form
+          const formData = {
+            name: dbData.name || '',
+            email: dbData.email || '',
+            phoneNumber: dbData.phone_number || '',
+            address: dbData.address || '',
+            dob: dbData.dob || '',
+            gender: dbData.gender || '',
+            schoolName: dbData.school_name || '',
+            gradeLevel: dbData.grade_level || '',
+            guardianName: dbData.guardian_name || '',
+            guardianPhone: dbData.guardian_phone || '',
+          };
+          
+          reset(formData);
+
+          // If picture exists, set preview (Cloudinary or local fallback)
+          if (dbData.picture) {
+            const pic = dbData.picture;
+            if (pic.startsWith('http')) {
+              setPreviewImage(pic);
+            } else {
+              setPreviewImage(`http://localhost:3000/uploads/${pic}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [reset]);
+
+  // 4. Submit handler
+  const onSubmit = async (data) => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      alert('Error: User session not found. Please log in again.');
+      return;
+    }
+
+    const formData = new FormData();
+    // Append standard fields
+    formData.append('name', data.name);
+    formData.append('email', data.email);
+    formData.append('phone_number', data.phoneNumber);
+    formData.append('address', data.address);
+    formData.append('dob', data.dob);
+    formData.append('gender', data.gender);
+    formData.append('school_name', data.schoolName);
+    formData.append('grade_level', data.gradeLevel);
+    formData.append('guardian_name', data.guardianName);
+    formData.append('guardian_phone', data.guardianPhone);
+
+    // Append file if present
+    if (data.picture && data.picture[0]) {
+      formData.append('picture', data.picture[0]);
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/student/profile/${userId}`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        alert('Profile updated successfully!');
+        if (onClose) onClose();
+      } else {
+        alert('Failed to update: ' + (result.error || result.message));
+      }
+    } catch (error) {
+      console.error('Update Error:', error);
+      alert('Network Error: Could not reach the server.');
     }
   };
 
-  const inputClassName = "w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors bg-white/60 backdrop-blur-sm";
+  // 4. Helper function for styling inputs
+  const getInputClassName = (error) =>
+    `w-full border rounded-lg p-2 focus:outline-none focus:ring-2 transition-colors bg-white/60 backdrop-blur-sm ${error
+      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+      : "border-gray-300 focus:ring-purple-500 focus:border-purple-500"
+    }`;
+
   const labelClassName = "block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-2";
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-5xl mx-auto">
@@ -43,37 +186,51 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
         <p className="text-gray-500 mt-1">Manage your personal and academic information.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
         {/* Profile Photo Section */}
-        <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
-          <div className="relative group">
-             <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center border-4 border-white shadow-sm overflow-hidden text-purple-400">
+        <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl border border-gray-100 shadow-sm flex items-start gap-6">
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center border-4 border-white shadow-sm overflow-hidden text-purple-400">
+              {previewImage ? (
+                <img src={previewImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
                 <User className="w-10 h-10" />
-             </div>
-             <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                 <Camera className="w-6 h-6 text-white" />
-             </div>
+              )}
+            </div>
+            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer pointer-events-none">
+              <Camera className="w-6 h-6 text-white" />
+            </div>
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900">Profile Photo</h3>
-            <p className="text-sm text-gray-500 mb-3">Upload a professional looking portrait.</p>
+            <p className="text-sm text-gray-500 mb-3">Upload a professional looking portrait (Max 5MB).</p>
             <div className="relative inline-block">
-              <input 
-                type="file" 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                accept="image/*"
+              <input
+                type="file"
+                {...register("picture")}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                accept="image/png, image/jpeg, image/webp"
               />
-              <button type="button" className="px-5 py-2.5 bg-purple-50 text-brand-purple hover:bg-purple-100 font-semibold text-sm rounded-lg transition-colors border border-purple-200">
-                Upload Photo
+              <button
+                type="button"
+                className={`px-5 py-2.5 font-semibold text-sm rounded-lg transition-colors border ${errors.picture
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : "bg-purple-50 text-brand-purple hover:bg-purple-100 border-purple-200"
+                  }`}
+              >
+                Choose File
               </button>
             </div>
+            {errors.picture && (
+              <p className="text-red-500 text-xs mt-2 font-medium">{errors.picture.message}</p>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Card 1: Personal Information */}
+
+          {/* Card 1: Personal Information (Matches `users` table) */}
           <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
               <div className="p-2 bg-purple-50 rounded-xl">
@@ -81,7 +238,7 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
               </div>
               <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>
             </div>
-            
+
             <div className="space-y-5">
               <div>
                 <label className={labelClassName}>
@@ -89,12 +246,11 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
                 </label>
                 <input
                   type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className={inputClassName}
+                  {...register("name")}
+                  className={getInputClassName(errors.name)}
                   placeholder="John Doe"
                 />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
               </div>
 
               <div>
@@ -103,26 +259,38 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
                 </label>
                 <input
                   type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={inputClassName}
+                  {...register("email")}
+                  className={getInputClassName(errors.email)}
                   placeholder="john.doe@example.com"
                 />
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
               </div>
 
-              <div>
-                <label className={labelClassName}>
-                  <Phone className="w-4 h-4 text-gray-400" /> Phone Number
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={inputClassName}
-                  placeholder="+1 (555) 000-0000"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClassName}>
+                    <Phone className="w-4 h-4 text-gray-400" /> Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    {...register("phoneNumber")}
+                    className={getInputClassName(errors.phoneNumber)}
+                    placeholder="0777777777"
+                  />
+                  {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber.message}</p>}
+                </div>
+                <div>
+                  <label className={labelClassName}>
+                    <MapPin className="w-4 h-4 text-gray-400" /> Address
+                  </label>
+                  <input
+                    type="text"
+                    {...register("address")}
+                    className={getInputClassName(errors.address)}
+                    placeholder="City, Region"
+                  />
+                  {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -132,40 +300,37 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
                   </label>
                   <input
                     type="date"
-                    name="dob"
-                    value={formData.dob}
-                    onChange={handleChange}
-                    className={inputClassName}
+                    {...register("dob")}
+                    className={getInputClassName(errors.dob)}
                   />
+                  {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob.message}</p>}
                 </div>
                 <div>
                   <label className={labelClassName}>
                     <Users className="w-4 h-4 text-gray-400" /> Gender
                   </label>
                   <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    className={inputClassName}
+                    {...register("gender")}
+                    className={getInputClassName(errors.gender)}
                   >
                     <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
+                  {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender.message}</p>}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Academic Information */}
+          {/* Card 2: Academic & Guardian Information (Matches `students` table) */}
           <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
               <div className="p-2 bg-blue-50 rounded-xl">
                 <GraduationCap className="w-5 h-5 text-blue-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">Academic Information</h3>
+              <h3 className="text-xl font-bold text-gray-900">Academic & Guardian Info</h3>
             </div>
 
             <div className="space-y-5">
@@ -175,55 +340,60 @@ const StudentProfileEdit = ({ onClose, initialData = {} }) => {
                 </label>
                 <input
                   type="text"
-                  name="schoolName"
-                  value={formData.schoolName}
-                  onChange={handleChange}
-                  className={inputClassName}
+                  {...register("schoolName")}
+                  className={getInputClassName(errors.schoolName)}
                   placeholder="e.g. Springfield High School"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClassName}>
-                    <Layers className="w-4 h-4 text-gray-400" /> Grade/Level
-                  </label>
-                  <input
-                    type="text"
-                    name="gradeLevel"
-                    value={formData.gradeLevel}
-                    onChange={handleChange}
-                    className={inputClassName}
-                    placeholder="e.g. 12th Grade"
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>
-                    <Hash className="w-4 h-4 text-gray-400" /> Student ID
-                  </label>
-                  <input
-                    type="text"
-                    name="studentId"
-                    value={formData.studentId}
-                    onChange={handleChange}
-                    className={inputClassName}
-                    placeholder="e.g. STU-12003"
-                  />
-                </div>
+                {errors.schoolName && <p className="text-red-500 text-xs mt-1">{errors.schoolName.message}</p>}
               </div>
 
               <div>
                 <label className={labelClassName}>
-                  <BookOpen className="w-4 h-4 text-gray-400" /> Stream/Subject
+                  <Layers className="w-4 h-4 text-gray-400" /> Grade/Level
                 </label>
-                <input
-                  type="text"
-                  name="stream"
-                  value={formData.stream}
-                  onChange={handleChange}
-                  className={inputClassName}
-                  placeholder="e.g. Science, Arts, Computer Science"
-                />
+                <select
+                  {...register("gradeLevel")}
+                  className={getInputClassName(errors.gradeLevel)}
+                >
+                  <option value="">Select Grade</option>
+                  {[...Array(13)].map((_, i) => (
+                    <option key={i + 1} value={`Grade ${i + 1}`}>Grade {i + 1}</option>
+                  ))}
+                  <option value="Other">Other</option>
+                </select>
+                {errors.gradeLevel && <p className="text-red-500 text-xs mt-1">{errors.gradeLevel.message}</p>}
+              </div>
+
+              {/* Guardian Fields */}
+              <div className="pt-2 border-t border-gray-100 mt-2">
+                <h4 className="text-sm font-bold text-gray-900 mb-4">Guardian Contact</h4>
+                <div className="grid grid-cols-1 gap-5">
+                  <div>
+                    <label className={labelClassName}>
+                      <Shield className="w-4 h-4 text-gray-400" /> Guardian Name
+                    </label>
+                    <input
+                      type="text"
+                      {...register("guardianName")}
+                      className={getInputClassName(errors.guardianName)}
+                      placeholder="e.g. Jane Doe"
+                    />
+                    {errors.guardianName && <p className="text-red-500 text-xs mt-1">{errors.guardianName.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className={labelClassName}>
+                      <Phone className="w-4 h-4 text-gray-400" /> Guardian Phone
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("guardianPhone")}
+                      className={getInputClassName(errors.guardianPhone)}
+                      placeholder="0777777777"
+                    />
+                    {errors.guardianPhone && <p className="text-red-500 text-xs mt-1">{errors.guardianPhone.message}</p>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
