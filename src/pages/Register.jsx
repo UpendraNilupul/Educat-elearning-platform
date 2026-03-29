@@ -53,7 +53,8 @@ const Register = ({ setUserName, setUserRole }) => {
     if (!validateForm()) return;
 
     try {
-      const res = await fetch('/api/register', {
+      // 🌟 THE FIX 1: Point exactly to the backend server
+      const res = await fetch('http://localhost:3000/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -64,25 +65,36 @@ const Register = ({ setUserName, setUserRole }) => {
       if (res.ok) {
         alert('Registration successful!');
 
-        const finalRole = (formData.role || data.userRole || '').toLowerCase();
-        const finalName = data.userName || formData.name;
+        // 🌟 THE FIX 2: Bulletproof case sensitivity, just like Login.jsx
+        const safeRole = String(formData.role || data.userRole || '').toLowerCase().trim();
+        const safeName = data.userName || formData.name;
 
+        // Save into local storage so App.jsx knows we are logged in
         localStorage.setItem('userId', data.userId);
-        localStorage.setItem('userRole', finalRole);
-        localStorage.setItem('userName', finalName);
+        localStorage.setItem('userRole', safeRole);
+        localStorage.setItem('userName', safeName);
 
-        if (setUserRole) setUserRole(finalRole);
-        if (setUserName) setUserName(finalName);
+        // Update App.jsx State immediately
+        if (setUserRole) setUserRole(safeRole);
+        if (setUserName) setUserName(safeName);
 
-        if (finalRole === 'admin') navigate('/admin');
-        else if (finalRole === 'teacher') navigate(`/verify-teacher/${data.userId}`);
-        else if (finalRole === 'student') navigate('/student');
-        else navigate('/login');
+        // 🔥 Guaranteed Redirect Logic
+        if (safeRole === 'admin') {
+            navigate('/admin');
+        } else if (safeRole === 'teacher') {
+            navigate(`/verify-teacher/${data.userId}`);
+        } else if (safeRole === 'student') {
+            navigate('/student'); // <-- This will safely navigate now!
+        } else {
+            navigate('/login');
+        }
+
       } else {
         alert(data.message || 'Registration failed.');
       }
     } catch (err) {
-      alert('Server connection failed.');
+      console.error(err);
+      alert('Server connection failed. Is your backend running?');
     }
   };
 
