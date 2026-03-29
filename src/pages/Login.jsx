@@ -20,55 +20,57 @@ const Login = ({ setUserRole, setUserName }) => {
 
     // --- STANDARD LOGIN LOGIC ---
     const handleLogin = async (e) => {
-    e.preventDefault();
+        e.preventDefault();
 
-    try {
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (response.ok) {
-            // Save data
-            localStorage.setItem('userId', data.userId);
-            localStorage.setItem('userRole', data.userRole);
-            localStorage.setItem('verificationStatus', data.verificationStatus || '');
+            if (response.ok) {
+                // 🌟 THE FIX: Force the role to be completely lowercase and remove spaces
+                const safeRole = String(data.userRole || '').toLowerCase().trim();
 
-            if (setUserRole) setUserRole(data.userRole);
-            if (setUserName) setUserName(data.userName);
+                // Save data using safeRole
+                localStorage.setItem('userId', data.userId);
+                localStorage.setItem('userRole', safeRole);
+                localStorage.setItem('verificationStatus', data.verificationStatus || '');
 
-            // 🔥 Redirect logic
-            if (data.userRole === 'admin') {
-                navigate('/admin');
+                if (setUserRole) setUserRole(safeRole);
+                if (setUserName) setUserName(data.userName);
 
-            } else if (data.userRole === 'teacher') {
+                // 🔥 Redirect logic using safeRole
+                if (safeRole === 'admin') {
+                    navigate('/admin');
 
-                if (data.verificationStatus !== 'approved') {
-                    navigate(`/verify-teacher/${data.userId}`);
+                } else if (safeRole === 'teacher') {
+                    if (data.verificationStatus !== 'approved') {
+                        navigate(`/verify-teacher/${data.userId}`);
+                    } else {
+                        navigate('/teacher');
+                    }
+
+                } else if (safeRole === 'student') {
+                    navigate('/student');
+
                 } else {
-                    navigate('/teacher');
+                    navigate('/');
                 }
 
-            } else if (data.userRole === 'student') {
-                navigate('/student');
-
             } else {
-                navigate('/');
+                alert(data.message);
             }
 
-        } else {
-            alert(data.message);
+        } catch (error) {
+            console.error('Error during login:', error);
+            alert('Something went wrong connecting to the server.');
         }
-
-    } catch (error) {
-        console.error('Error during login:', error);
-        alert('Something went wrong connecting to the server.');
-    }
-};
+    };
 
     // --- FORGOT PASSWORD LOGIC ---
     const handleSendOtp = async (e) => {

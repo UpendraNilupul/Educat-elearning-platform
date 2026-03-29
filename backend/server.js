@@ -69,8 +69,6 @@ app.use('/api', verifyRoutes);
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use('/uploads', express.static('uploads'));
-
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
