@@ -31,7 +31,9 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
   React.useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/courses');
+        const teacherId = localStorage.getItem('userId');
+        const url = teacherId ? `http://localhost:3000/api/courses?teacherId=${teacherId}` : 'http://localhost:3000/api/courses';
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           // Map database columns to expected frontend structure if needed
@@ -87,7 +89,7 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
               onClick={() => {
                 setActiveTab(item.name);
               }}
-              className={`flex items-center gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === item.name
                   ? "bg-purple-50 text-purple-700 font-semibold shadow-md"
                   : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
@@ -209,18 +211,7 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
                   <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
                     <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{course.title}</h3>
                     <p className="text-xs text-gray-500 mt-1 mb-4">{course.students} Students enrolled</p>
-                    <div className="mt-auto">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Progress</span>
-                        <span>{course.progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className="bg-purple-600 h-full rounded-full"
-                          style={{ width: `${course.progress}%` }}
-                        />
-                      </div>
-                    </div>
+                    <div className="mt-auto"></div>
                   </div>
                 ))}
               </div>
