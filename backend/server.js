@@ -16,7 +16,7 @@ import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import verifyRoutes from './routes/verify.js';
-
+import studentProfileRoutes from './routes/studentProfileEdit.js';
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
