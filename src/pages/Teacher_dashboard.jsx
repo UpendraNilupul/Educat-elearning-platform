@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -7,12 +8,13 @@ import {
   Megaphone,
   Video,
   Users,
-  Calendar
+  Calendar,
+  Edit2
 } from "lucide-react";
-import DashboardHeaderTeacher from "../components/DashboardHeaderTeacher"; // Your header component
 import TeachersCourse from "./TeachersCourse";
 
 const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
 
   const navItems = [
@@ -101,28 +103,44 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
 
         {/* User / Logout */}
         <div className="p-5 border-t bg-gray-50 rounded-tl-xl rounded-tr-xl">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center font-bold text-purple-700 text-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center font-bold text-purple-700 text-lg shrink-0">
               {userName[0]}
             </div>
-            <div>
-              <p className="text-sm font-semibold">{userName}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold truncate">{userName}</p>
+                <button
+                  onClick={() => {
+                    const teacherId = localStorage.getItem('userId');
+                    if (!teacherId) return alert('Teacher ID not found. Please login again.');
+                    navigate(`/teacher-profile-edit/${teacherId}`);
+                  }}
+                  className="text-gray-400 hover:text-purple-700 transition-colors p-1 shrink-0"
+                  title="Edit Profile"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-xs text-gray-500">Teacher</p>
             </div>
           </div>
-          <button
-            onClick={onLogout}
-            className="text-red-500 text-sm hover:underline hover:text-red-600 font-medium transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex flex-col mt-4 px-1">
+            <button
+              onClick={() => {
+                if (onLogout) onLogout();
+                navigate('/');
+              }}
+              className="text-red-500 text-sm text-left hover:text-red-600 font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-10 flex flex-col gap-8">
-        {/* Header */}
-        <DashboardHeaderTeacher userName={userName} />
 
         {activeTab === "Overview" && (
           <div className="animate-in fade-in duration-500 flex flex-col gap-8">
