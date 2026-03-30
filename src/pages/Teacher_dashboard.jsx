@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -7,13 +8,17 @@ import {
   Megaphone,
   Video,
   Users,
-  Calendar
+  Calendar,
+  Edit2,
+  Menu,
+  X
 } from "lucide-react";
-import DashboardHeaderTeacher from "../components/DashboardHeaderTeacher"; // Your header component
 import TeachersCourse from "./TeachersCourse";
 
 const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = [
     { name: "Overview", icon: LayoutDashboard },
@@ -34,8 +39,6 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          // Map database columns to expected frontend structure if needed
-          // Some mock defaults are added to prevent crashing the UI
           const formattedCourses = data.map(course => ({
             ...course,
             students: course.students || 0,
@@ -70,22 +73,50 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
     },
   ];
 
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50 font-sans relative overflow-hidden">
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-40 shadow-sm">
+        <h2 className="text-xl font-extrabold text-purple-700 tracking-wide">
+          Educat
+        </h2>
+        <button onClick={toggleSidebar} className="p-2 text-gray-600 hover:text-purple-700">
+          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r flex flex-col shadow-lg">
-        <div className="p-6 border-b">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r flex flex-col shadow-lg transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+      `}>
+        <div className="p-6 border-b flex items-center justify-between">
           <h2 className="text-2xl font-extrabold text-purple-700 tracking-wide">
             Educat Teacher
           </h2>
+          <button className="lg:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}>
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        <nav className="flex-1 p-6 space-y-3">
+        <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
           {navItems.map((item) => (
             <button
               key={item.name}
               onClick={() => {
                 setActiveTab(item.name);
+                setIsSidebarOpen(false);
               }}
               className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === item.name
@@ -100,90 +131,123 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         </nav>
 
         {/* User / Logout */}
-        <div className="p-5 border-t bg-gray-50 rounded-tl-xl rounded-tr-xl">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center font-bold text-purple-700 text-lg">
+        <div className="p-5 border-t bg-gray-50 rounded-tl-xl rounded-tr-xl mt-auto">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center font-bold text-purple-700 text-lg shrink-0">
               {userName[0]}
             </div>
-            <div>
-              <p className="text-sm font-semibold">{userName}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold truncate">{userName}</p>
+                <button
+                  onClick={() => {
+                    const teacherId = localStorage.getItem('userId');
+                    if (!teacherId) return alert('Teacher ID not found. Please login again.');
+                    navigate(`/teacher-profile-edit/${teacherId}`);
+                    setIsSidebarOpen(false);
+                  }}
+                  className="text-gray-400 hover:text-purple-700 transition-colors p-1 shrink-0"
+                  title="Edit Profile"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-xs text-gray-500">Teacher</p>
             </div>
           </div>
-          <button
-            onClick={onLogout}
-            className="text-red-500 text-sm hover:underline hover:text-red-600 font-medium transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex flex-col mt-4 px-1">
+            <button
+              onClick={() => {
+                if (onLogout) onLogout();
+                navigate('/');
+              }}
+              className="text-red-500 text-sm text-left hover:text-red-600 font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-10 flex flex-col gap-8">
-        {/* Header */}
-        <DashboardHeaderTeacher userName={userName} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 mt-16 lg:mt-0">
 
         {activeTab === "Overview" && (
           <div className="animate-in fade-in duration-500 flex flex-col gap-8">
             {/* Welcome Section */}
             <div className="mt-4">
-              <h1 className="text-4xl font-extrabold text-gray-900 leading-snug">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 leading-snug">
                 Welcome back, {userName} 👋
               </h1>
-              <p className="text-gray-500 mt-3 text-lg max-w-2xl">
+              <p className="text-gray-500 mt-2 text-base lg:text-lg max-w-2xl">
                 Manage courses, students, and live classes from your dashboard.
               </p>
             </div>
 
             {/* Stats Section */}
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
-                <BookOpen className="text-purple-600 w-7 h-7" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
+                <div className="p-3 bg-purple-50 rounded-xl">
+                  <BookOpen className="text-purple-600 w-6 h-6" />
+                </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Courses Created</p>
-                  <h3 className="text-3xl font-bold">{courses.length}</h3>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Courses</p>
+                  <h3 className="text-2xl lg:text-3xl font-bold">{courses.length}</h3>
                 </div>
               </div>
 
-              <div className="bg-white p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
-                <Users className="text-blue-600 w-7 h-7" />
+              <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
+                <div className="p-3 bg-blue-50 rounded-xl">
+                  <Users className="text-blue-600 w-6 h-6" />
+                </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Total Students</p>
-                  <h3 className="text-3xl font-bold">320</h3>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Students</p>
+                  <h3 className="text-2xl lg:text-3xl font-bold">320</h3>
                 </div>
               </div>
 
-              <div className="bg-white p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
-                <FileText className="text-orange-500 w-7 h-7" />
+              <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300 sm:col-span-2 lg:col-span-1">
+                <div className="p-3 bg-orange-50 rounded-xl">
+                  <FileText className="text-orange-500 w-6 h-6" />
+                </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Assessments to Review</p>
-                  <h3 className="text-3xl font-bold">8</h3>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Reviews</p>
+                  <h3 className="text-2xl lg:text-3xl font-bold">8</h3>
                 </div>
               </div>
             </div>
 
-            {/* Upcoming Live Classes */}
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Upcoming Live Classes</h2>
-              <div className="space-y-5">
-                {classes.map((cls, index) => (
-                  <div
-                    key={index}
-                    className="bg-white p-6 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300"
-                  >
-                    <div>
-                      <h3 className="font-semibold text-lg">{cls.title}</h3>
-                      <p className="text-sm text-gray-500">{cls.course}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {cls.date} • {cls.time}
-                      </p>
+            {/* Content Mid Section */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              {/* Upcoming Live Classes */}
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold">Live Classes</h2>
+                  <button className="text-sm text-purple-600 font-semibold hover:underline">View All</button>
+                </div>
+                <div className="space-y-4">
+                  {classes.map((cls, index) => (
+                    <div
+                      key={index}
+                      className="bg-white p-5 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300 group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+                          <Video className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-800">{cls.title}</h3>
+                          <p className="text-xs text-gray-500">{cls.course}</p>
+                          <p className="text-xs text-purple-600 mt-1 font-medium">
+                            {cls.date} • {cls.time}
+                          </p>
+                        </div>
+                      </div>
+                      <Calendar className="text-gray-300 w-5 h-5" />
                     </div>
-                    <Calendar className="text-gray-400 w-6 h-6" />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
             {/* Recent Courses (Overview) */}
             <div>
@@ -199,7 +263,8 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
         
         {activeTab === "Course Management" && (
           <TeachersCourse courses={courses} setCourses={setCourses} />
