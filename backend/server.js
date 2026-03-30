@@ -15,11 +15,12 @@ import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
+import verifyRoutes from './routes/verify.js';
 
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-import verifyRoutes from './routes/verify.js';
+
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,8 +67,10 @@ app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
 
+
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
