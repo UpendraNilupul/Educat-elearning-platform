@@ -5,7 +5,7 @@ import cors from 'cors';
 import session from 'express-session';
 import { fileURLToPath } from 'url';
 
-import db from './db.js'; 
+import db from './db.js';
 import util from 'util';
 const query = util.promisify(db.query).bind(db);
 
@@ -17,10 +17,13 @@ import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import verifyRoutes from './routes/verify.js';
 
+
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
+import studentProfileRoutes from './routes/StudentProfileEdit.js'; // 🌟 ADD THIS LINE!
 
+import classRoutes from './routes/class.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,9 +66,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 
 // Mount the new routes
-app.use('/api', courseRoutes); 
-app.use('/api/teacher', teacherProfileRoutes); 
-app.use('/api', verifyRoutes); 
+app.use('/api', courseRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
+app.use('/api', verifyRoutes);
+app.use('/api', classRoutes);
+app.use('/api', courseRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
+app.use('/api', verifyRoutes);
 app.use('/api/student', studentProfileRoutes);
 
 

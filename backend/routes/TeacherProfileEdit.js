@@ -3,28 +3,25 @@ import db from '../db.js'; // MySQL connection
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Target absolute directory for uploads
-const uploadDir = path.join(__dirname, '../../uploads/profile-pictures');
-
-// Automatically create the folder if it doesn't already exist to prevent crashes
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 const router = express.Router();
 
-// Configure multer for image uploads
+// 🌟 THE NEW TEAMMATE: ENHANCED DIRECTORY LOGIC
+const verificationUploadDir = path.join(process.cwd(), 'uploads', 'verification');
+
+// Ensure the folder exists to prevent crashes
+if (!fs.existsSync(verificationUploadDir)) {
+  fs.mkdirSync(verificationUploadDir, { recursive: true });
+}
+
+// Configure multer for image uploads (Now going to uploads/verification/)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // folder to save images
+    cb(null, verificationUploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
+    // userId is in req.params.id for this PUT route
+    cb(null, `profile-${req.params.id}-${Date.now()}${path.extname(file.originalname)}`);
   }
 });
 const upload = multer({ storage: storage });
@@ -35,7 +32,7 @@ const upload = multer({ storage: storage });
 router.get('/:id', (req, res) => {
   const id = req.params.id;
   const query = `
-    SELECT u.id, u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.\`2fa_enabled\`,
+    SELECT u.id, u.name, u.email, u.phone_number, u.address, DATE_FORMAT(u.dob, '%Y-%m-%d') as dob, u.gender, u.picture, u.\`2fa_enabled\`,
            t.highest_qualification, t.university, t.experience_years, t.bio
     FROM users u
     JOIN roles r ON u.role_id = r.id
@@ -44,7 +41,7 @@ router.get('/:id', (req, res) => {
   `;
 
   db.query(query, [id], (err, result) => {
-    if (err) return res.status(500).json({ error: err });
+    if (err) return res.status(500).json({ error: err.message });
     if (result.length === 0) return res.status(404).json({ error: 'Teacher not found' });
     res.json(result[0]);
   });
@@ -67,6 +64,8 @@ router.put('/:id', upload.single('picture'), (req, res) => {
   // -------------------------
   // Validation
   // -------------------------
+  if (!name || !email) return res.status(400).json({ error: 'Name and Email are required.' });
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
@@ -74,15 +73,18 @@ router.put('/:id', upload.single('picture'), (req, res) => {
     return res.status(400).json({ error: 'Phone number must be a valid format between 9 and 15 characters' });
   }
 
-  if (dob && new Date(dob) >= new Date('2016-02-01')) {
-    return res.status(400).json({ error: 'Date of birth must be before 2016-02-01' });
+  if (dob && new Date(dob) >= new Date('2018-01-01')) {
+    return res.status(400).json({ error: 'Date of birth must be before 2018-01-01' });
   }
 
   // -------------------------
   // Build query
   // -------------------------
   db.getConnection((err, connection) => {
-    if (err) return res.status(500).json({ error: 'Database connection failed' });
+    if (err) {
+      console.error("Failed to get connection from pool:", err);
+      return res.status(500).json({ error: "Database connection failed" });
+    }
 
     connection.beginTransaction((err) => {
       if (err) {
@@ -91,14 +93,15 @@ router.put('/:id', upload.single('picture'), (req, res) => {
       }
 
       // 1. UPDATE Users table
+      // We avoid sending 'null' to columns that are NOT NULL in the database
       let userQuery = `UPDATE users SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ?, \`2fa_enabled\` = ?`;
       const userParams = [
         name, 
         email, 
-        phone_number || null, 
-        address || null, 
-        dob || null, 
-        gender || null, 
+        phone_number || "", 
+        address || "", 
+        dob || "1990-01-01", 
+        gender || "other", 
         twoFactorEnabled
       ];
 
@@ -114,7 +117,7 @@ router.put('/:id', upload.single('picture'), (req, res) => {
         if (err) {
           return connection.rollback(() => {
             connection.release();
-            res.status(500).json({ error: err.message });
+            res.status(500).json({ error: `Update Users Table failed: ${err.message}` });
           });
         }
 
@@ -140,7 +143,7 @@ router.put('/:id', upload.single('picture'), (req, res) => {
           if (err) {
             return connection.rollback(() => {
               connection.release();
-              res.status(500).json({ error: err.message });
+              res.status(500).json({ error: `Update Teachers Table failed: ${err.message}` });
             });
           }
 

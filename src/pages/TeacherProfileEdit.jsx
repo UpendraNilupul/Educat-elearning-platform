@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const TeacherProfileEdit = ({ teacherId }) => {
+const TeacherProfileEdit = ({ teacherId, setUserName }) => {
   const params = useParams();
   const navigate = useNavigate();
   const resolvedTeacherId = teacherId || params.id || localStorage.getItem('userId');
@@ -39,17 +39,19 @@ const TeacherProfileEdit = ({ teacherId }) => {
           ...prev,
           ...res.data,
           dob: res.data.dob ? res.data.dob.split('T')[0] : '',
+          gender: res.data.gender ? res.data.gender.toLowerCase() : '',
           highest_qualification: res.data.highest_qualification || '',
           university: res.data.university || '',
           experience_years: res.data.experience_years || '',
           bio: res.data.bio || '',
           '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
         }));
-        if (res.data.picture) setPreview(`http://localhost:3000/uploads/${res.data.picture}`);
+        // Updated to use verification subfolder
+        if (res.data.picture) setPreview(`http://localhost:3000/uploads/verification/${res.data.picture}`);
       })
       .catch(err => {
         console.error('Failed to load teacher profile', err);
-        setMessage({ type: 'error', text: 'Failed to load profile.' });
+        setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to load profile.' });
       });
   }, [resolvedTeacherId]);
 
@@ -80,10 +82,20 @@ const TeacherProfileEdit = ({ teacherId }) => {
     try {
       const res = await axios.put(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, data, { withCredentials: true });
       setMessage({ type: 'success', text: res.data.message });
+      
+      // Keep the frontend dashboard and header in sync with the new database Name!
+      if (typeof setUserName === 'function') {
+        setUserName(formData.name);
+      }
+      localStorage.setItem('userName', formData.name);
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Failed to update teacher profile', err);
-      setMessage({ type: 'error', text: 'Failed to update profile.' });
+      // Show actual error message from server if available
+      const errorMsg = err.response?.data?.error || 'Failed to update profile.';
+      setMessage({ type: 'error', text: errorMsg });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }

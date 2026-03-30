@@ -190,7 +190,7 @@ function App() {
           {/* Teacher Profile Edit */}
           <Route path="/teacher-profile-edit/:id?" element={
             (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher')
-              ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+              ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} />
               : <Navigate to="/" />
           } />
 
