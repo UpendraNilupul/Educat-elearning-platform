@@ -5,7 +5,7 @@ import cors from 'cors';
 import session from 'express-session';
 import { fileURLToPath } from 'url';
 
-import db from './db.js'; 
+import db from './db.js';
 import util from 'util';
 const query = util.promisify(db.query).bind(db);
 
@@ -15,12 +15,15 @@ import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
+import verifyRoutes from './routes/verify.js';
+
 
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-import verifyRoutes from './routes/verify.js';
-import studentProfileRoutes from './routes/StudentProfileEdit.js';
+import studentProfileRoutes from './routes/StudentProfileEdit.js'; // 🌟 ADD THIS LINE!
+
+import classRoutes from './routes/class.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,13 +66,19 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 
 // Mount the new routes
-app.use('/api', courseRoutes); 
-app.use('/api/teacher', teacherProfileRoutes); 
-app.use('/api', verifyRoutes); 
+app.use('/api', courseRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
+app.use('/api', verifyRoutes);
+app.use('/api', classRoutes);
+app.use('/api', courseRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
+app.use('/api', verifyRoutes);
 app.use('/api/student', studentProfileRoutes);
 
+
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
