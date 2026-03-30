@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -15,12 +15,17 @@ import registerRoutes from './routes/register.js';
 import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
+import verifyRoutes from './routes/verify.js';
 
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
+<<<<<<< HEAD
 import verifyRoutes from './routes/verify.js';
 import classRoutes from './routes/class.js';
+=======
+
+>>>>>>> 4a52bbd628daaf332d7d40710f9b49855bc1fa45
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,8 +72,12 @@ app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
 app.use('/api', classRoutes);
+app.use('/api/student', studentProfileRoutes);
+
+
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
