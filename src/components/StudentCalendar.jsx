@@ -3,7 +3,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { Calendar as CalendarIcon, Video, Clock, ChevronRight } from 'lucide-react';
 
-const StudentCalendar = () => {
+const StudentCalendar = ({ studentId = 1 }) => {
     const [date, setDate] = useState(new Date());
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -11,8 +11,8 @@ const StudentCalendar = () => {
     useEffect(() => {
         const fetchEvents = async () => {
             try {
-                // Using studentId 1 for testing as requested
-                const response = await fetch('http://localhost:3000/api/student/1/calendar');
+                // Using studentId prop
+                const response = await fetch(`http://localhost:3000/api/student/${studentId}/calendar`);
                 const data = await response.json();
                 setEvents(data);
             } catch (error) {
@@ -22,7 +22,7 @@ const StudentCalendar = () => {
             }
         };
         fetchEvents();
-    }, []);
+    }, [studentId]);
 
     // Function to show dots on days with events
     const tileContent = ({ date, view }) => {
