@@ -16,12 +16,8 @@ import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import verifyRoutes from './routes/verify.js';
-<<<<<<< HEAD
-import studentProfileRoutes from './routes/studentProfileEdit.js';
-=======
 
 
->>>>>>> 7a01597a655ba09130f2dfb4164a6f429daef200
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
@@ -70,16 +66,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 
 // Mount the new routes
-<<<<<<< HEAD
-app.use('/api', courseRoutes); 
-app.use('/api/teacher', teacherProfileRoutes); 
-app.use('/api', verifyRoutes); 
-app.use('/api', classRoutes);
-=======
 app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
->>>>>>> 7a01597a655ba09130f2dfb4164a6f429daef200
+app.use('/api', classRoutes);
+app.use('/api', courseRoutes);
+app.use('/api/teacher', teacherProfileRoutes);
+app.use('/api', verifyRoutes);
 app.use('/api/student', studentProfileRoutes);
 
 
