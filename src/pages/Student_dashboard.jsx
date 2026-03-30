@@ -6,6 +6,7 @@ import StudentProfileEdit from '../components/StudentProfileEdit';
 
 // Import our new Lessons view
 import TuitionClass from './Class';
+import StudentCalendar from '../components/StudentCalendar';
 
 import {
     LayoutDashboard,
@@ -302,6 +303,9 @@ const Student = ({ userName, onLogout }) => {
                                     )}
                                 </div>
                             )}
+
+                            {/* Calendar Section */}
+                            <StudentCalendar />
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
