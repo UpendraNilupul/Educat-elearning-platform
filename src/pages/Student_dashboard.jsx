@@ -4,6 +4,9 @@ import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 
+// Import our new Lessons view
+import TuitionClass from './Class';
+
 import {
     LayoutDashboard,
     BookOpen,
@@ -20,7 +23,10 @@ import {
     Play,
     X,
     ChevronRight,
-    Edit2
+    Edit2,
+    Search,
+    SearchX,
+    Loader2
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -28,6 +34,28 @@ const Student = ({ userName, onLogout }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
+
+    // Add Search-related state
+    const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
+
+    const handleSearch = async (e) => {
+        if (e) e.preventDefault();
+        setIsSearching(true);
+        setHasSearched(true);
+        try {
+            const params = new URLSearchParams(filters);
+            const response = await fetch(`http://localhost:3000/api/courses/search?${params.toString()}`);
+            const data = await response.json();
+            setSearchResults(data);
+        } catch (error) {
+            console.error('Error during course search:', error);
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
     // 1. Fetch Basic Info for Sidebar & Welcome Message
     useEffect(() => {
@@ -43,7 +71,7 @@ const Student = ({ userName, onLogout }) => {
                     if (picUrl && !picUrl.startsWith('http')) {
                         picUrl = `http://localhost:3000/uploads/${picUrl}`;
                     }
-                    
+
                     setProfileData({
                         name: result.name,
                         picture: picUrl
@@ -143,11 +171,13 @@ const Student = ({ userName, onLogout }) => {
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
 
-                    {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
+                    {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
                         <AssessmentsPage />
+                    ) : selectedSection === 'Lessons' ? (
+                        <TuitionClass />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -182,69 +212,100 @@ const Student = ({ userName, onLogout }) => {
                                 );
                             })()}
 
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                                <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
-                                    <div className="flex items-center justify-between mb-5">
-                                        <div className="p-2.5 bg-purple-50 rounded-xl group-hover:scale-110 transition-transform">
-                                            <GraduationCap className="w-6 h-6 text-brand-purple" />
-                                        </div>
-                                        <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                            +12% Progress
-                                        </span>
+                            {/* Horizontal Search Filter Bar */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+                                <form onSubmit={handleSearch} className="flex flex-col md:flex-row items-end gap-4">
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teacher</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by teacher name..."
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-brand-purple focus:border-transparent outline-none transition-all text-sm"
+                                            value={filters.teacher}
+                                            onChange={(e) => setFilters({ ...filters, teacher: e.target.value })}
+                                        />
                                     </div>
-                                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Course Completion</h3>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <span className="text-3xl font-extrabold text-gray-900 leading-none">78%</span>
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Class Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by class name..."
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-brand-purple focus:border-transparent outline-none transition-all text-sm"
+                                            value={filters.className}
+                                            onChange={(e) => setFilters({ ...filters, className: e.target.value })}
+                                        />
                                     </div>
-                                    <div className="w-full bg-gray-50 h-2.5 rounded-full mt-6 overflow-hidden border border-gray-100">
-                                        <div className="bg-brand-purple h-full rounded-full transition-all duration-1000 ease-out" style={{ width: '78%' }}></div>
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Subject</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by subject..."
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-brand-purple focus:border-transparent outline-none transition-all text-sm"
+                                            value={filters.subject}
+                                            onChange={(e) => setFilters({ ...filters, subject: e.target.value })}
+                                        />
                                     </div>
-                                </div>
-
-                                {/* Card 2: Active Enrollments */}
-                                <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
-                                    <div className="flex items-center justify-between mb-5">
-                                        <div className="p-2.5 bg-blue-50 rounded-xl group-hover:scale-110 transition-transform">
-                                            <BookOpen className="w-6 h-6 text-blue-600" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Active Enrollments</h3>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <span className="text-3xl font-extrabold text-gray-900 leading-none">4</span>
-                                        <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Courses</span>
-                                    </div>
-                                    <div className="mt-6 flex items-center gap-2">
-                                        <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
-                                        <p className="text-xs text-gray-500 font-semibold tracking-tight">2 assignments due this week</p>
-                                    </div>
-                                </div>
-
-                                {/* Card 3: Achievement Badges */}
-                                <div className="bg-white p-7 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md group">
-                                    <div className="flex items-center justify-between mb-5">
-                                        <div className="p-2.5 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
-                                            <Award className="w-6 h-6 text-orange-500" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Achievement Badges</h3>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <span className="text-3xl font-extrabold text-gray-900 leading-none">12</span>
-                                        <span className="text-gray-500 text-sm font-semibold mb-0.5 ml-1">Badges</span>
-                                    </div>
-                                    <div className="flex -space-x-2.5 mt-6">
-                                        {[1, 2, 3, 4].map(i => (
-                                            <div key={i} className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center shadow-sm">
-                                                <Award className="w-4 h-4 text-orange-500" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                    <button
+                                        type="submit"
+                                        disabled={isSearching}
+                                        className="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white px-10 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-purple-200 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed min-w-[140px] text-base"
+                                    >
+                                        {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                                        Search Courses
+                                    </button>
+                                </form>
                             </div>
+
+                            {/* Search Results Area */}
+                            {hasSearched && (
+                                <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h2 className="text-xl font-bold text-gray-900">Found Courses ({searchResults.length})</h2>
+                                        <button
+                                            onClick={() => { setHasSearched(false); setFilters({ teacher: '', className: '', subject: '' }); }}
+                                            className="text-sm font-semibold text-gray-500 hover:text-red-500 flex items-center gap-1"
+                                        >
+                                            <X className="w-4 h-4" /> Clear Results
+                                        </button>
+                                    </div>
+
+                                    {searchResults.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            {searchResults.map((course) => (
+                                                <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group overflow-hidden">
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className={`p-2 rounded-xl bg-opacity-10 bg-${course.theme_color || 'purple'}-600 group-hover:scale-110 transition-transform`}>
+                                                            <BookOpen className={`w-5 h-5 text-${course.theme_color || 'purple'}-600`} />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                                            {course.type}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="font-bold text-gray-900 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.class_name}</h4>
+                                                    <p className="text-xs text-gray-500 font-medium mt-1">Instructor: {course.teacher_name}</p>
+                                                    <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-widest">{course.subject}</p>
+
+                                                    <button className="w-full mt-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all active:scale-95">
+                                                        View Details
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white p-10 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-center">
+                                            <div className="p-4 bg-gray-50 rounded-full mb-4">
+                                                <SearchX className="w-8 h-8 text-gray-300" />
+                                            </div>
+                                            <h3 className="text-gray-900 font-bold text-lg">No courses found</h3>
+                                            <p className="text-gray-500 text-sm mt-1 max-w-xs">We couldn't find any courses matching your criteria. Try different keywords or filters.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
+                                {/* Upcoming Deadlines Column */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -282,7 +343,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
-                                {/* Recent Courses Column (Spans 2 columns on large screens) */}
+                                {/* Recent Courses Column */}
                                 <div className="lg:col-span-2">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -293,22 +354,16 @@ const Student = ({ userName, onLogout }) => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             {[
                                                 {
-                                                    title: 'Full Stack Web Development',
-                                                    instructor: 'Dr. Sarah Jenkins',
-                                                    progress: 65,
-                                                    modules: '14/22',
-                                                    color: 'purple'
+                                                    title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins',
+                                                    progress: 65, modules: '14/22', color: 'purple'
                                                 },
                                                 {
-                                                    title: 'UI/UX Design Masterclass',
-                                                    instructor: 'Michael Chen',
-                                                    progress: 42,
-                                                    modules: '8/19',
-                                                    color: 'blue'
+                                                    title: 'UI/UX Design Masterclass', instructor: 'Michael Chen',
+                                                    progress: 42, modules: '8/19', color: 'blue'
                                                 }
                                             ].map((course, idx) => (
                                                 <div key={idx} className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
-                                                    <div className={`h-32 bg-${course.color}-600 relative overflow-hidden`}>
+                                                    <div className={`h-32 bg-${course.color === 'purple' ? 'purple-600' : 'blue-600'} relative overflow-hidden`}>
                                                         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
                                                         <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
                                                             In Progress

@@ -245,6 +245,48 @@ router.put('/lessons/:l_id/resources/reorder', async (req, res) => {
     }
 });
 
+// GET /courses/search - Dynamic Course Search
+router.get('/courses/search', async (req, res) => {
+    const { teacher, className, subject } = req.query;
+    
+    let sql = `
+        SELECT 
+            c.id, 
+            c.name AS class_name, 
+            c.title AS subject, 
+            c.type, 
+            c.theme_color, 
+            c.thumbnail_url, 
+            u.name AS teacher_name 
+        FROM classes_courses c 
+        JOIN teachers t ON c.t_id = t.id 
+        JOIN users u ON t.user_id = u.id 
+        WHERE c.is_published = TRUE
+    `;
+    const params = [];
+
+    if (teacher) {
+        sql += ` AND u.name LIKE ?`;
+        params.push(`%${teacher}%`);
+    }
+    if (className) {
+        sql += ` AND c.name LIKE ?`;
+        params.push(`%${className}%`);
+    }
+    if (subject) {
+        sql += ` AND c.title LIKE ?`;
+        params.push(`%${subject}%`);
+    }
+
+    try {
+        const results = await query(sql, params);
+        res.status(200).json(results);
+    } catch (err) {
+        console.error('Error searching courses:', err);
+        res.status(500).json({ message: 'Server error during search' });
+    }
+});
+
 router.get('/courses/student/:userId', async (req, res) => {
     const userId = req.params.userId;
 
