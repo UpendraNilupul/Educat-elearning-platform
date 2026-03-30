@@ -2,19 +2,6 @@ import express from 'express';
 import db from '../db.js'; // MySQL connection
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Target absolute directory for uploads
-const uploadDir = path.join(__dirname, '../../uploads/profile-pictures');
-
-// Automatically create the folder if it doesn't already exist to prevent crashes
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 const router = express.Router();
 
@@ -35,7 +22,7 @@ const upload = multer({ storage: storage });
 router.get('/:id', (req, res) => {
   const id = req.params.id;
   const query = `
-    SELECT u.id, u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.\`2fa_enabled\`,
+    SELECT u.id, u.name, u.email, u.phone_number, u.address, DATE_FORMAT(u.dob, '%Y-%m-%d') as dob, u.gender, u.picture, u.\`2fa_enabled\`,
            t.highest_qualification, t.university, t.experience_years, t.bio
     FROM users u
     JOIN roles r ON u.role_id = r.id
@@ -81,79 +68,70 @@ router.put('/:id', upload.single('picture'), (req, res) => {
   // -------------------------
   // Build query
   // -------------------------
-  db.getConnection((err, connection) => {
-    if (err) return res.status(500).json({ error: 'Database connection failed' });
+  db.beginTransaction((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Transaction failed' });
+    }
 
-    connection.beginTransaction((err) => {
+    // 1. UPDATE Users table
+    let userQuery = `UPDATE users SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ?, \`2fa_enabled\` = ?`;
+    const userParams = [
+      name, 
+      email, 
+      phone_number || null, 
+      address || null, 
+      dob || null, 
+      gender || null, 
+      twoFactorEnabled
+    ];
+
+    if (req.file) {
+      userQuery += ', picture = ?';
+      userParams.push(req.file.filename);
+    }
+
+    userQuery += ' WHERE id = ?';
+    userParams.push(id);
+
+    db.query(userQuery, userParams, (err, result) => {
       if (err) {
-        connection.release();
-        return res.status(500).json({ error: 'Transaction failed' });
+        return db.rollback(() => {
+          res.status(500).json({ error: err.message });
+        });
       }
 
-      // 1. UPDATE Users table
-      let userQuery = `UPDATE users SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ?, \`2fa_enabled\` = ?`;
-      const userParams = [
-        name, 
-        email, 
-        phone_number || null, 
-        address || null, 
-        dob || null, 
-        gender || null, 
-        twoFactorEnabled
+      // 2. UPDATE Teachers table
+      const teacherQuery = `
+        INSERT INTO teachers (user_id, highest_qualification, university, experience_years, bio)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+          highest_qualification = VALUES(highest_qualification), 
+          university = VALUES(university), 
+          experience_years = VALUES(experience_years), 
+          bio = VALUES(bio)
+      `;
+      const teacherParams = [
+        id,
+        highest_qualification || null, 
+        university || null, 
+        experience_years || null, 
+        bio || null
       ];
 
-      if (req.file) {
-        userQuery += ', picture = ?';
-        userParams.push(req.file.filename);
-      }
-
-      userQuery += ' WHERE id = ?';
-      userParams.push(id);
-
-      connection.query(userQuery, userParams, (err, result) => {
+      db.query(teacherQuery, teacherParams, (err, result) => {
         if (err) {
-          return connection.rollback(() => {
-            connection.release();
+          return db.rollback(() => {
             res.status(500).json({ error: err.message });
           });
         }
 
-        // 2. UPDATE Teachers table
-        const teacherQuery = `
-          INSERT INTO teachers (user_id, highest_qualification, university, experience_years, bio)
-          VALUES (?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE 
-            highest_qualification = VALUES(highest_qualification), 
-            university = VALUES(university), 
-            experience_years = VALUES(experience_years), 
-            bio = VALUES(bio)
-        `;
-        const teacherParams = [
-          id,
-          highest_qualification || null, 
-          university || null, 
-          experience_years || null, 
-          bio || null
-        ];
-
-        connection.query(teacherQuery, teacherParams, (err, result) => {
+        db.commit((err) => {
           if (err) {
-            return connection.rollback(() => {
-              connection.release();
-              res.status(500).json({ error: err.message });
+            return db.rollback(() => {
+              res.status(500).json({ error: 'Failed to commit transaction' });
             });
           }
-
-          connection.commit((err) => {
-            if (err) {
-              return connection.rollback(() => {
-                connection.release();
-                res.status(500).json({ error: 'Failed to commit transaction' });
-              });
-            }
-            connection.release();
-            res.json({ message: 'Profile updated successfully' });
-          });
+          res.json({ message: 'Profile updated successfully' });
         });
       });
     });
