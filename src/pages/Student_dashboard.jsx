@@ -4,6 +4,9 @@ import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 
+// Import our new Lessons view
+import TuitionClass from './Class';
+
 import {
     LayoutDashboard,
     BookOpen,
@@ -143,11 +146,13 @@ const Student = ({ userName, onLogout }) => {
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
 
-                    {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
+                    {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
                         <AssessmentsPage />
+                    ) : selectedSection === 'Lessons' ? (
+                        <TuitionClass />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -244,7 +249,7 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
+                                {/* Upcoming Deadlines Column */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -282,7 +287,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
-                                {/* Recent Courses Column (Spans 2 columns on large screens) */}
+                                {/* Recent Courses Column */}
                                 <div className="lg:col-span-2">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -293,22 +298,16 @@ const Student = ({ userName, onLogout }) => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             {[
                                                 {
-                                                    title: 'Full Stack Web Development',
-                                                    instructor: 'Dr. Sarah Jenkins',
-                                                    progress: 65,
-                                                    modules: '14/22',
-                                                    color: 'purple'
+                                                    title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins',
+                                                    progress: 65, modules: '14/22', color: 'purple'
                                                 },
                                                 {
-                                                    title: 'UI/UX Design Masterclass',
-                                                    instructor: 'Michael Chen',
-                                                    progress: 42,
-                                                    modules: '8/19',
-                                                    color: 'blue'
+                                                    title: 'UI/UX Design Masterclass', instructor: 'Michael Chen',
+                                                    progress: 42, modules: '8/19', color: 'blue'
                                                 }
                                             ].map((course, idx) => (
                                                 <div key={idx} className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
-                                                    <div className={`h-32 bg-${course.color}-600 relative overflow-hidden`}>
+                                                    <div className={`h-32 bg-${course.color === 'purple' ? 'purple-600' : 'blue-600'} relative overflow-hidden`}>
                                                         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
                                                         <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
                                                             In Progress
