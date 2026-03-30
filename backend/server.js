@@ -20,12 +20,8 @@ import verifyRoutes from './routes/verify.js';
 // 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-<<<<<<< HEAD
-import verifyRoutes from './routes/verify.js';
-import classRoutes from './routes/class.js';
-=======
 
->>>>>>> 4a52bbd628daaf332d7d40710f9b49855bc1fa45
+import classRoutes from './routes/class.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
