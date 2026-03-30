@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -66,6 +66,7 @@ app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api', courseRoutes); 
 app.use('/api/teacher', teacherProfileRoutes); 
 app.use('/api', verifyRoutes); 
+app.use('/api/student', studentProfileRoutes);
 
 
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
