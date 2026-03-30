@@ -9,9 +9,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
 // 1. Configure storage to save in uploads/verification/
+import fs from 'fs';
+
+const verificationUploadDir = path.join(process.cwd(), 'uploads', 'verification');
+
+// Automatically create the folder if it doesn't already exist to prevent crashes
+if (!fs.existsSync(verificationUploadDir)) {
+  fs.mkdirSync(verificationUploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(process.cwd(), 'uploads', 'verification'));
+    cb(null, verificationUploadDir);
   },
   filename: (req, file, cb) => {
     // Format: userId-fieldname-timestamp.extension
