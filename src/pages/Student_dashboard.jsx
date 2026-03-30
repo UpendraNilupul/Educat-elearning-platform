@@ -102,10 +102,10 @@ const Student = ({ userName, onLogout }) => {
 
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
+        { name: 'Calendar', icon: Calendar },
         { name: 'Courses', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
         { name: 'Assessments', icon: FileText },
-        { name: 'Challenges', icon: Trophy },
         { name: 'Certification', icon: Award },
         { name: 'Project', icon: Briefcase },
         { name: 'Download', icon: Download },
@@ -179,6 +179,8 @@ const Student = ({ userName, onLogout }) => {
                         <AssessmentsPage />
                     ) : selectedSection === 'Lessons' ? (
                         <TuitionClass />
+                    ) : selectedSection === 'Calendar' ? (
+                        <StudentCalendar studentId={1} />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -304,8 +306,7 @@ const Student = ({ userName, onLogout }) => {
                                 </div>
                             )}
 
-                            {/* Calendar Section */}
-                            <StudentCalendar />
+                            {/* Calendar Section removed from here */}
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
