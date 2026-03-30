@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, X, Megaphone, Gift 
+    Mail, Eye, X, Megaphone, Gift, Clock, Send 
 } from 'lucide-react';
 
 const Admin_Students = ({ userName, onLogout }) => {
     const navigate = useNavigate();
+    const adminId = localStorage.getItem('userId'); // 🌟 Get Admin's ID for the chat
     
     // Data States
     const [students, setStudents] = useState([]);
@@ -22,8 +23,14 @@ const Admin_Students = ({ userName, onLogout }) => {
     // Bulk Action States
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-    const [bulkType, setBulkType] = useState('announcement'); // 'announcement' or 'offer'
+    const [bulkType, setBulkType] = useState('announcement');
     const [bulkMessage, setBulkMessage] = useState('');
+
+    // 🌟 NEW: Chat Panel States
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatUser, setChatUser] = useState(null);
+    const [chatMessage, setChatMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         const fetchStudents = async () => {
@@ -69,7 +76,6 @@ const Admin_Students = ({ userName, onLogout }) => {
     const handleBulkSubmit = async () => {
         if (!bulkMessage.trim()) return;
 
-        // 🌟 FIX 1: Strip out the emojis so the database accepts the string without crashing
         const title = bulkType === 'offer' ? 'Exclusive Discount Offer!' : 'Platform Announcement';
 
         try {
@@ -89,7 +95,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 alert(result.message);
                 setIsBulkModalOpen(false);
                 setBulkMessage('');
-                setSelectedUsers([]); // Clear selection after success
+                setSelectedUsers([]);
             } else {
                 alert(result.message);
             }
@@ -103,8 +109,40 @@ const Admin_Students = ({ userName, onLogout }) => {
         setIsBulkModalOpen(true);
     };
 
+    // 🌟 NEW: Handle Sending the Chat Message
+    const handleSendMessage = async () => {
+        if (!chatMessage.trim()) return;
+        setIsSending(true);
+
+        try {
+            const response = await fetch('http://localhost:3000/api/admin/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: adminId,
+                    receiverId: chatUser.id,
+                    message: chatMessage
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setChatMessage('');
+                setIsChatOpen(false);
+                alert(`Message sent securely to ${chatUser.name}!`);
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            alert("Failed to send message.");
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     return (
-        <div className="p-8 font-sans bg-gray-50 min-h-screen relative">
+        <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
             
             {/* Header Area */}
             <div className="flex justify-between items-end mb-8">
@@ -265,6 +303,18 @@ const Admin_Students = ({ userName, onLogout }) => {
                                                     >
                                                         <Eye size={16} className="mr-2" /> View Profile
                                                     </Link>
+
+                                                    {/* 🌟 NEW: The Message Button */}
+                                                    <button 
+                                                        onClick={() => {
+                                                            setChatUser({ id: student.user_id, name: student.name, picture: student.picture });
+                                                            setIsChatOpen(true);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        <Mail size={16} className="mr-2" /> Message
+                                                    </button>
                                                 </div>
                                             )}
                                         </td>
@@ -297,7 +347,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                 This message will be sent directly to the inbox of the <span className="font-bold text-gray-900">{selectedUsers.length} selected students</span>.
                             </p>
                             
-                            {/* 🌟 FIX 2: Added a helper warning for the Promo Offer so the admin knows how the system works */}
                             {bulkType === 'offer' && (
                                 <div className="mb-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-800">
                                     <strong>Heads up!</strong> This sends a message to the students telling them about an offer. Make sure you have actually created the code in your <strong>Marketing & Offers</strong> tab first!
@@ -332,6 +381,64 @@ const Admin_Students = ({ userName, onLogout }) => {
                     </div>
                 </div>
             )}
+
+            {/* 🌟 NEW: The Slide-Out Chat Drawer */}
+            {isChatOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/20 z-40 transition-opacity" 
+                    onClick={() => setIsChatOpen(false)}
+                ></div>
+            )}
+            
+            <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                
+                {/* Chat Header */}
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
+                            {chatUser?.picture ? <img src={`http://localhost:3000/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 leading-tight">{chatUser?.name}</h3>
+                            <p className="text-xs text-gray-500">Direct Message</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                {/* Chat Instructions */}
+                <div className="flex-1 p-6 bg-white overflow-y-auto">
+                    <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm mb-4">
+                        <p className="font-bold mb-1 flex items-center"><Clock size={16} className="mr-1.5"/> Auto-Delete Enabled</p>
+                        <p className="text-blue-600/80">Messages sent here are highly secure and will automatically self-destruct after 7 days to protect user privacy.</p>
+                    </div>
+                    <p className="text-gray-400 text-sm text-center mt-10">Start a new secure conversation with {chatUser?.name}...</p>
+                </div>
+
+                {/* Chat Input Area */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50">
+                    <textarea 
+                        className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 resize-none text-sm"
+                        rows="3"
+                        placeholder="Type your message here..."
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                    ></textarea>
+                    <div className="flex justify-end mt-2">
+                        <button 
+                            onClick={handleSendMessage}
+                            disabled={!chatMessage.trim() || isSending}
+                            className="px-6 py-2 bg-blue-600 text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center shadow-sm disabled:opacity-50"
+                        >
+                            {isSending ? 'Sending...' : <><Send size={16} className="mr-2" /> Send Message</>}
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
     );
 };

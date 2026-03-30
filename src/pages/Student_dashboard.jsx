@@ -20,7 +20,8 @@ import {
     GraduationCap,
     Calendar,
     Play,
-    X
+    X,
+    ChevronRight // 🌟 THE FIX: Added the missing icon import here!
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -108,7 +109,6 @@ const Student = ({ userName, onLogout }) => {
                 <div className="p-8 max-w-6xl mx-auto">
                     <DashboardHeader userName={userName} />
                     
-                    {/* --- UPDATED LOGIC FOR THE MAIN CONTENT AREA --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
@@ -209,7 +209,7 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column (Spans 1 column on large screens) */}
+                                {/* Upcoming Deadlines Column */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -247,7 +247,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
-                                {/* Recent Courses Column (Spans 2 columns on large screens) */}
+                                {/* Recent Courses Column */}
                                 <div className="lg:col-span-2">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">

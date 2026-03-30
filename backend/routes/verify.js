@@ -34,7 +34,7 @@ router.post('/upload-docs/:userId', upload.fields([
   // Update Teacher table with links and set status to 'submitted'
   const sql = `
     UPDATE teachers 
-    SET resume_link = ?, nic_path = ?, verification_status = 'submitted' 
+    SET resume_link = ?, nic_path = ?, verification_status = 'pending' 
     WHERE user_id = ?`;
 
   db.query(sql, [cvFile, nicFile, userId], (err) => {
