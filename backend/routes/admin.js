@@ -343,6 +343,7 @@ router.get('/teacher-analytics/:id', async (req, res) => {
         // 1. Get Basic Profile & Subjects
         const profileQuery = await query(`
             SELECT 
+                u.id as user_id, /* 🌟 THE FIX: Added this line so we can message/suspend them! */
                 u.name, u.email, u.picture, u.phone_number, u.status, u.last_active, u.created_at,
                 t.verification_status,
                 GROUP_CONCAT(DISTINCT s.name SEPARATOR ', ') AS subjects
@@ -680,13 +681,11 @@ router.get('/courses-list', async (req, res) => {
                 c.created_at,
                 u.name AS teacher_name,
                 u.picture AS teacher_picture,
-                COUNT(DISTINCT e.id) AS total_students,
-                COALESCE(SUM(p.amount), 0) AS total_revenue
+                (SELECT COUNT(DISTINCT s_id) FROM enrollments WHERE c_id = c.id) AS total_students,
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE c_id = c.id) AS total_revenue
             FROM classes_courses c
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
-            LEFT JOIN enrollments e ON e.c_id = c.id
-            LEFT JOIN payments p ON p.c_id = c.id
             WHERE 1=1
         `;
         
@@ -899,6 +898,56 @@ router.put('/change-password/:id', async (req, res) => {
         res.status(200).json({ success: true, message: "Password updated successfully!" });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to update password." });
+    }
+});
+
+// ==========================================
+// 22. DIRECT MESSAGING (CHAT SYSTEM)
+// ==========================================
+router.post('/send-message', async (req, res) => {
+    try {
+        const { senderId, receiverId, message } = req.body;
+
+        if (!senderId || !receiverId || !message) {
+            return res.status(400).json({ success: false, message: "Missing required fields." });
+        }
+
+        // 1. Check if a conversation already exists between these two users
+        const convQuery = await query(`
+            SELECT id FROM conversations 
+            WHERE (participant1_id = ? AND participant2_id = ?) 
+               OR (participant1_id = ? AND participant2_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        let conversationId;
+
+        if (convQuery.length > 0) {
+            conversationId = convQuery[0].id;
+        } else {
+            // 2. Create a new conversation if one doesn't exist
+            const newConv = await query(`
+                INSERT INTO conversations (participant1_id, participant2_id) 
+                VALUES (?, ?)
+            `, [senderId, receiverId]);
+            conversationId = newConv.insertId;
+        }
+
+        // 3. Insert the actual message
+        await query(`
+            INSERT INTO messages (conversation_id, sender_id, body) 
+            VALUES (?, ?, ?)
+        `, [conversationId, senderId, message]);
+
+        // 4. Update the conversation's timestamp to bump it to the top of the inbox
+        await query(`
+            UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
+        `, [conversationId]);
+
+        res.status(200).json({ success: true, message: "Message sent successfully!" });
+
+    } catch (error) {
+        console.error("Direct Message Error:", error);
+        res.status(500).json({ success: false, message: "Failed to send message." });
     }
 });
 
