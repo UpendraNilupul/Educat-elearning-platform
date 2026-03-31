@@ -46,6 +46,10 @@ router.post('/register', async (req, res) => {
             await query('INSERT INTO teachers (user_id) VALUES (?)', [newUserId]);
         }
 
+        req.session.userId = newUserId;
+        req.session.userRole = role;
+        req.session.userName = name;
+
         res.status(201).json({ 
             message: 'User registered successfully!',
             userId: newUserId,

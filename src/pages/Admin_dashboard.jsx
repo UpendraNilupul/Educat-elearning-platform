@@ -7,8 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Link, useNavigate } from 'react-router-dom';
 
 const Admin = ({ userName, onLogout }) => {
-    const navigate = useNavigate(); 
-    
+    const navigate = useNavigate();
+
     const [activeTab, setActiveTab] = useState('dashboard');
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ const Admin = ({ userName, onLogout }) => {
         };
 
         fetchStats();
-    }, [timeFilter, roleFilter]); 
+    }, [timeFilter, roleFilter]);
 
     // The navigation items with their respective paths
     const navItems = [
@@ -44,7 +44,7 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
-        { id: 'promo', label: 'Promo cods', icon: CheckSquare, path: '/admin/promos' },
+        { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
         { id: 'announcements', label: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
         { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
     ];
@@ -66,15 +66,15 @@ const Admin = ({ userName, onLogout }) => {
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeTab === item.id;
-                        
+
                         return (
                             <Link
                                 key={item.id}
                                 to={item.path}
                                 onClick={() => setActiveTab(item.id)}
                                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${isActive
-                                        ? 'bg-[#4a0b59]/10 text-[#4a0b59] font-bold'
-                                        : 'text-gray-500 hover:bg-gray-50 hover:text-[#4a0b59]'
+                                    ? 'bg-[#4a0b59]/10 text-[#4a0b59] font-bold'
+                                    : 'text-gray-500 hover:bg-gray-50 hover:text-[#4a0b59]'
                                     }`}
                             >
                                 <Icon size={20} className={isActive ? 'text-[#4a0b59]' : ''} />
@@ -110,12 +110,10 @@ const Admin = ({ userName, onLogout }) => {
                 {/* Top Header */}
                 <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 shrink-0 z-0">
                     <div className="relative w-96">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search students, teachers, or courses..."
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-full focus:ring-2 focus:ring-[#4a0b59]/20 outline-none text-sm"
-                        />
+                        <div className="mb-8"><br></br>
+                            <h1 className="text-3xl font-bold text-gray-800">Overview Dashboard</h1>
+                        </div>
+
                     </div>
                     <div className="flex items-center space-x-4">
                         <button className="relative p-2 text-gray-400 hover:text-[#4a0b59] transition-colors">
@@ -127,10 +125,6 @@ const Admin = ({ userName, onLogout }) => {
 
                 {/* Scrollable Dashboard Content */}
                 <div className="flex-1 overflow-y-auto p-8">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-gray-800">Overview Dashboard</h1>
-                        <p className="text-gray-500 mt-1">Here is what's happening on Educat today.</p>
-                    </div>
 
                     {/* KPI Stat Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -272,7 +266,7 @@ const Admin = ({ userName, onLogout }) => {
                                                 </div>
                                             </div>
                                             <div className="flex space-x-2">
-                                                <Link 
+                                                <Link
                                                     to={`/admin/review-teacher/${teacher.id}`}
                                                     className="px-4 py-1.5 bg-[#4a0b59] text-white text-xs font-bold rounded-lg hover:bg-purple-900 transition-colors inline-block"
                                                 >
@@ -291,7 +285,8 @@ const Admin = ({ userName, onLogout }) => {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-lg font-bold text-gray-800">Courses to Review</h3>
-                                <button className="text-sm text-[#4a0b59] font-semibold hover:underline">View All</button>
+                                {/* 🌟 FIX: Wired up 'View All' */}
+                                <button onClick={() => navigate('/admin/courses')} className="text-sm text-[#4a0b59] font-semibold hover:underline">View All</button>
                             </div>
                             <div className="space-y-4">
                                 {stats?.coursesToReview.length > 0 ? (
@@ -306,7 +301,8 @@ const Admin = ({ userName, onLogout }) => {
                                                     <p className="text-xs text-gray-500">By {course.author}</p>
                                                 </div>
                                             </div>
-                                            <button className="px-4 py-1.5 border border-[#4a0b59] text-[#4a0b59] text-xs font-bold rounded-lg hover:bg-[#4a0b59] hover:text-white transition-all">
+                                            {/* 🌟 FIX: Wired up 'Review' to go to the courses page */}
+                                            <button onClick={() => navigate('/admin/courses')} className="px-4 py-1.5 border border-[#4a0b59] text-[#4a0b59] text-xs font-bold rounded-lg hover:bg-[#4a0b59] hover:text-white transition-all">
                                                 Review
                                             </button>
                                         </div>

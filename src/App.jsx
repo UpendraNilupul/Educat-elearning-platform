@@ -25,8 +25,12 @@ import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
 import VerifyTeacher from './pages/verifyTeacher';
+import Admin_Courses from './pages/Admin_Courses';
+import Admin_Announcements from './pages/Admin_Announcements';
+import Admin_Settings from './pages/Admin_Settings';
 
 import CoursesPage from './pages/Course';
+import AssessmentsPage from './pages/AssessmentsPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -57,7 +61,7 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 function App() {
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
-  const [isLoading, setIsLoading] = useState(true); // Added loading state!
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/status', {
@@ -65,7 +69,8 @@ function App() {
     })
       .then(response => response.json())
       .then(data => {
-        setUserRole(data.userRole);
+        const safeRole = String(data.userRole || '').toLowerCase().trim();
+        setUserRole(safeRole);
         setUserName(data.userName);
       })
       .catch(err => console.log("User is likely not logged in yet."))
@@ -74,12 +79,10 @@ function App() {
       });
   }, []);
 
-  // 🌟 THE HEARTBEAT
+  // THE HEARTBEAT
   useEffect(() => {
-    // If no one is logged in, don't send a heartbeat
     if (!userRole) return;
 
-    // Set up a timer to ping the server every 60 seconds (60000 milliseconds)
     const heartbeatInterval = setInterval(() => {
       fetch('http://localhost:3000/api/heartbeat', {
         method: 'POST',
@@ -87,20 +90,25 @@ function App() {
       }).catch(err => console.log("Heartbeat skipped"));
     }, 60000);
 
-    // Cleanup: Stop the heartbeat if the user logs out or closes the app
     return () => clearInterval(heartbeatInterval);
-  }, [userRole]); // This effect restarts anytime the userRole changes
+  }, [userRole]);
 
+  // 🌟 Bulletproof Logout Logic
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:3000/api/logout', {
         method: 'POST',
         credentials: 'include'
       });
-      localStorage.removeItem('userId');
-      localStorage.removeItem('userRole');
+      
+      // 1. Wipe everything from the browser's memory
+      localStorage.clear(); 
       setUserRole(null);
       setUserName('');
+
+      // 2. Force the browser to reload at the homepage (Stops the routing loop!)
+      window.location.href = '/'; 
+
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -109,7 +117,7 @@ function App() {
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-  //verification status
+  
   const verificationStatus = localStorage.getItem('verificationStatus');
 
   return (
@@ -117,12 +125,14 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
+          
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
 
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
+          
           <Route
             path="/teachers"
             element={
@@ -130,6 +140,12 @@ function App() {
                 <Teachers />
               </MainLayout>
             }
+          />
+
+          {/* Verification Route */}
+          <Route 
+            path="/verify-teacher/:id" 
+            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
           />
 
           {/* Protected Route: Admin */}
@@ -144,50 +160,63 @@ function App() {
             }
           />
 
-          {/*Admin's teacher page*/}
           <Route
             path="/admin/teachers"
             element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* 🌟 UPDATED: Admin Teacher Analytics Dashboard */}
           <Route
             path="/admin/teacher-analytics/:id"
             element={userRole === 'admin' ? <Admin_TeacherAnalytics userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* 🌟 NEW: The Dedicated Admin Review Page */}
           <Route
             path="/admin/review-teacher/:id"
             element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Admin's Students Page */}
           <Route
             path="/admin/students"
             element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Admin's Student Profile Page */}
           <Route
             path="/admin/student-profile/:id"
             element={userRole === 'admin' ? <Admin_StudentProfile userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Admin's Promo Codes Page */}
           <Route
             path="/admin/promos"
             element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Protected Route: Teacher */}
+          <Route
+            path="/admin/courses"
+            element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/announcements"
+            element={userRole === 'admin' ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/settings"
+            element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Proper 3-way logic for the Teacher Route */}
           <Route
             path="/teacher"
             element={
-              (userRole === 'teacher' && verificationStatus === 'approved') ? (
-                <TeacherDashboard userName={userName} onLogout={handleLogout} />
+              userRole === 'teacher' ? (
+                verificationStatus === 'approved' ? (
+                  <TeacherDashboard userName={userName} onLogout={handleLogout} />
+                ) : (
+                  <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+                )
               ) : (
-                <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+                <Navigate to="/" />
               )
             }
           />
@@ -196,7 +225,7 @@ function App() {
           <Route
             path="/student"
             element={
-              (userRole === 'student' || localStorage.getItem('userRole') === 'student') ? (
+              userRole === 'student' ? (
                 <Student userName={userName} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/" />
@@ -204,16 +233,17 @@ function App() {
             }
           />
 
-          {/* Teacher profile edit route */}
+          {/* Teacher Profile Edit */}
           <Route
             path="/teacher-profile-edit/:id?"
             element={
-              (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher') ? (
-                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+              userRole === 'teacher' ? (
+                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} />
               ) : (
                 <Navigate to="/" />
-              )} />
-          {/* Route for Courses page */}
+              )} 
+          />
+              
           <Route
             path="/courses"
             element={
@@ -222,7 +252,15 @@ function App() {
               </MainLayout>
             }
           />
-          <Route path="/verify-teacher/:userId" element={<VerifyTeacher />} />
+          
+          <Route
+            path="/assessments"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <AssessmentsPage />
+              </MainLayout>
+            }
+          />
         </Routes>
       </div>
     </Router>

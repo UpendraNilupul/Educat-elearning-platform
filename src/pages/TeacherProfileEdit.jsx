@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const TeacherProfileEdit = ({ teacherId }) => {
+const TeacherProfileEdit = ({ teacherId, setUserName }) => {
   const params = useParams();
   const navigate = useNavigate();
   const resolvedTeacherId = teacherId || params.id || localStorage.getItem('userId');
@@ -14,8 +14,12 @@ const TeacherProfileEdit = ({ teacherId }) => {
     address: '',
     dob: '',
     gender: '',
+    highest_qualification: '',
+    university: '',
+    experience_years: '',
+    bio: '',
     picture: null,
-    '2fa_enabled': false,  // FIXED: key quoted
+    '2fa_enabled': false,
   });
 
   const [preview, setPreview] = useState('');
@@ -31,15 +35,23 @@ const TeacherProfileEdit = ({ teacherId }) => {
 
     axios.get(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, { withCredentials: true })
       .then(res => {
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
           ...res.data,
-          '2fa_enabled': res.data['2fa_enabled'] // ensure bracket notation
-        });
-        if (res.data.picture) setPreview(`/uploads/${res.data.picture}`);
+          dob: res.data.dob ? res.data.dob.split('T')[0] : '',
+          gender: res.data.gender ? res.data.gender.toLowerCase() : '',
+          highest_qualification: res.data.highest_qualification || '',
+          university: res.data.university || '',
+          experience_years: res.data.experience_years || '',
+          bio: res.data.bio || '',
+          '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
+        }));
+        // Updated to use verification subfolder
+        if (res.data.picture) setPreview(`http://localhost:3000/uploads/verification/${res.data.picture}`);
       })
       .catch(err => {
         console.error('Failed to load teacher profile', err);
-        setMessage({ type: 'error', text: 'Failed to load profile.' });
+        setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to load profile.' });
       });
   }, [resolvedTeacherId]);
 
@@ -62,15 +74,28 @@ const TeacherProfileEdit = ({ teacherId }) => {
     setLoading(true);
     const data = new FormData();
     for (let key in formData) {
-      if (formData[key] !== null) data.append(key, formData[key]);
+      if (formData[key] !== null && formData[key] !== undefined) {
+        data.append(key, formData[key]);
+      }
     }
 
     try {
-      const res = await axios.put(`http://localhost:3000/api/teacher/${teacherId}`, data, { withCredentials: true });
+      const res = await axios.put(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, data, { withCredentials: true });
       setMessage({ type: 'success', text: res.data.message });
+      
+      // Keep the frontend dashboard and header in sync with the new database Name!
+      if (typeof setUserName === 'function') {
+        setUserName(formData.name);
+      }
+      localStorage.setItem('userName', formData.name);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Failed to update teacher profile', err);
-      setMessage({ type: 'error', text: 'Failed to update profile.' });
+      // Show actual error message from server if available
+      const errorMsg = err.response?.data?.error || 'Failed to update profile.';
+      setMessage({ type: 'error', text: errorMsg });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -166,6 +191,57 @@ const TeacherProfileEdit = ({ teacherId }) => {
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
+        </div>
+
+        {/* Highest Qualification */}
+        <div>
+          <label className="block text-gray-600 font-medium mb-1">Highest Qualification</label>
+          <input
+            type="text"
+            name="highest_qualification"
+            value={formData.highest_qualification}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="e.g. MSc in Computer Science"
+          />
+        </div>
+
+        {/* University */}
+        <div>
+          <label className="block text-gray-600 font-medium mb-1">University</label>
+          <input
+            type="text"
+            name="university"
+            value={formData.university}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        {/* Experience Years */}
+        <div>
+          <label className="block text-gray-600 font-medium mb-1">Years of Experience</label>
+          <input
+            type="number"
+            name="experience_years"
+            value={formData.experience_years}
+            onChange={handleChange}
+            min="0"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        {/* Bio */}
+        <div className="md:col-span-1 lg:col-span-1">
+          <label className="block text-gray-600 font-medium mb-1">Bio</label>
+          <textarea
+            name="bio"
+            value={formData.bio}
+            onChange={handleChange}
+            rows="4"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="Tell us a bit about yourself..."
+          ></textarea>
         </div>
 
         {/* Profile Picture */}

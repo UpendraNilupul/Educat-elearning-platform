@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import util from 'util';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
@@ -185,7 +186,7 @@ router.get('/teacher-details/:id', async (req, res) => {
         const teacherData = await query(`
             SELECT u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.created_at,
                    t.id as teacher_id, t.highest_qualification, t.verification_status,
-                   t.university, t.experience_years, t.bio, t.resume_link
+                   t.university, t.experience_years, t.bio, t.resume_link, t.nic_path
             FROM teachers t
             JOIN users u ON t.user_id = u.id
             WHERE t.id = ?
@@ -342,6 +343,7 @@ router.get('/teacher-analytics/:id', async (req, res) => {
         // 1. Get Basic Profile & Subjects
         const profileQuery = await query(`
             SELECT 
+                u.id as user_id, /* 🌟 THE FIX: Added this line so we can message/suspend them! */
                 u.name, u.email, u.picture, u.phone_number, u.status, u.last_active, u.created_at,
                 t.verification_status,
                 GROUP_CONCAT(DISTINCT s.name SEPARATOR ', ') AS subjects
@@ -660,6 +662,292 @@ router.put('/promo-codes/:id/status', async (req, res) => {
         res.status(200).json({ success: true, message: `Promo code marked as ${status}.` });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to update status." });
+    }
+});
+
+// ==========================================
+// 16. FETCH ALL COURSES WITH STATS
+// ==========================================
+router.get('/courses-list', async (req, res) => {
+    try {
+        const { search, status } = req.query;
+
+        let sqlQuery = `
+            SELECT 
+                c.id AS course_id,
+                c.title,
+                c.type,
+                c.status,
+                c.created_at,
+                u.name AS teacher_name,
+                u.picture AS teacher_picture,
+                (SELECT COUNT(DISTINCT s_id) FROM enrollments WHERE c_id = c.id) AS total_students,
+                (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE c_id = c.id) AS total_revenue
+            FROM classes_courses c
+            JOIN teachers t ON c.t_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE 1=1
+        `;
+        
+        const queryParams = [];
+
+        // 1. Search Filter (Checks Course Title or Teacher Name)
+        if (search && search.trim() !== '') {
+            sqlQuery += ` AND (c.title LIKE ? OR u.name LIKE ?)`;
+            const searchWildcard = `%${search}%`;
+            queryParams.push(searchWildcard, searchWildcard);
+        }
+
+        // 2. Status Filter
+        if (status && status !== 'All') {
+            sqlQuery += ` AND c.status = ?`;
+            queryParams.push(status);
+        }
+
+        sqlQuery += ` GROUP BY c.id ORDER BY c.created_at DESC`;
+
+        const courses = await query(sqlQuery, queryParams);
+        res.status(200).json({ success: true, data: courses });
+
+    } catch (error) {
+        console.error("Error fetching courses list:", error);
+        res.status(500).json({ success: false, message: "Server error fetching courses." });
+    }
+});
+
+// ==========================================
+// 17. UPDATE COURSE STATUS
+// ==========================================
+router.put('/course-status/:id', async (req, res) => {
+    try {
+        const { status } = req.body; 
+        // Expected statuses: 'active', 'not_active' (Pending), 'suspended'
+        await query('UPDATE classes_courses SET status = ? WHERE id = ?', [status, req.params.id]);
+        
+        let messageWord = status === 'active' ? 'Approved & Published' : status === 'not_active' ? 'Moved to Pending' : 'Suspended';
+        res.status(200).json({ success: true, message: `Course ${messageWord} successfully.` });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update course status." });
+    }
+});
+
+// ==========================================
+// 18. GLOBAL TARGETED ANNOUNCEMENTS
+// ==========================================
+router.post('/global-announcement', async (req, res) => {
+    try {
+        const { audienceType, targetId, minAge, maxAge, title, message } = req.body;
+        
+        if (!title || !message) {
+            return res.status(400).json({ success: false, message: "Title and message are required." });
+        }
+
+        let userIds = [];
+
+        // 1. Hunt down the target audience
+        if (audienceType === 'all') {
+            const users = await query("SELECT id FROM users WHERE status = 'active'");
+            userIds = users.map(u => u.id);
+            
+        } else if (audienceType === 'students') {
+            const users = await query("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id WHERE r.role_name = 'student' AND u.status = 'active'");
+            userIds = users.map(u => u.id);
+            
+        } else if (audienceType === 'teachers') {
+            const users = await query("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id WHERE r.role_name = 'teacher' AND u.status = 'active'");
+            userIds = users.map(u => u.id);
+            
+        } else if (audienceType === 'course') {
+            // Get all students enrolled in a specific active course
+            const users = await query(`
+                SELECT s.user_id 
+                FROM enrollments e 
+                JOIN students s ON e.s_id = s.id 
+                WHERE e.c_id = ? AND e.status = 'In Progress'
+            `, [targetId]);
+            userIds = users.map(u => u.user_id);
+            
+        } else if (audienceType === 'subject') {
+            // Get all teachers who teach a specific subject
+            const users = await query(`
+                SELECT t.user_id 
+                FROM teacher_subjects ts 
+                JOIN teachers t ON ts.t_id = t.id 
+                WHERE ts.sub_id = ?
+            `, [targetId]);
+            userIds = users.map(u => u.user_id);
+
+        } else if (audienceType === 'students_by_subject') {
+            // 🌟 NEW: Get all students currently learning a specific subject
+            const users = await query(`
+                SELECT DISTINCT s.user_id 
+                FROM enrollments e 
+                JOIN students s ON e.s_id = s.id 
+                JOIN classes_courses c ON e.c_id = c.id 
+                JOIN teacher_subjects ts ON c.t_id = ts.t_id 
+                WHERE ts.sub_id = ? AND e.status = 'In Progress'
+            `, [targetId]);
+            userIds = users.map(u => u.user_id);
+
+        } else if (audienceType === 'students_by_age') {
+            // 🌟 NEW: Get students dynamically based on their exact age today
+            if (!minAge || !maxAge) return res.status(400).json({ success: false, message: "Age range is required." });
+            
+            const users = await query(`
+                SELECT u.id 
+                FROM users u 
+                JOIN roles r ON u.role_id = r.id 
+                WHERE r.role_name = 'student' 
+                AND u.status = 'active'
+                AND TIMESTAMPDIFF(YEAR, u.dob, CURDATE()) BETWEEN ? AND ?
+            `, [minAge, maxAge]);
+            userIds = users.map(u => u.id);
+        }
+
+        // 2. Safety check
+        if (userIds.length === 0) {
+            return res.status(404).json({ success: false, message: "No active users found matching this criteria." });
+        }
+
+        // 3. Blast the notifications using Promise.all
+        const insertPromises = userIds.map(id => {
+            return query(
+                'INSERT INTO notifications (user_id, title, description) VALUES (?, ?, ?)', 
+                [id, title, message]
+            );
+        });
+
+        await Promise.all(insertPromises);
+
+        res.status(200).json({ success: true, message: `Announcement blasted to ${userIds.length} users!` });
+
+    } catch (error) {
+        console.error("Global Announcement Error:", error);
+        res.status(500).json({ success: false, message: "Failed to send global announcement." });
+    }
+});
+
+// ==========================================
+// 19. ADMIN SETTINGS: GET PROFILE
+// ==========================================
+router.get('/profile/:id', async (req, res) => {
+    try {
+        const adminId = req.params.id;
+        const profile = await query(`
+            SELECT name, email, phone_number, address, dob, gender, picture, 2fa_enabled 
+            FROM users WHERE id = ?
+        `, [adminId]);
+
+        if (profile.length === 0) return res.status(404).json({ success: false, message: "Admin not found." });
+        
+        // Format the date so it plays nicely with HTML date inputs
+        if (profile[0].dob) {
+            const d = new Date(profile[0].dob);
+            profile[0].dob = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        res.status(200).json({ success: true, data: profile[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load profile." });
+    }
+});
+
+// ==========================================
+// 20. ADMIN SETTINGS: UPDATE PROFILE
+// ==========================================
+router.put('/profile/:id', async (req, res) => {
+    try {
+        const { name, email, phone_number, address, dob, gender } = req.body;
+        
+        await query(`
+            UPDATE users 
+            SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ? 
+            WHERE id = ?
+        `, [name, email, phone_number, address, dob, gender, req.params.id]);
+
+        res.status(200).json({ success: true, message: "Profile updated successfully!" });
+    } catch (error) {
+        // Handle duplicate email error
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: "That email is already in use by another account." });
+        }
+        res.status(500).json({ success: false, message: "Failed to update profile." });
+    }
+});
+
+// ==========================================
+// 21. ADMIN SETTINGS: CHANGE PASSWORD
+// ==========================================
+router.put('/change-password/:id', async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const adminId = req.params.id;
+
+        // 1. Get current user's hashed password
+        const user = await query('SELECT password FROM users WHERE id = ?', [adminId]);
+        if (user.length === 0) return res.status(404).json({ success: false, message: "User not found." });
+
+        // 2. Verify current password
+        const isMatch = await bcrypt.compare(currentPassword, user[0].password);
+        if (!isMatch) return res.status(400).json({ success: false, message: "Incorrect current password." });
+
+        // 3. Hash new password and save
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await query('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, adminId]);
+
+        res.status(200).json({ success: true, message: "Password updated successfully!" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update password." });
+    }
+});
+
+// ==========================================
+// 22. DIRECT MESSAGING (CHAT SYSTEM)
+// ==========================================
+router.post('/send-message', async (req, res) => {
+    try {
+        const { senderId, receiverId, message } = req.body;
+
+        if (!senderId || !receiverId || !message) {
+            return res.status(400).json({ success: false, message: "Missing required fields." });
+        }
+
+        // 1. Check if a conversation already exists between these two users
+        const convQuery = await query(`
+            SELECT id FROM conversations 
+            WHERE (participant1_id = ? AND participant2_id = ?) 
+               OR (participant1_id = ? AND participant2_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        let conversationId;
+
+        if (convQuery.length > 0) {
+            conversationId = convQuery[0].id;
+        } else {
+            // 2. Create a new conversation if one doesn't exist
+            const newConv = await query(`
+                INSERT INTO conversations (participant1_id, participant2_id) 
+                VALUES (?, ?)
+            `, [senderId, receiverId]);
+            conversationId = newConv.insertId;
+        }
+
+        // 3. Insert the actual message
+        await query(`
+            INSERT INTO messages (conversation_id, sender_id, body) 
+            VALUES (?, ?, ?)
+        `, [conversationId, senderId, message]);
+
+        // 4. Update the conversation's timestamp to bump it to the top of the inbox
+        await query(`
+            UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
+        `, [conversationId]);
+
+        res.status(200).json({ success: true, message: "Message sent successfully!" });
+
+    } catch (error) {
+        console.error("Direct Message Error:", error);
+        res.status(500).json({ success: false, message: "Failed to send message." });
     }
 });
 
