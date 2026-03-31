@@ -93,7 +93,7 @@ function App() {
     return () => clearInterval(heartbeatInterval);
   }, [userRole]);
 
-  // 🌟 THE FIX: Bulletproof Logout Logic
+  // 🌟 Bulletproof Logout Logic
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:3000/api/logout', {
@@ -125,12 +125,14 @@ function App() {
       <div className="min-h-screen bg-white">
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
+          
           <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
 
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
+          
           <Route
             path="/teachers"
             element={
@@ -138,6 +140,12 @@ function App() {
                 <Teachers />
               </MainLayout>
             }
+          />
+
+          {/* Verification Route */}
+          <Route 
+            path="/verify-teacher/:id" 
+            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
           />
 
           {/* Protected Route: Admin */}
@@ -197,7 +205,7 @@ function App() {
             element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* 🌟 THE FIX: Proper 3-way logic for the Teacher Route */}
+          {/* Proper 3-way logic for the Teacher Route */}
           <Route
             path="/teacher"
             element={
@@ -213,12 +221,6 @@ function App() {
             }
           />
 
-          {/* Verification Route */}
-          <Route 
-            path="/verify-teacher/:id" 
-            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
-          />
-
           {/* Protected Route: Student */}
           <Route
             path="/student"
@@ -231,14 +233,16 @@ function App() {
             }
           />
 
+          {/* Teacher Profile Edit */}
           <Route
             path="/teacher-profile-edit/:id?"
             element={
               userRole === 'teacher' ? (
-                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} />
+                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} />
               ) : (
                 <Navigate to="/" />
-              )} />
+              )} 
+          />
               
           <Route
             path="/courses"
@@ -248,6 +252,7 @@ function App() {
               </MainLayout>
             }
           />
+          
           <Route
             path="/assessments"
             element={

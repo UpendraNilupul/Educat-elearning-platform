@@ -146,6 +146,7 @@ CREATE TABLE timetables (
 
 CREATE TABLE lessons (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(150),
     number DECIMAL(4,2) NOT NULL,
     type VARCHAR(20) NOT NULL,
     link VARCHAR(300) NOT NULL,
@@ -159,7 +160,9 @@ CREATE TABLE resources (
     link VARCHAR(300) NOT NULL,
     number INT NOT NULL,
     m_id INT NOT NULL,
-    FOREIGN KEY(m_id) REFERENCES modules(id)
+    l_id INT,
+    FOREIGN KEY(m_id) REFERENCES modules(id),
+    FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
 
 CREATE TABLE quizes (
