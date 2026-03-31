@@ -28,6 +28,7 @@ import VerifyTeacher from './pages/verifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
 import Admin_Settings from './pages/Admin_Settings';
+import Admin_Team from './pages/Admin_Team';
 
 import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
@@ -198,6 +199,11 @@ function App() {
           <Route
             path="/admin/announcements"
             element={userRole === 'admin' ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/team"
+            element={userRole === 'admin' ? <Admin_Team userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           <Route

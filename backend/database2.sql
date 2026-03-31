@@ -287,6 +287,21 @@ CREATE TABLE teacher_subjects (
     FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
 );
 
+-- Create the Escalation/Flagging System
+CREATE TABLE admin_escalations (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    sub_admin_id INT NOT NULL,
+    entity_type VARCHAR(50) NOT NULL, -- e.g., 'teacher', 'student', 'course'
+    entity_id INT NOT NULL,           -- The ID of the flagged user/course
+    reason TEXT NOT NULL,             -- Why the sub-admin is flagging this
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'resolved'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(sub_admin_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Update your main admin account to be the 'super' admin
+UPDATE admins SET admin_level = 'super' WHERE id = 1; -- (Change '1' to your actual admin ID)
+
 -- ==========================================
 -- 🌟 LEVEL 8: COMMUNICATION & CHAT SYSTEM
 -- ==========================================

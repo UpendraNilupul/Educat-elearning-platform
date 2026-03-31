@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone,
-    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle
+    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle, ShieldCheck
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
@@ -46,6 +46,7 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
         { id: 'announcements', label: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
+        { id: 'team', label: 'Team Management', icon: ShieldCheck, path: '/admin/team' },
         { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
     ];
 
