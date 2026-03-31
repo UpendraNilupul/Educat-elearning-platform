@@ -15,6 +15,7 @@ const getPastDateString = (daysAgo) => {
 
 router.get('/dashboard-stats', async (req, res) => {
     try {
+        const isSubAdmin = req.session && req.session.adminLevel === 'sub';
         const period = req.query.period || 'today';
         const role = req.query.role || 'both';
 
@@ -160,6 +161,7 @@ router.get('/dashboard-stats', async (req, res) => {
                 totalStudents: students[0].count,
                 totalTeachers: teachers[0].count,
                 activeCourses: courses[0].count,
+                monthlyRevenue: isSubAdmin ? "RESTRICTED" : revenue[0].total,
                 monthlyRevenue: revenue[0].total
             },
             pendingTeachers,
@@ -670,6 +672,7 @@ router.put('/promo-codes/:id/status', async (req, res) => {
 // ==========================================
 router.get('/courses-list', async (req, res) => {
     try {
+        const isSubAdmin = req.session && req.session.adminLevel === 'sub';
         const { search, status } = req.query;
 
         let sqlQuery = `
@@ -707,7 +710,12 @@ router.get('/courses-list', async (req, res) => {
         sqlQuery += ` GROUP BY c.id ORDER BY c.created_at DESC`;
 
         const courses = await query(sqlQuery, queryParams);
-        res.status(200).json({ success: true, data: courses });
+        const maskedCourses = courses.map(c => ({
+            ...c,
+            total_revenue: isSubAdmin ? "RESTRICTED" : c.total_revenue
+        }));
+
+        res.status(200).json({ success: true, data: maskedCourses });
 
     } catch (error) {
         console.error("Error fetching courses list:", error);
@@ -948,6 +956,91 @@ router.post('/send-message', async (req, res) => {
     } catch (error) {
         console.error("Direct Message Error:", error);
         res.status(500).json({ success: false, message: "Failed to send message." });
+    }
+});
+
+// ==========================================
+// 🌟 23. THE ESCALATION SYSTEM (SUB TO SUPER)
+// ==========================================
+
+// Sub-Admin sends an issue up the chain
+router.post('/escalate', async (req, res) => {
+    try {
+        const { entityType, entityId, reason } = req.body;
+        const subAdminId = req.session.userId; 
+        
+        await query(`
+            INSERT INTO admin_escalations (sub_admin_id, entity_type, entity_id, reason)
+            VALUES (?, ?, ?, ?)
+        `, [subAdminId, entityType, entityId, reason]);
+        
+        res.status(200).json({ success: true, message: "Issue escalated to the Super Admin successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to escalate issue." });
+    }
+});
+
+// Super Admin views pending issues
+router.get('/escalations', async (req, res) => {
+    try {
+        const escalations = await query(`
+            SELECT e.*, u.name as sub_admin_name 
+            FROM admin_escalations e
+            JOIN users u ON e.sub_admin_id = u.id
+            ORDER BY e.created_at DESC
+        `);
+        res.status(200).json({ success: true, data: escalations });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch escalations." });
+    }
+});
+
+// Super Admin marks an issue as resolved
+router.put('/resolve-escalation/:id', async (req, res) => {
+    try {
+        await query(`UPDATE admin_escalations SET status = 'resolved' WHERE id = ?`, [req.params.id]);
+        res.status(200).json({ success: true, message: "Escalation resolved." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to resolve escalation." });
+    }
+});
+
+// ==========================================
+// 🌟 24. CREATE SUB-ADMIN (SUPER ADMIN ONLY)
+// ==========================================
+router.post('/create-sub-admin', async (req, res) => {
+    try {
+        // Ensure only a Super Admin can hit this route!
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized. Super Admin access required." });
+        }
+
+        const { name, email, password, phoneNumber, address, dob, gender } = req.body;
+        
+        // Hash the new admin's password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Find the 'admin' role ID
+        const roleResults = await query('SELECT id FROM roles WHERE role_name = "admin"');
+        const roleId = roleResults[0].id;
+
+        // 1. Insert into main users table
+        const userResult = await query(`
+            INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
+        `, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
+
+        // 2. Insert into admins table and tag them specifically as 'sub'
+        await query(`
+            INSERT INTO admins (user_id, admin_level) VALUES (?, 'sub')
+        `, [userResult.insertId]);
+
+        res.status(201).json({ success: true, message: "Sub-Admin created successfully!" });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: "That email is already in use by another account." });
+        }
+        res.status(500).json({ success: false, message: "Failed to create Sub-Admin." });
     }
 });
 
