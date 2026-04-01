@@ -185,7 +185,7 @@ router.get('/dashboard-stats', async (req, res) => {
 router.get('/teacher-details/:id', async (req, res) => {
     try {
         const teacherData = await query(`
-            SELECT u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.created_at,
+            SELECT u.name, u.email, u.phone_number, u.address, u.dob, u.gender, u.picture, u.created_at, u.status,
                    t.id as teacher_id, t.highest_qualification, t.verification_status,
                    t.university, t.experience_years, t.bio, t.resume_link, t.nic_path
             FROM teachers t
@@ -230,6 +230,10 @@ router.put('/verify-teacher/:id', async (req, res) => {
     try {
         // 1. Update the main status on the teacher's account
         await query('UPDATE teachers SET verification_status = ? WHERE id = ?', [status, teacherId]);
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Marked Teacher ID ${teacherId} application as: ${status}`]
+        );
 
         // 2. Log the feedback into the new dedicated table
         if (message && message.trim() !== "") {
@@ -545,6 +549,10 @@ router.put('/student-status/:userId', async (req, res) => {
     try {
         const { status } = req.body; // Expects 'active' or 'suspended'
         await query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.userId]);
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Changed Student ID ${req.params.userId} account status to: ${status}`]
+        );
         res.status(200).json({ success: true, message: `Student account ${status}.` });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to update status." });
@@ -730,6 +738,10 @@ router.put('/course-status/:id', async (req, res) => {
         const { status } = req.body;
         // Expected statuses: 'active', 'not_active' (Pending), 'suspended'
         await query('UPDATE classes_courses SET status = ? WHERE id = ?', [status, req.params.id]);
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Changed Course ID ${req.params.id} status to: ${status}`]
+        );
 
         let messageWord = status === 'active' ? 'Approved & Published' : status === 'not_active' ? 'Moved to Pending' : 'Suspended';
         res.status(200).json({ success: true, message: `Course ${messageWord} successfully.` });
@@ -1040,6 +1052,106 @@ router.post('/create-sub-admin', async (req, res) => {
             return res.status(400).json({ success: false, message: "That email is already in use by another account." });
         }
         res.status(500).json({ success: false, message: "Failed to create Sub-Admin." });
+    }
+});
+// ==========================================
+// 25. GLOBAL AUDIT LOGS (SUPER ADMIN ONLY)
+// ==========================================
+router.get('/system-logs', async (req, res) => {
+    try {
+        // Security: Only Super Admins can view the master logs
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized. Super Admin clearance required." });
+        }
+
+        // Fetch logs, joining with the users table to get the name of the admin who did it
+        const logs = await query(`
+            SELECT 
+                ua.id, 
+                ua.action_type, 
+                ua.created_at, 
+                u.name as admin_name, 
+                u.email as admin_email,
+                a.admin_level
+            FROM user_activity ua
+            JOIN users u ON ua.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            LEFT JOIN admins a ON u.id = a.user_id
+            WHERE r.role_name = 'admin' AND ua.action_type != 'login' AND ua.action_type != 'logout'
+            ORDER BY ua.created_at DESC
+            LIMIT 200
+        `);
+
+        res.status(200).json({ success: true, data: logs });
+    } catch (error) {
+        console.error("Audit Log Error:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch system logs." });
+    }
+});
+// ==========================================
+// 26. UNIFIED COMMUNICATIONS HUB ROUTES
+// ==========================================
+
+// A. Fetch all active conversations for the logged-in Admin
+router.get('/conversations', async (req, res) => {
+    try {
+        const adminId = req.session.userId;
+        
+        const conversations = await query(`
+            SELECT 
+                c.id as conversation_id, 
+                c.last_message_at,
+                u.id as other_user_id, 
+                u.name as other_user_name, 
+                u.picture as other_user_picture,
+                r.role_name as other_user_role
+            FROM conversations c
+            JOIN users u ON (u.id = c.participant1_id OR u.id = c.participant2_id) AND u.id != ?
+            JOIN roles r ON u.role_id = r.id
+            WHERE c.participant1_id = ? OR c.participant2_id = ?
+            ORDER BY c.last_message_at DESC
+        `, [adminId, adminId, adminId]);
+
+        res.status(200).json({ success: true, data: conversations });
+    } catch (error) {
+        console.error("Conversations Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load conversations." });
+    }
+});
+
+// B. Fetch messages for a specific conversation
+router.get('/conversations/:id/messages', async (req, res) => {
+    try {
+        const messages = await query(`
+            SELECT sender_id, body, created_at 
+            FROM messages 
+            WHERE conversation_id = ? 
+            ORDER BY created_at ASC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: messages });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load messages." });
+    }
+});
+
+// C. Fetch Announcement History (Groups notifications to show the blast record)
+router.get('/announcements-history', async (req, res) => {
+    try {
+        const history = await query(`
+            SELECT 
+                title, 
+                description, 
+                MIN(created_at) as sent_at, 
+                COUNT(id) as recipient_count 
+            FROM notifications 
+            GROUP BY title, description 
+            ORDER BY sent_at DESC
+        `);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load announcement history." });
     }
 });
 

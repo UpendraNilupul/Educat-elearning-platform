@@ -30,9 +30,11 @@ import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
 import Admin_Settings from './pages/Admin_Settings';
 import Admin_Team from './pages/Admin_Team';
-
+import Admin_SystemLogs from './pages/Admin_SystemLogs';
 import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
+import Admin_Communications from './pages/Admin_Communications';
+import Admin_Escalations from './pages/Admin_Escalations';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -219,6 +221,19 @@ function App() {
           <Route
             path="/admin/settings"
             element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/system-logs"
+            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_SystemLogs userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/admin/communications"
+            element={userRole === 'admin' ? <Admin_Communications userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/admin/escalations"
+            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Escalations userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           {/* Proper 3-way logic for the Teacher Route */}

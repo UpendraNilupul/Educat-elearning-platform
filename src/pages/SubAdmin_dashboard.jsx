@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone,
-    Settings, LogOut, Bell, UserCheck, PlayCircle, ShieldAlert, Send, X
+    Settings, LogOut, Bell, UserCheck, PlayCircle, ShieldAlert, Send, X, MessageSquare
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -63,7 +63,7 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Review Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teacher Directory', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Student Directory', icon: Users, path: '/admin/students' },
-        { id: 'announcements', label: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
+       { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'settings', label: 'My Settings', icon: Settings, path: '/admin/settings' },
     ];
 
