@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
+import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -61,6 +62,7 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 
 function App() {
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,6 +75,7 @@ function App() {
         const safeRole = String(data.userRole || '').toLowerCase().trim();
         setUserRole(safeRole);
         setUserName(data.userName);
+        if (data.adminLevel) setAdminLevel(data.adminLevel);
       })
       .catch(err => console.log("User is likely not logged in yet."))
       .finally(() => {
@@ -127,7 +130,10 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
           
-          <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
+          <Route 
+            path="/login" 
+            element={<Login setUserRole={setUserRole} setUserName={setUserName} setAdminLevel={setAdminLevel} userName={userName} />} 
+          />
 
           <Route
             path="/register"
@@ -149,12 +155,16 @@ function App() {
             element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
           />
 
-          {/* Protected Route: Admin */}
+          {/* Protected Route: Admin Traffic Cop */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <Admin userName={userName} onLogout={handleLogout} />
+                adminLevel === 'sub' ? (
+                  <SubAdmin_dashboard userName={userName} onLogout={handleLogout} />
+                ) : (
+                  <Admin userName={userName} onLogout={handleLogout} />
+                )
               ) : (
                 <Navigate to="/" />
               )
