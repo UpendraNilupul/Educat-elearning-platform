@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import '../styles/login.css';
 
 // 🌟 ADDED setUserName HERE
-const Login = ({ setUserRole, setUserName }) => {
+const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -37,12 +37,14 @@ const Login = ({ setUserRole, setUserName }) => {
                 const safeRole = String(data.userRole || '').toLowerCase().trim();
 
                 // Save data using safeRole
+                localStorage.setItem('adminLevel', data.adminLevel || 'super');
                 localStorage.setItem('userId', data.userId);
                 localStorage.setItem('userRole', safeRole);
                 localStorage.setItem('verificationStatus', data.verificationStatus || '');
 
                 if (setUserRole) setUserRole(safeRole);
                 if (setUserName) setUserName(data.userName);
+                if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
 
                 // 🔥 Redirect logic using safeRole
                 if (safeRole === 'admin') {
