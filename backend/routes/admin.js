@@ -269,14 +269,14 @@ router.get('/subjects', async (req, res) => {
 // ==========================================
 router.get('/teachers-list', async (req, res) => {
     try {
-        // Grab filter parameters from the frontend request
         const { search, status, subject } = req.query;
 
-        // Base SQL Query connecting all 5 tables!
+        // 🌟 UPDATED: t.user_code is now explicitly selected
         let sqlQuery = `
             SELECT 
                 t.id AS teacher_id,
                 u.id AS user_id,
+                t.user_code,
                 u.name, 
                 u.email, 
                 u.phone_number,
@@ -296,40 +296,33 @@ router.get('/teachers-list', async (req, res) => {
 
         const queryParams = [];
 
-        // 1. Search Filter (Checks Name, Email, or Phone)
+        // 🌟 UPDATED: Search checks user_code as well
         if (search && search.trim() !== '') {
-            sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ?)`;
+            sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ? OR t.user_code LIKE ?)`;
             const searchWildcard = `%${search}%`;
-            queryParams.push(searchWildcard, searchWildcard, searchWildcard);
+            queryParams.push(searchWildcard, searchWildcard, searchWildcard, searchWildcard);
         }
 
-        // 2. Status Filter
         if (status && status !== 'All') {
             if (status === 'Banned' || status === 'Suspended') {
-                // If checking for bans, look at the main user account status
                 sqlQuery += ` AND u.status = ?`;
                 queryParams.push(status.toLowerCase());
             } else {
-                // Otherwise, look at their application verification status
                 sqlQuery += ` AND t.verification_status = ?`;
                 queryParams.push(status.toLowerCase());
             }
         } else {
-            // Default behavior: Hide "Rejected" teachers to keep the dashboard clean
             sqlQuery += ` AND t.verification_status != 'rejected'`;
         }
 
-        // 3. Subject Filter
         if (subject && subject !== 'All') {
             sqlQuery += ` AND s.name = ?`;
             queryParams.push(subject);
         }
 
-        // Group the results so we don't get duplicate rows for teachers with multiple subjects
         sqlQuery += ` GROUP BY t.id, u.id ORDER BY u.created_at DESC`;
 
         const teachersList = await query(sqlQuery, queryParams);
-
         res.status(200).json({ success: true, data: teachersList });
 
     } catch (error) {
@@ -437,10 +430,12 @@ router.get('/students-list', async (req, res) => {
     try {
         const { search, status } = req.query;
 
+        // 🌟 UPDATED: s.user_code is now explicitly selected
         let sqlQuery = `
             SELECT 
                 s.id AS student_id,
                 u.id AS user_id,
+                s.user_code,
                 u.name, 
                 u.email, 
                 u.phone_number,
@@ -458,14 +453,13 @@ router.get('/students-list', async (req, res) => {
 
         const queryParams = [];
 
-        // 1. Search Filter
+        // 🌟 UPDATED: Search checks user_code as well
         if (search && search.trim() !== '') {
-            sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ?)`;
+            sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ? OR s.user_code LIKE ?)`;
             const searchWildcard = `%${search}%`;
-            queryParams.push(searchWildcard, searchWildcard, searchWildcard);
+            queryParams.push(searchWildcard, searchWildcard, searchWildcard, searchWildcard);
         }
 
-        // 2. Status Filter
         if (status && status !== 'All') {
             sqlQuery += ` AND u.status = ?`;
             queryParams.push(status.toLowerCase());

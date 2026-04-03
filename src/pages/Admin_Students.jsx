@@ -7,7 +7,7 @@ import {
 
 const Admin_Students = ({ userName, onLogout }) => {
     const navigate = useNavigate();
-    const adminId = localStorage.getItem('userId'); // 🌟 Get Admin's ID for the chat
+    const adminId = localStorage.getItem('userId');
     
     // Data States
     const [students, setStudents] = useState([]);
@@ -26,7 +26,7 @@ const Admin_Students = ({ userName, onLogout }) => {
     const [bulkType, setBulkType] = useState('announcement');
     const [bulkMessage, setBulkMessage] = useState('');
 
-    // 🌟 NEW: Chat Panel States
+    // Chat Panel States
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatUser, setChatUser] = useState(null);
     const [chatMessage, setChatMessage] = useState('');
@@ -42,7 +42,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 
                 if (data.success) {
                     setStudents(data.data);
-                    setSelectedUsers([]); // Clear selections when search changes
+                    setSelectedUsers([]);
                 }
             } catch (error) {
                 console.error("Failed to load students list:", error);
@@ -109,7 +109,6 @@ const Admin_Students = ({ userName, onLogout }) => {
         setIsBulkModalOpen(true);
     };
 
-    // 🌟 NEW: Handle Sending the Chat Message
     const handleSendMessage = async () => {
         if (!chatMessage.trim()) return;
         setIsSending(true);
@@ -144,7 +143,6 @@ const Admin_Students = ({ userName, onLogout }) => {
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
             
-            {/* Header Area */}
             <div className="flex justify-between items-end mb-8">
                 <div>
                     <h1 className="text-3xl font-black text-gray-900">Student Directory</h1>
@@ -158,13 +156,13 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </button>
             </div>
 
-            {/* Filters Bar */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
                 <div className="flex-1 min-w-[250px] relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    {/* 🌟 FIX: Updated Placeholder */}
                     <input 
                         type="text" 
-                        placeholder="Search by name, email, or phone..." 
+                        placeholder="Search by code, name, email, or phone..." 
                         className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-sm transition-all"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -186,7 +184,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             </div>
 
-            {/* Bulk Action Floating Bar */}
             {selectedUsers.length > 0 && (
                 <div className="bg-[#4a0b59] text-white px-6 py-4 rounded-2xl shadow-lg mb-6 flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 transition-all">
                     <div className="flex items-center space-x-4">
@@ -212,13 +209,11 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             )}
 
-            {/* Data Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible min-h-[400px] mb-12">
                 <div className="overflow-visible w-full">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                                {/* Select All Checkbox */}
                                 <th className="p-4 rounded-tl-2xl w-12 text-center">
                                     <input 
                                         type="checkbox" 
@@ -243,7 +238,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                 students.map((student) => (
                                     <tr key={student.student_id} className={`transition-colors ${selectedUsers.includes(student.user_id) ? 'bg-purple-50/50' : 'hover:bg-gray-50/50'}`}>
                                         
-                                        {/* Individual Checkbox */}
                                         <td className="p-4 text-center">
                                             <input 
                                                 type="checkbox" 
@@ -253,7 +247,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                             />
                                         </td>
 
-                                        {/* Student Info */}
                                         <td className="p-4">
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
@@ -262,7 +255,11 @@ const Admin_Students = ({ userName, onLogout }) => {
                                                     ) : student.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-gray-900">{student.name}</p>
+                                                    {/* 🌟 FIX: Displays [CODE] Name */}
+                                                    <p className="text-sm font-bold text-gray-900">
+                                                        <span className="text-[#4a0b59] mr-1">[{student.user_code || 'N/A'}]</span>
+                                                        {student.name}
+                                                    </p>
                                                     <p className="text-xs text-gray-500">{student.email}</p>
                                                 </div>
                                             </div>
@@ -286,7 +283,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                             </span>
                                         </td>
 
-                                        {/* Action Menu */}
                                         <td className="p-4 text-center relative">
                                             <button 
                                                 onClick={() => setOpenMenuId(openMenuId === student.student_id ? null : student.student_id)}
@@ -304,7 +300,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                                         <Eye size={16} className="mr-2" /> View Profile
                                                     </Link>
 
-                                                    {/* 🌟 NEW: The Message Button */}
                                                     <button 
                                                         onClick={() => {
                                                             setChatUser({ id: student.user_id, name: student.name, picture: student.picture });
@@ -382,17 +377,12 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             )}
 
-            {/* 🌟 NEW: The Slide-Out Chat Drawer */}
+            {/* Slide-Out Chat Drawer */}
             {isChatOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/20 z-40 transition-opacity" 
-                    onClick={() => setIsChatOpen(false)}
-                ></div>
+                <div className="fixed inset-0 bg-black/20 z-40 transition-opacity" onClick={() => setIsChatOpen(false)}></div>
             )}
             
             <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                
-                {/* Chat Header */}
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
@@ -408,7 +398,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                     </button>
                 </div>
 
-                {/* Chat Instructions */}
                 <div className="flex-1 p-6 bg-white overflow-y-auto">
                     <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm mb-4">
                         <p className="font-bold mb-1 flex items-center"><Clock size={16} className="mr-1.5"/> Auto-Delete Enabled</p>
@@ -417,7 +406,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                     <p className="text-gray-400 text-sm text-center mt-10">Start a new secure conversation with {chatUser?.name}...</p>
                 </div>
 
-                {/* Chat Input Area */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50">
                     <textarea 
                         className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 resize-none text-sm"
@@ -436,9 +424,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                         </button>
                     </div>
                 </div>
-
             </div>
-
         </div>
     );
 };
