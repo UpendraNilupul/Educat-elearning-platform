@@ -1149,4 +1149,83 @@ router.get('/announcements-history', async (req, res) => {
     }
 });
 
+// ==========================================
+// 27. CSV DATA EXPORT ROUTES
+// ==========================================
+
+// Helper function to convert JSON to CSV format
+const convertToCSV = (data) => {
+    if (!data || data.length === 0) return '';
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(row => 
+        Object.values(row).map(val => {
+            let str = String(val !== null && val !== undefined ? val : '');
+            // Escape quotes and commas for Excel compatibility
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                str = `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }).join(',')
+    );
+    return [headers, ...rows].join('\n');
+};
+
+// A. Export Teachers
+router.get('/export/teachers', async (req, res) => {
+    try {
+        const teachers = await query(`
+            SELECT 
+                t.user_code AS 'ID Code',
+                u.name AS 'Full Name', 
+                u.email AS 'Email Address', 
+                u.phone_number AS 'Phone Number',
+                u.gender AS 'Gender',
+                u.address AS 'Location',
+                t.highest_qualification AS 'Qualification',
+                t.verification_status AS 'Application Status',
+                u.status AS 'Account Status',
+                DATE_FORMAT(u.join_date, '%Y-%m-%d') AS 'Join Date'
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            ORDER BY u.join_date DESC
+        `);
+
+        const csvData = convertToCSV(teachers);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`Ziron_Teachers_Export_${getPastDateString(0)}.csv`);
+        res.send(csvData);
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to export teachers." });
+    }
+});
+
+// B. Export Students
+router.get('/export/students', async (req, res) => {
+    try {
+        const students = await query(`
+            SELECT 
+                s.user_code AS 'ID Code',
+                u.name AS 'Full Name', 
+                u.email AS 'Email Address', 
+                u.phone_number AS 'Phone Number',
+                u.gender AS 'Gender',
+                u.address AS 'Location',
+                s.grade_level AS 'Grade Level',
+                s.school_name AS 'School',
+                u.status AS 'Account Status',
+                DATE_FORMAT(u.join_date, '%Y-%m-%d') AS 'Join Date'
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            ORDER BY u.join_date DESC
+        `);
+
+        const csvData = convertToCSV(students);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(`Ziron_Students_Export_${getPastDateString(0)}.csv`);
+        res.send(csvData);
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to export students." });
+    }
+});
+
 export default router;

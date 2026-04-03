@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, FileText, CheckCircle, Clock, X, Send 
+    Mail, Eye, FileText, CheckCircle, Clock, X, Send ,Download
 } from 'lucide-react';
 
 const Admin_Teachers = ({ userName, onLogout }) => {
@@ -93,6 +93,11 @@ const Admin_Teachers = ({ userName, onLogout }) => {
         }
     };
 
+    // 🌟 NEW: Trigger CSV Download
+    const handleExportCSV = () => {
+        window.open('http://localhost:3000/api/admin/export/teachers', '_blank');
+    };
+
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
             {/* Header Area */}
@@ -110,7 +115,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
                 <div className="flex-1 min-w-[250px] relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    {/* 🌟 FIX: Updated Placeholder */}
                     <input type="text" placeholder="Search by code, name, email, or phone..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59] text-sm transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
 
@@ -131,8 +135,18 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                         {subjectsList.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
                     </select>
                 </div>
-            </div>
 
+                {/* 🌟 NEW: The Export Button */}
+                <div className="pl-4 border-l border-gray-100">
+                    <button 
+                        onClick={handleExportCSV}
+                        className="px-4 py-2.5 bg-green-50 text-green-700 font-bold text-sm rounded-xl hover:bg-green-100 transition-colors flex items-center border border-green-200"
+                    >
+                        <Download size={16} className="mr-2" /> Export to CSV
+                    </button>
+                </div>
+            </div>
+            
             {/* Data Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible min-h-[400px] mb-12">
                 <div className="overflow-visible w-full">
