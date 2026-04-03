@@ -6,44 +6,71 @@ import util from 'util';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-router.post('/register', async (req, res) => {
-    const { name, email, password, phoneNumber, address, dob, gender, role } = req.body;
+// Helper function to generate the Code (e.g., SCKA000234)
+const generateUserCode = (role, province, district, specificId) => {
+    // 1. Role Prefix (S or T)
+    const rolePrefix = role === 'student' ? 'S' : 'T';
     
-    if (!name || !email || !password || !phoneNumber || !dob || !gender || !role) {
+    // 2. Province First Letter 
+    const provLetter = (province && province.length > 0) ? province.charAt(0).toUpperCase() : 'X';
+    
+    // 3. District First Two Letters 
+    const distLetters = (district && district.length >= 2) ? district.substring(0, 2).toUpperCase() : 'XX';
+    
+    // 4. Pad the ID with leading zeros to make it 6 digits
+    const paddedId = String(specificId).padStart(6, '0');
+    
+    // Combine them all
+    return `${rolePrefix}${provLetter}${distLetters}${paddedId}`;
+};
+
+router.post('/register', async (req, res) => {
+    // 🌟 ADDED province and district to the destructured body
+    const { name, email, password, phoneNumber, address, dob, gender, role, province, district } = req.body;
+    
+    // Updated validation to require the new location fields
+    if (!name || !email || !password || !phoneNumber || !dob || !gender || !role || !province || !district) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
 
     try {
-        // 1. Find the role_id 
         const roleResults = await query('SELECT id FROM roles WHERE role_name = ?', [role]);
         if (roleResults.length === 0) {
             return res.status(400).json({ message: 'Invalid role selected.' });
         }
         const roleId = roleResults[0].id;
 
-        // 2. Check if the email already exists
         const existingUsers = await query('SELECT * FROM users WHERE email = ?', [email]);
         if (existingUsers.length > 0) {
             return res.status(400).json({ message: 'Email is already registered.' });
         }
 
-        // 3. Hash the password before saving
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 4. Insert the new user into the core USERS table
+        // 1. Insert the new user into the core USERS table
         const insertUserQuery = `
             INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
         `;
         const userResult = await query(insertUserQuery, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
 
-        // 🌟 5. NEW: Grab their brand new ID and assign them to their specific profile table!
-        const newUserId = userResult.insertId; // This grabs the ID MySQL just generated
+        const newUserId = userResult.insertId; 
+        let finalUserCode = '';
 
+        // 🌟 2. Insert into specific tables and generate the Code
         if (role === 'student') {
-            await query('INSERT INTO students (user_id) VALUES (?)', [newUserId]);
+            const studentResult = await query('INSERT INTO students (user_id) VALUES (?)', [newUserId]);
+            const studentId = studentResult.insertId;
+            
+            finalUserCode = generateUserCode('student', province, district, studentId);
+            await query('UPDATE students SET user_code = ? WHERE id = ?', [finalUserCode, studentId]);
+
         } else if (role === 'teacher') {
-            await query('INSERT INTO teachers (user_id) VALUES (?)', [newUserId]);
+            const teacherResult = await query('INSERT INTO teachers (user_id) VALUES (?)', [newUserId]);
+            const teacherId = teacherResult.insertId;
+            
+            finalUserCode = generateUserCode('teacher', province, district, teacherId);
+            await query('UPDATE teachers SET user_code = ? WHERE id = ?', [finalUserCode, teacherId]);
         }
 
         req.session.userId = newUserId;
@@ -54,7 +81,8 @@ router.post('/register', async (req, res) => {
             message: 'User registered successfully!',
             userId: newUserId,
             userRole: role,
-            userName: name
+            userName: name,
+            userCode: finalUserCode // Send the code back to the client if needed
         });
 
     } catch (error) {
