@@ -4,7 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import '../styles/login.css';
 
 // 🌟 ADDED setUserName HERE
-const Login = ({ setUserRole, setUserName }) => {
+const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,7 +23,7 @@ const Login = ({ setUserRole, setUserName }) => {
         e.preventDefault();
 
         try {
-            const response = await fetch('/api/login', {
+            const response = await fetch('http://localhost:3000/api/login', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -37,12 +37,14 @@ const Login = ({ setUserRole, setUserName }) => {
                 const safeRole = String(data.userRole || '').toLowerCase().trim();
 
                 // Save data using safeRole
+                localStorage.setItem('adminLevel', data.adminLevel || 'super');
                 localStorage.setItem('userId', data.userId);
                 localStorage.setItem('userRole', safeRole);
                 localStorage.setItem('verificationStatus', data.verificationStatus || '');
 
                 if (setUserRole) setUserRole(safeRole);
                 if (setUserName) setUserName(data.userName);
+                if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
 
                 // 🔥 Redirect logic using safeRole
                 if (safeRole === 'admin') {
@@ -76,7 +78,7 @@ const Login = ({ setUserRole, setUserName }) => {
     const handleSendOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/forgot-password/send-otp', {
+            const res = await fetch('http://localhost:3000/api/forgot-password/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -94,7 +96,7 @@ const Login = ({ setUserRole, setUserName }) => {
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/forgot-password/verify-otp', {
+            const res = await fetch('http://localhost:3000/api/forgot-password/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })

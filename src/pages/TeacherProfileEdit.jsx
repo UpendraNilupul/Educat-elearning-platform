@@ -46,7 +46,8 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
           bio: res.data.bio || '',
           '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
         }));
-        if (res.data.picture) setPreview(`http://localhost:3000/uploads/${res.data.picture}`);
+        // Updated to use verification subfolder
+        if (res.data.picture) setPreview(`http://localhost:3000/uploads/verification/${res.data.picture}`);
       })
       .catch(err => {
         console.error('Failed to load teacher profile', err);
@@ -91,7 +92,10 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Failed to update teacher profile', err);
-      setMessage({ type: 'error', text: 'Failed to update profile.' });
+      // Show actual error message from server if available
+      const errorMsg = err.response?.data?.error || 'Failed to update profile.';
+      setMessage({ type: 'error', text: errorMsg });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
