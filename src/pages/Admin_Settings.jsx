@@ -1,27 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    Settings, User, Lock, Save, ArrowLeft, ShieldCheck 
+    Settings, ArrowLeft, User, Lock, Mail, Phone, 
+    MapPin, Calendar, ShieldCheck, Save
 } from 'lucide-react';
 
 const Admin_Settings = ({ userName, onLogout }) => {
     const navigate = useNavigate();
     const adminId = localStorage.getItem('userId');
-    
-    // States
+    const adminLevel = localStorage.getItem('adminLevel');
+
     const [loading, setLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isSavingPassword, setIsSavingPassword] = useState(false);
 
+    // Profile State
     const [profileData, setProfileData] = useState({
         name: '', email: '', phone_number: '', address: '', dob: '', gender: ''
     });
 
+    // Password State
     const [passwordData, setPasswordData] = useState({
         currentPassword: '', newPassword: '', confirmPassword: ''
     });
 
-    // Fetch initial data
     useEffect(() => {
         const fetchProfile = async () => {
             try {
@@ -31,7 +33,7 @@ const Admin_Settings = ({ userName, onLogout }) => {
                     setProfileData(result.data);
                 }
             } catch (error) {
-                console.error("Failed to load profile:", error);
+                console.error("Failed to load profile.");
             } finally {
                 setLoading(false);
             }
@@ -39,8 +41,15 @@ const Admin_Settings = ({ userName, onLogout }) => {
         fetchProfile();
     }, [adminId]);
 
-    // Handle Profile Update
-    const handleProfileSubmit = async (e) => {
+    const handleProfileChange = (e) => {
+        setProfileData({ ...profileData, [e.target.name]: e.target.value });
+    };
+
+    const handlePasswordChange = (e) => {
+        setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    };
+
+    const submitProfileUpdate = async (e) => {
         e.preventDefault();
         setIsSavingProfile(true);
         try {
@@ -52,10 +61,8 @@ const Admin_Settings = ({ userName, onLogout }) => {
             });
             const result = await response.json();
             alert(result.message);
-            // Optionally update the global userName if they changed it!
-            if (result.success && profileData.name !== userName) {
-                localStorage.setItem('userName', profileData.name);
-                window.location.reload(); // Quick refresh to update sidebar names
+            if (result.success) {
+                localStorage.setItem('userName', profileData.name); // Update local storage name
             }
         } catch (error) {
             alert("Failed to update profile.");
@@ -64,13 +71,13 @@ const Admin_Settings = ({ userName, onLogout }) => {
         }
     };
 
-    // Handle Password Update
-    const handlePasswordSubmit = async (e) => {
+    const submitPasswordUpdate = async (e) => {
         e.preventDefault();
-        
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            alert("New passwords do not match!");
-            return;
+            return alert("New passwords do not match!");
+        }
+        if (passwordData.newPassword.length < 6) {
+            return alert("Password must be at least 6 characters long.");
         }
 
         setIsSavingPassword(true);
@@ -90,19 +97,17 @@ const Admin_Settings = ({ userName, onLogout }) => {
                 setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             }
         } catch (error) {
-            alert("Failed to change password.");
+            alert("Failed to update password.");
         } finally {
             setIsSavingPassword(false);
         }
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Loading Settings...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-bold">Loading Settings...</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
-            
-            {/* Header */}
-            <div className="max-w-5xl mx-auto mb-8 flex justify-between items-end">
+            <div className="max-w-6xl mx-auto mb-8 flex justify-between items-end">
                 <div>
                     <button 
                         onClick={() => navigate('/admin')}
@@ -113,113 +118,110 @@ const Admin_Settings = ({ userName, onLogout }) => {
                     <h1 className="text-3xl font-black text-gray-900 flex items-center">
                         <Settings className="mr-3 text-[#4a0b59]" size={32} /> Account Settings
                     </h1>
-                    <p className="text-gray-500 mt-1">Manage your administrator profile and security preferences.</p>
+                    <p className="text-gray-500 mt-1">Manage your personal profile and security credentials.</p>
+                </div>
+                <div className="bg-purple-50 text-[#4a0b59] px-4 py-2 rounded-xl font-bold border border-purple-100 flex items-center shadow-sm uppercase text-sm tracking-wider">
+                    <ShieldCheck size={18} className="mr-2" /> {adminLevel} Admin Clearance
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                {/* General Information Card */}
-                <form onSubmit={handleProfileSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-                    <div className="p-6 border-b border-gray-100 flex items-center">
-                        <div className="w-10 h-10 rounded-lg bg-purple-100 text-[#4a0b59] flex items-center justify-center mr-4">
-                            <User size={20} />
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+                {/* Profile Details Column (Takes up 2/3) */}
+                <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
+                    <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                            <User className="mr-2 text-gray-400" size={20} /> Personal Information
+                        </h2>
                     </div>
                     
-                    <div className="p-6 space-y-4 flex-1">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
-                            <input type="text" required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                value={profileData.name} onChange={(e) => setProfileData({...profileData, name: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-                            <input type="email" required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                value={profileData.email} onChange={(e) => setProfileData({...profileData, email: e.target.value})} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={submitProfileUpdate} className="p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
-                                <input type="text" required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                    value={profileData.phone_number} onChange={(e) => setProfileData({...profileData, phone_number: e.target.value})} />
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input type="text" name="name" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.name} onChange={handleProfileChange} />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Gender</label>
-                                <select required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                    value={profileData.gender} onChange={(e) => setProfileData({...profileData, gender: e.target.value})}>
-                                    <option value="">Select...</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input type="email" name="email" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.email} onChange={handleProfileChange} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input type="text" name="phone_number" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.phone_number} onChange={handleProfileChange} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
+                                <select name="gender" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700 cursor-pointer" value={profileData.gender} onChange={handleProfileChange}>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
                                 </select>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Date of Birth</label>
-                                <input type="date" required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                    value={profileData.dob} onChange={(e) => setProfileData({...profileData, dob: e.target.value})} />
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input type="date" name="dob" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700" value={profileData.dob} onChange={handleProfileChange} />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Address</label>
-                                <input type="text" required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white text-sm"
-                                    value={profileData.address} onChange={(e) => setProfileData({...profileData, address: e.target.value})} />
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input type="text" name="address" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.address} onChange={handleProfileChange} />
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
-                        <button type="submit" disabled={isSavingProfile} className="px-6 py-2.5 bg-[#4a0b59] text-white font-bold rounded-xl hover:bg-purple-900 flex items-center shadow-sm transition-all disabled:opacity-50">
-                            {isSavingProfile ? 'Saving...' : <><Save size={18} className="mr-2" /> Save Profile</>}
-                        </button>
-                    </div>
-                </form>
-
-                {/* Security Card */}
-                <form onSubmit={handlePasswordSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-                    <div className="p-6 border-b border-gray-100 flex items-center">
-                        <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mr-4">
-                            <ShieldCheck size={20} />
+                        <div className="flex justify-end pt-6 border-t border-gray-100">
+                            <button type="submit" disabled={isSavingProfile} className="px-8 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex items-center shadow-md transition-all disabled:opacity-50">
+                                {isSavingProfile ? 'Saving...' : <><Save size={18} className="mr-2" /> Update Profile</>}
+                            </button>
                         </div>
-                        <h2 className="text-xl font-bold text-gray-900">Security & Password</h2>
+                    </form>
+                </div>
+
+                {/* Security Column (Takes up 1/3) */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
+                    <div className="p-6 border-b border-gray-100 bg-red-50/30">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                            <Lock className="mr-2 text-red-400" size={20} /> Security Settings
+                        </h2>
                     </div>
-                    
-                    <div className="p-6 space-y-4 flex-1">
+
+                    <form onSubmit={submitPasswordUpdate} className="p-8 space-y-5">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Current Password</label>
-                            <div className="relative">
-                                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input type="password" required placeholder="Enter current password" minLength="6"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-500 text-sm"
-                                    value={passwordData.currentPassword} onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})} />
-                            </div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Password</label>
+                            <input type="password" name="currentPassword" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.currentPassword} onChange={handlePasswordChange} />
                         </div>
-                        
-                        <div className="border-t border-gray-100 my-4 pt-4">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">New Password</label>
-                            <div className="relative mb-4">
-                                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input type="password" required placeholder="Enter new password" minLength="6"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-500 text-sm"
-                                    value={passwordData.newPassword} onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})} />
-                            </div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Confirm New Password</label>
-                            <div className="relative">
-                                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input type="password" required placeholder="Confirm new password" minLength="6"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-500 text-sm"
-                                    value={passwordData.confirmPassword} onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})} />
-                            </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">New Password</label>
+                            <input type="password" name="newPassword" required minLength="6" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.newPassword} onChange={handlePasswordChange} />
                         </div>
-                    </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Confirm New Password</label>
+                            <input type="password" name="confirmPassword" required minLength="6" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.confirmPassword} onChange={handlePasswordChange} />
+                        </div>
 
-                    <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
-                        <button type="submit" disabled={isSavingPassword} className="px-6 py-2.5 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 flex items-center shadow-sm transition-all disabled:opacity-50">
-                            {isSavingPassword ? 'Updating...' : <><Lock size={18} className="mr-2" /> Update Password</>}
-                        </button>
-                    </div>
-                </form>
+                        <div className="pt-4">
+                            <button type="submit" disabled={isSavingPassword} className="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 flex items-center justify-center shadow-md transition-all disabled:opacity-50">
+                                {isSavingPassword ? 'Updating...' : 'Change Password'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
 
             </div>
         </div>

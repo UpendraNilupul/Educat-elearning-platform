@@ -7,6 +7,7 @@ import StudentProfileEdit from '../components/StudentProfileEdit';
 // Import our new Lessons view
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
+import DashboardHeader from '../components/DashboardHeader'; 
 
 import {
     LayoutDashboard,
@@ -171,7 +172,9 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-
+                    {/* ✅ CLEAN MERGE: The Dashboard Header from Teammate */}
+                    <DashboardHeader userName={userName} />
+                    
                     {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
@@ -305,8 +308,6 @@ const Student = ({ userName, onLogout }) => {
                                     )}
                                 </div>
                             )}
-
-                            {/* Calendar Section removed from here */}
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
