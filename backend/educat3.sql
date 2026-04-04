@@ -289,6 +289,32 @@ CREATE TABLE timetables (
 );
 
 
+CREATE TABLE assignments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    m_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    attachment_url VARCHAR(300), -- Teacher's assignment description/resources
+    deadline DATETIME NOT NULL,
+    max_marks DECIMAL(5,2) DEFAULT 100.00,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
+);
+
+CREATE TABLE assignment_submissions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    a_id INT NOT NULL,
+    s_id INT NOT NULL,
+    file_url VARCHAR(300) NOT NULL, -- Submitted document
+    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    grade DECIMAL(5,2),
+    feedback TEXT,
+    status VARCHAR(20) DEFAULT 'submitted', -- 'submitted', 'graded', 'late'
+    FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+
 
 -- ==========================================
 -- SEED DATA
