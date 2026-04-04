@@ -14,7 +14,9 @@ import {
   ArrowDown,
   Edit2,
   Eye,
-  EyeOff
+  EyeOff,
+  ClipboardList,
+  Calendar as CalendarIcon
 } from "lucide-react";
 
 const TeachersCourse = ({ courses, setCourses }) => {
@@ -47,6 +49,15 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const [activeModuleId, setActiveModuleId] = useState(null);
   const [activeLessonId, setActiveLessonId] = useState(null);
   const [lessonTitle, setLessonTitle] = useState("");
+
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [assignmentData, setAssignmentData] = useState({ 
+    title: "", 
+    description: "", 
+    deadline: "", 
+    max_marks: 100, 
+    file: null 
+  });
 
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
@@ -215,6 +226,49 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
     setResourceData({ title: "", type: "pdf", url: "", file: null });
     setIsResourceModalOpen(false);
+  };
+  
+  const submitAssignment = async (e) => {
+    e.preventDefault();
+    if (!assignmentData.title.trim() || !assignmentData.deadline) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('title', assignmentData.title);
+        formData.append('description', assignmentData.description);
+        formData.append('deadline', assignmentData.deadline);
+        formData.append('max_marks', assignmentData.max_marks);
+        if (assignmentData.file) {
+            formData.append('attachment', assignmentData.file);
+        }
+
+        const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/assignments`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Failed to add assignment');
+        const newAssignment = await response.json();
+
+        // Update local state
+        setCourses(courses.map(course => {
+            if (course.id === selectedCourse.id) {
+                const updatedChapters = (course.chapters || []).map(c => 
+                    c.id === activeModuleId ? { ...c, assignments: [newAssignment, ...(c.assignments || [])] } : c
+                );
+                const updatedCourse = { ...course, chapters: updatedChapters };
+                setSelectedCourse(updatedCourse);
+                return updatedCourse;
+            }
+            return course;
+        }));
+
+        setIsAssignmentModalOpen(false);
+        setAssignmentData({ title: "", description: "", deadline: "", max_marks: 100, file: null });
+    } catch (err) {
+        console.error(err);
+        alert('Error adding assignment');
+    }
   };
 
   const handleMoveChapterUp = (chapterIndex) => {
@@ -712,6 +766,48 @@ const TeachersCourse = ({ courses, setCourses }) => {
                       >
                         <Plus size={16} /> Add Lesson
                       </button>
+                      
+                      <div className="mt-6 flex flex-col gap-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                <ClipboardList size={18} className="text-purple-500" /> Assignments
+                            </h4>
+                            <button 
+                                onClick={() => { setActiveModuleId(chapter.id); setIsAssignmentModalOpen(true); }}
+                                className="text-xs font-bold text-purple-600 hover:text-purple-700"
+                            >
+                                + Create Assignment
+                            </button>
+                        </div>
+                        
+                        {(chapter.assignments || []).length === 0 ? (
+                            <p className="text-gray-400 text-xs italic">No assignments added yet.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {chapter.assignments.map(assign => (
+                                    <div key={assign.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h5 className="font-bold text-gray-800">{assign.title}</h5>
+                                            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">
+                                                {assign.maxMarks} Marks
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{assign.description}</p>
+                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 mb-4">
+                                            <CalendarIcon size={12} />
+                                            <span>Deadline: {new Date(assign.deadline).toLocaleDateString()}</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => navigate(`/teacher/assignments/${assign.id}/submissions`)}
+                                            className="w-full bg-white border border-purple-200 text-purple-700 py-2 rounded-lg text-xs font-bold hover:bg-purple-50 transition-colors"
+                                        >
+                                            View Submissions
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -788,6 +884,74 @@ const TeachersCourse = ({ courses, setCourses }) => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Assignment Modal */}
+      {isAssignmentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300">
+            <button onClick={() => setIsAssignmentModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Assignment</h2>
+            <form onSubmit={submitAssignment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Assignment Title</label>
+                <input 
+                  type="text" 
+                  value={assignmentData.title}
+                  onChange={e => setAssignmentData({...assignmentData, title: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
+                  placeholder="e.g. Weekly Quiz 1"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                <textarea 
+                  value={assignmentData.description}
+                  onChange={e => setAssignmentData({...assignmentData, description: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
+                  placeholder="Enter assignment instructions..."
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Deadline</label>
+                  <input 
+                    type="datetime-local" 
+                    value={assignmentData.deadline}
+                    onChange={e => setAssignmentData({...assignmentData, deadline: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Max Marks</label>
+                  <input 
+                    type="number" 
+                    value={assignmentData.max_marks}
+                    onChange={e => setAssignmentData({...assignmentData, max_marks: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Attachment (Optional)</label>
+                <input 
+                  type="file" 
+                  onChange={e => setAssignmentData({...assignmentData, file: e.target.files[0]})}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setIsAssignmentModalOpen(false)} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button type="submit" className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all shadow-md">Create</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ CREATE DATABASE educat;
 USE educat;
 
 -- ==========================================
--- LEVEL 1: CORE TABLES (No Foreign Keys)
+-- LEVEL 1: CORE TABLES
 -- ==========================================
 
 CREATE TABLE roles (
@@ -30,10 +30,9 @@ CREATE TABLE users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     picture VARCHAR(300),
     2fa_enabled BOOLEAN DEFAULT FALSE,
+    last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (role_id) REFERENCES roles(id)
 );
-ALTER TABLE users 
-ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP;
 
 -- ==========================================
 -- LEVEL 3: SPECIFIC USER PROFILES
@@ -47,10 +46,10 @@ CREATE TABLE teachers (
     experience_years INT,
     bio TEXT,
     resume_link VARCHAR(300),
+    nic_path VARCHAR(300),
     verification_status VARCHAR(20) DEFAULT 'pending', 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-ALTER TABLE teachers ADD COLUMN nic_path VARCHAR(300);
 
 CREATE TABLE students (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -93,11 +92,15 @@ CREATE TABLE classes_courses (
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
-    t_id INT NOT NULL, 
+    t_id INT NOT NULL,
+    teacher_id INT DEFAULT 1,
+    students INT DEFAULT 0,
+    modules INT DEFAULT 0,
+    progress INT DEFAULT 0,
     status VARCHAR(20) DEFAULT 'not_active',
     is_published BOOLEAN DEFAULT FALSE,
-    theme_color VARCHAR(20) DEFAULT 'purple', -- Added for Course.jsx UI
-    thumbnail_url VARCHAR(300), -- Added for Course.jsx UI
+    theme_color VARCHAR(20) DEFAULT 'purple',
+    thumbnail_url VARCHAR(300),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(t_id) REFERENCES teachers(id)
 );
@@ -117,6 +120,7 @@ CREATE TABLE modules (
     number INT NOT NULL,
     title VARCHAR(100) NOT NULL,
     status VARCHAR(20) DEFAULT 'active',
+    isVisible TINYINT(1) DEFAULT 1,
     c_id INT NOT NULL,
     FOREIGN KEY(c_id) REFERENCES classes_courses(id)
 );
@@ -128,6 +132,7 @@ CREATE TABLE modules (
 CREATE TABLE lessons (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     number DECIMAL(4,2) NOT NULL,
+    title VARCHAR(150) DEFAULT '',
     type VARCHAR(20) NOT NULL,
     link VARCHAR(300) NOT NULL,
     m_id INT NOT NULL,
@@ -140,7 +145,9 @@ CREATE TABLE resources (
     link VARCHAR(300) NOT NULL,
     number INT NOT NULL,
     m_id INT NOT NULL,
-    FOREIGN KEY(m_id) REFERENCES modules(id)
+    l_id INT,
+    FOREIGN KEY(m_id) REFERENCES modules(id),
+    FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
 
 CREATE TABLE quizes (
@@ -217,7 +224,7 @@ CREATE TABLE reviews (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     description VARCHAR(500) NOT NULL,
-    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0, -- Added for frontend star rating
+    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0,
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -257,44 +264,16 @@ CREATE TABLE teacher_reviews (
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
--- Create a master list of all subjects offered on the platform
-CREATE TABLE subjects (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
-);
-
--- Create the bridge table linking teachers to their subjects
-CREATE TABLE teacher_subjects (
-    t_id INT NOT NULL,
-    sub_id INT NOT NULL,
-    PRIMARY KEY (t_id, sub_id),
-    FOREIGN KEY (t_id) REFERENCES teachers(id) ON DELETE CASCADE,
-    FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
-);
-
--- (Optional) Insert some default subjects to get you started!
-INSERT INTO subjects (name) VALUES 
-('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages');
-
-CREATE TABLE timetables (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    c_id INT NOT NULL,
-    title VARCHAR(150) NOT NULL,
-    scheduled_date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    duration_minutes INT DEFAULT 60,
-    meeting_link VARCHAR(300),
-    status VARCHAR(20) DEFAULT 'scheduled', -- 'scheduled', 'completed', 'cancelled'
-    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
-);
-
+-- ==========================================
+-- LEVEL 8: ASSIGNMENTS (FROM DB1 - RESTORED)
+-- ==========================================
 
 CREATE TABLE assignments (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     m_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
-    attachment_url VARCHAR(300), -- Teacher's assignment description/resources
+    attachment_url VARCHAR(300),
     deadline DATETIME NOT NULL,
     max_marks DECIMAL(5,2) DEFAULT 100.00,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -305,18 +284,49 @@ CREATE TABLE assignment_submissions (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     a_id INT NOT NULL,
     s_id INT NOT NULL,
-    file_url VARCHAR(300) NOT NULL, -- Submitted document
+    file_url VARCHAR(300) NOT NULL,
     submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     grade DECIMAL(5,2),
     feedback TEXT,
-    status VARCHAR(20) DEFAULT 'submitted', -- 'submitted', 'graded', 'late'
+    status VARCHAR(20) DEFAULT 'submitted',
     FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
+-- ==========================================
+-- LEVEL 9: SUBJECTS & TIMETABLES
+-- ==========================================
 
+CREATE TABLE subjects (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE teacher_subjects (
+    t_id INT NOT NULL,
+    sub_id INT NOT NULL,
+    PRIMARY KEY (t_id, sub_id),
+    FOREIGN KEY (t_id) REFERENCES teachers(id) ON DELETE CASCADE,
+    FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE timetables (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    duration_minutes INT DEFAULT 60,
+    meeting_link VARCHAR(300),
+    status VARCHAR(20) DEFAULT 'scheduled',
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
 
 -- ==========================================
 -- SEED DATA
 -- ==========================================
+
 INSERT INTO roles (role_name) VALUES ('admin'), ('teacher'), ('student');
+
+INSERT INTO subjects (name) VALUES 
+('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages');

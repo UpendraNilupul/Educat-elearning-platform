@@ -50,6 +50,15 @@ router.get('/courses', async (req, res) => {
                     }));
                     mod.lessons.push(mappedLesson);
                 }
+                const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mod.id]);
+                mod.assignments = assignments.map(a => ({
+                    id: a.id,
+                    title: a.title,
+                    description: a.description,
+                    attachmentUrl: a.attachment_url,
+                    deadline: a.deadline,
+                    maxMarks: a.max_marks
+                }));
             }
         }
         res.status(200).json(courses);

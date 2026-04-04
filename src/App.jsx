@@ -28,6 +28,7 @@ import VerifyTeacher from './pages/verifyTeacher'; // ✅ FIXED ROUTE WILL USE T
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
 import Admin_Settings from './pages/Admin_Settings';
+import AssignmentSubmissions from './pages/AssignmentSubmissions';
 
 import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
@@ -178,6 +179,10 @@ function App() {
             (userRole === 'teacher' && verificationStatus === 'approved')
               ? <TeacherDashboard userName={userName} onLogout={handleLogout} />
               : <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+          } />
+
+          <Route path="/teacher/assignments/:id/submissions" element={
+            userRole === 'teacher' ? <AssignmentSubmissions /> : <Navigate to="/" />
           } />
 
           {/* Student */}
