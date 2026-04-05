@@ -24,6 +24,9 @@ import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import studentProfileRoutes from './routes/StudentProfileEdit.js'; // 🌟 ADD THIS LINE!
 
 import classRoutes from './routes/class.js';
+import assignmentRoutes from './routes/assignments.js';
+import quizRoutes from './routes/quizzes.js';
+import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,6 +77,8 @@ app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
 app.use('/api/student', studentProfileRoutes);
+app.use('/api', assignmentRoutes);
+app.use('/api', quizRoutes);
 
 
 // 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
@@ -86,4 +91,6 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
+    // Start background jobs
+    initAssignmentScheduler();
 });
