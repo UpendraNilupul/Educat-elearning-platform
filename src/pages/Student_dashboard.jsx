@@ -7,8 +7,6 @@ import StudentProfileEdit from '../components/StudentProfileEdit';
 // Import our new Lessons view
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
-import DashboardHeader from '../components/DashboardHeader'; 
-
 import {
     LayoutDashboard,
     BookOpen,
@@ -172,8 +170,6 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-                    {/* ✅ CLEAN MERGE: The Dashboard Header from Teammate */}
-                    <DashboardHeader userName={userName} />
                     
                     {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
@@ -311,7 +307,7 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column */}
+                                {/* Upcoming Deadlines Column (Restored to static content as Todo list moved to Calendar) */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
