@@ -23,6 +23,11 @@ import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import studentProfileRoutes from './routes/StudentProfileEdit.js';
 import classRoutes from './routes/class.js';
 
+//chat
+import studentChatRoutes from './routes/studentChat.js';
+import teacherChatRoutes from './routes/teacherChat.js';
+import adminChatRoutes from './routes/adminChat.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3000;
@@ -80,6 +85,10 @@ app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
+//chat
+app.use('/api', studentChatRoutes);
+app.use('/api', teacherChatRoutes);
+app.use('/api', adminChatRoutes);
 
 // SERVE UPLOADS
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

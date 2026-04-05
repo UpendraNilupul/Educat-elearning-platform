@@ -35,6 +35,9 @@ import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
 import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
+import AdminChat from './pages/Admin_Chat';
+//import StudentChat from './pages/Student_Chat';
+//import TeacherChat from './pages/Teacher_Chat';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -172,6 +175,8 @@ function App() {
               )
             }
           />
+          <Route path="/admin/communications" element={<AdminChat />} />
+         
 
           <Route
             path="/admin/teachers"

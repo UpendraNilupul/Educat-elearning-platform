@@ -1,34 +1,18 @@
+// Force Vite HMR reload
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
-
-// Import our new Lessons view
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
 import DashboardHeader from '../components/DashboardHeader'; 
+import StudentChat from './Student_Chat';
 
 import {
-    LayoutDashboard,
-    BookOpen,
-    PlayCircle,
-    FileText,
-    Trophy,
-    Award,
-    Briefcase,
-    Download,
-    Settings,
-    LogOut,
-    GraduationCap,
-    Calendar,
-    Play,
-    X,
-    ChevronRight,
-    Edit2,
-    Search,
-    SearchX,
-    Loader2
+    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase, 
+    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight, 
+    Edit2, Search, SearchX, Loader2, MessageSquare
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -37,11 +21,13 @@ const Student = ({ userName, onLogout }) => {
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
 
-    // Add Search-related state
+    // Search-related state
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+
+
 
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
@@ -59,7 +45,6 @@ const Student = ({ userName, onLogout }) => {
         }
     };
 
-    // 1. Fetch Basic Info for Sidebar & Welcome Message
     useEffect(() => {
         const fetchBasicInfo = async () => {
             const userId = localStorage.getItem('userId') || '2';
@@ -73,16 +58,8 @@ const Student = ({ userName, onLogout }) => {
                     if (picUrl && !picUrl.startsWith('http')) {
                         picUrl = `http://localhost:3000/uploads/${picUrl}`;
                     }
-
-                    setProfileData({
-                        name: result.name,
-                        picture: picUrl
-                    });
-
-                    // Set first name for the welcome section
-                    if (result.name) {
-                        setFirstName(result.name.split(' ')[0]);
-                    }
+                    setProfileData({ name: result.name, picture: picUrl });
+                    if (result.name) setFirstName(result.name.split(' ')[0]);
                 }
             } catch (error) {
                 console.error("Error fetching basic dashboard info:", error);
@@ -101,6 +78,7 @@ const Student = ({ userName, onLogout }) => {
         return () => clearInterval(timer);
     }, [ads.length]);
 
+    // 🌟 ADDED MESSAGES TO NAV ITEMS
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Calendar', icon: Calendar },
@@ -109,6 +87,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Assessments', icon: FileText },
         { name: 'Certification', icon: Award },
         { name: 'Project', icon: Briefcase },
+        { name: 'Messages', icon: MessageSquare }, 
         { name: 'Download', icon: Download },
     ];
 
@@ -133,7 +112,9 @@ const Student = ({ userName, onLogout }) => {
                                 ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
                                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
-                            onClick={() => setSelectedSection(item.name)}
+                            onClick={() => {
+                                setSelectedSection(item.name);
+                            }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
                             <span className="text-sm">{item.name}</span>
@@ -172,10 +153,8 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-                    {/* ✅ CLEAN MERGE: The Dashboard Header from Teammate */}
                     <DashboardHeader userName={userName} />
                     
-                    {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
@@ -184,6 +163,8 @@ const Student = ({ userName, onLogout }) => {
                         <TuitionClass />
                     ) : selectedSection === 'Calendar' ? (
                         <StudentCalendar studentId={1} />
+                    ) : selectedSection === 'Messages' ? (
+                        <StudentChat />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -196,7 +177,7 @@ const Student = ({ userName, onLogout }) => {
                                 </p>
                             </div>
 
-                            {/* Advertisement Slideshow Sections */}
+                            {/* Advertisement Slideshow */}
                             {(() => {
                                 const visibleAds = [
                                     ads[currentAdIndex % ads.length],
@@ -311,7 +292,7 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column */}
+                                {/* Upcoming Deadlines */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -349,7 +330,7 @@ const Student = ({ userName, onLogout }) => {
                                     </div>
                                 </div>
 
-                                {/* Recent Courses Column */}
+                                {/* Recent Courses */}
                                 <div className="lg:col-span-2">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
@@ -359,14 +340,8 @@ const Student = ({ userName, onLogout }) => {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             {[
-                                                {
-                                                    title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins',
-                                                    progress: 65, modules: '14/22', color: 'purple'
-                                                },
-                                                {
-                                                    title: 'UI/UX Design Masterclass', instructor: 'Michael Chen',
-                                                    progress: 42, modules: '8/19', color: 'blue'
-                                                }
+                                                { title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins', progress: 65, modules: '14/22', color: 'purple' },
+                                                { title: 'UI/UX Design Masterclass', instructor: 'Michael Chen', progress: 42, modules: '8/19', color: 'blue' }
                                             ].map((course, idx) => (
                                                 <div key={idx} className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
                                                     <div className={`h-32 bg-${course.color === 'purple' ? 'purple-600' : 'blue-600'} relative overflow-hidden`}>
@@ -425,6 +400,7 @@ const Student = ({ userName, onLogout }) => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };
