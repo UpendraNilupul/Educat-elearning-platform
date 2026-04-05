@@ -6,8 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-
+import pkg from 'multer-storage-cloudinary';
+const { CloudinaryStorage } = pkg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -175,6 +175,36 @@ router.put('/profile/:userId', (req, res, next) => {
     } finally {
         // Release connection back to pool
         if (connection) connection.release();
+    }
+});
+
+/**
+ * @route   GET /api/student/:studentId/calendar
+ * @desc    Get scheduled classes for a student's calendar
+ */
+router.get('/:studentId/calendar', async (req, res) => {
+    const studentId = req.params.studentId;
+
+    try {
+        const [rows] = await db.promise().query(`
+            SELECT 
+                t.id, 
+                t.title AS event_title, 
+                DATE_FORMAT(t.scheduled_date, '%Y-%m-%d') AS scheduled_date, 
+                t.start_time, 
+                t.meeting_link, 
+                c.title AS course_title, 
+                c.theme_color 
+            FROM timetables t 
+            JOIN classes_courses c ON t.c_id = c.id 
+            JOIN enrollments e ON c.id = e.c_id 
+            WHERE e.s_id = ? AND t.status = 'scheduled'
+        `, [studentId]);
+
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching student calendar events:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching calendar' });
     }
 });
 

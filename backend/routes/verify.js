@@ -3,14 +3,13 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
+import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const router = express.Router();
 
 // 1. Configure storage to save in uploads/verification/
-import fs from 'fs';
-
 const verificationUploadDir = path.join(process.cwd(), 'uploads', 'verification');
 
 // Automatically create the folder if it doesn't already exist to prevent crashes
@@ -52,10 +51,11 @@ router.post('/upload-docs/:userId', upload.fields([
           return res.status(400).json({ error: "Both NIC and CV are required for first-time submission" });
         }
         // ✅ INSERT (FIRST TIME)
+        // Set to 'pending' so it appears correctly in the Admin Dashboard
         const insertSql = `
           INSERT INTO teachers 
           (user_id, resume_link, nic_path, verification_status)
-          VALUES (?, ?, ?, 'submitted')
+          VALUES (?, ?, ?, 'pending')
         `;
 
         db.query(insertSql, [userId, cvFile, nicFile], (err2) => {
@@ -66,7 +66,8 @@ router.post('/upload-docs/:userId', upload.fields([
 
       } else {
         // ✅ UPDATE (IF EXISTS)
-        let updateSql = "UPDATE teachers SET verification_status = 'submitted'";
+        // Set to 'pending' so it appears correctly in the Admin Dashboard
+        let updateSql = "UPDATE teachers SET verification_status = 'pending'";
         const queryParams = [];
 
         if (cvFile) {
@@ -94,6 +95,7 @@ router.post('/upload-docs/:userId', upload.fields([
     res.status(500).json({ error: "Server error" });
   }
 });
+
 // 3. Get Notifications endpoint for retrieving admin messages
 router.get('/notifications/:userId', (req, res) => {
   const { userId } = req.params;

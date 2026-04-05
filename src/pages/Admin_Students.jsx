@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { 
-    Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, X, Megaphone, Gift 
+import {
+    Search, Filter, MoreVertical, ShieldAlert,
+    Mail, Eye, X, Megaphone, Gift, Clock, Send, Download
 } from 'lucide-react';
 
 const Admin_Students = ({ userName, onLogout }) => {
     const navigate = useNavigate();
-    
+    const adminId = localStorage.getItem('userId');
+
     // Data States
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -15,15 +16,21 @@ const Admin_Students = ({ userName, onLogout }) => {
     // Filter States
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
-    
+
     // UI States
     const [openMenuId, setOpenMenuId] = useState(null);
-    
+
     // Bulk Action States
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-    const [bulkType, setBulkType] = useState('announcement'); // 'announcement' or 'offer'
+    const [bulkType, setBulkType] = useState('announcement');
     const [bulkMessage, setBulkMessage] = useState('');
+
+    // Chat Panel States
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatUser, setChatUser] = useState(null);
+    const [chatMessage, setChatMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         const fetchStudents = async () => {
@@ -32,10 +39,10 @@ const Admin_Students = ({ userName, onLogout }) => {
                 const queryParams = new URLSearchParams({ search: searchQuery, status: statusFilter }).toString();
                 const response = await fetch(`http://localhost:3000/api/admin/students-list?${queryParams}`, { credentials: 'include' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     setStudents(data.data);
-                    setSelectedUsers([]); // Clear selections when search changes
+                    setSelectedUsers([]);
                 }
             } catch (error) {
                 console.error("Failed to load students list:", error);
@@ -69,7 +76,6 @@ const Admin_Students = ({ userName, onLogout }) => {
     const handleBulkSubmit = async () => {
         if (!bulkMessage.trim()) return;
 
-        // 🌟 FIX 1: Strip out the emojis so the database accepts the string without crashing
         const title = bulkType === 'offer' ? 'Exclusive Discount Offer!' : 'Platform Announcement';
 
         try {
@@ -89,7 +95,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 alert(result.message);
                 setIsBulkModalOpen(false);
                 setBulkMessage('');
-                setSelectedUsers([]); // Clear selection after success
+                setSelectedUsers([]);
             } else {
                 alert(result.message);
             }
@@ -103,16 +109,51 @@ const Admin_Students = ({ userName, onLogout }) => {
         setIsBulkModalOpen(true);
     };
 
+    const handleSendMessage = async () => {
+        if (!chatMessage.trim()) return;
+        setIsSending(true);
+
+        try {
+            const response = await fetch('http://localhost:3000/api/admin/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: adminId,
+                    receiverId: chatUser.id,
+                    message: chatMessage
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setChatMessage('');
+                setIsChatOpen(false);
+                alert(`Message sent securely to ${chatUser.name}!`);
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            alert("Failed to send message.");
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    // 🌟 NEW: Trigger CSV Download
+    const handleExportCSV = () => {
+        window.open('http://localhost:3000/api/admin/export/students', '_blank');
+    };
+
     return (
-        <div className="p-8 font-sans bg-gray-50 min-h-screen relative">
-            
-            {/* Header Area */}
+        <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
+
             <div className="flex justify-between items-end mb-8">
                 <div>
                     <h1 className="text-3xl font-black text-gray-900">Student Directory</h1>
                     <p className="text-gray-500 mt-1">Manage, monitor, and assist the learners on your platform.</p>
                 </div>
-                <button 
+                <button
                     onClick={() => navigate('/admin')}
                     className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-colors"
                 >
@@ -120,13 +161,13 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </button>
             </div>
 
-            {/* Filters Bar */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
                 <div className="flex-1 min-w-[250px] relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                        type="text" 
-                        placeholder="Search by name, email, or phone..." 
+                    {/* 🌟 FIX: Updated Placeholder */}
+                    <input
+                        type="text"
+                        placeholder="Search by code, name, email, or phone..."
                         className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 text-sm transition-all"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -135,7 +176,7 @@ const Admin_Students = ({ userName, onLogout }) => {
 
                 <div className="flex items-center space-x-2">
                     <Filter className="text-gray-400" size={18} />
-                    <select 
+                    <select
                         className="py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 text-sm font-medium text-gray-700 cursor-pointer"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
@@ -146,9 +187,17 @@ const Admin_Students = ({ userName, onLogout }) => {
                         <option value="banned">Banned</option>
                     </select>
                 </div>
+                {/* 🌟 NEW: The Export Button */}
+                <div className="pl-4 border-l border-gray-100">
+                    <button
+                        onClick={handleExportCSV}
+                        className="px-4 py-2.5 bg-green-50 text-green-700 font-bold text-sm rounded-xl hover:bg-green-100 transition-colors flex items-center border border-green-200"
+                    >
+                        <Download size={16} className="mr-2" /> Export to CSV
+                    </button>
+                </div>
             </div>
 
-            {/* Bulk Action Floating Bar */}
             {selectedUsers.length > 0 && (
                 <div className="bg-[#4a0b59] text-white px-6 py-4 rounded-2xl shadow-lg mb-6 flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 transition-all">
                     <div className="flex items-center space-x-4">
@@ -158,14 +207,14 @@ const Admin_Students = ({ userName, onLogout }) => {
                         <span className="font-bold text-lg">Students Selected</span>
                     </div>
                     <div className="flex space-x-3">
-                        <button 
-                            onClick={() => openBulkModal('announcement')} 
+                        <button
+                            onClick={() => openBulkModal('announcement')}
                             className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-medium flex items-center transition-colors"
                         >
                             <Megaphone size={16} className="mr-2" /> Make Announcement
                         </button>
-                        <button 
-                            onClick={() => openBulkModal('offer')} 
+                        <button
+                            onClick={() => openBulkModal('offer')}
                             className="px-4 py-2 bg-white text-[#4a0b59] hover:bg-gray-100 rounded-xl font-bold flex items-center shadow-sm transition-colors"
                         >
                             <Gift size={16} className="mr-2" /> Send Discount Offer
@@ -174,16 +223,14 @@ const Admin_Students = ({ userName, onLogout }) => {
                 </div>
             )}
 
-            {/* Data Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible min-h-[400px] mb-12">
                 <div className="overflow-visible w-full">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                                {/* Select All Checkbox */}
                                 <th className="p-4 rounded-tl-2xl w-12 text-center">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         className="w-4 h-4 cursor-pointer accent-[#4a0b59]"
                                         checked={students.length > 0 && selectedUsers.length === students.length}
                                         onChange={handleSelectAll}
@@ -204,18 +251,16 @@ const Admin_Students = ({ userName, onLogout }) => {
                             ) : (
                                 students.map((student) => (
                                     <tr key={student.student_id} className={`transition-colors ${selectedUsers.includes(student.user_id) ? 'bg-purple-50/50' : 'hover:bg-gray-50/50'}`}>
-                                        
-                                        {/* Individual Checkbox */}
+
                                         <td className="p-4 text-center">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 className="w-4 h-4 cursor-pointer accent-[#4a0b59]"
                                                 checked={selectedUsers.includes(student.user_id)}
                                                 onChange={() => handleSelectStudent(student.user_id)}
                                             />
                                         </td>
 
-                                        {/* Student Info */}
                                         <td className="p-4">
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
@@ -224,7 +269,11 @@ const Admin_Students = ({ userName, onLogout }) => {
                                                     ) : student.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-gray-900">{student.name}</p>
+                                                    {/* 🌟 FIX: Displays [CODE] Name */}
+                                                    <p className="text-sm font-bold text-gray-900">
+                                                        <span className="text-[#4a0b59] mr-1">[{student.user_code || 'N/A'}]</span>
+                                                        {student.name}
+                                                    </p>
                                                     <p className="text-xs text-gray-500">{student.email}</p>
                                                 </div>
                                             </div>
@@ -248,9 +297,8 @@ const Admin_Students = ({ userName, onLogout }) => {
                                             </span>
                                         </td>
 
-                                        {/* Action Menu */}
                                         <td className="p-4 text-center relative">
-                                            <button 
+                                            <button
                                                 onClick={() => setOpenMenuId(openMenuId === student.student_id ? null : student.student_id)}
                                                 className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-500"
                                             >
@@ -259,12 +307,23 @@ const Admin_Students = ({ userName, onLogout }) => {
 
                                             {openMenuId === student.student_id && (
                                                 <div className="absolute right-8 top-10 w-48 bg-white border border-gray-100 rounded-xl shadow-lg py-2 z-50 text-left">
-                                                    <Link 
-                                                        to={`/admin/student-profile/${student.student_id}`} 
+                                                    <Link
+                                                        to={`/admin/student-profile/${student.student_id}`}
                                                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                                                     >
                                                         <Eye size={16} className="mr-2" /> View Profile
                                                     </Link>
+
+                                                    <button
+                                                        onClick={() => {
+                                                            setChatUser({ id: student.user_id, name: student.name, picture: student.picture });
+                                                            setIsChatOpen(true);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        <Mail size={16} className="mr-2" /> Message
+                                                    </button>
                                                 </div>
                                             )}
                                         </td>
@@ -280,7 +339,7 @@ const Admin_Students = ({ userName, onLogout }) => {
             {isBulkModalOpen && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                        
+
                         <div className={`p-6 border-b border-gray-100 flex justify-between items-center text-white
                             ${bulkType === 'offer' ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-[#4a0b59] to-purple-700'}`}>
                             <h2 className="text-xl font-bold flex items-center">
@@ -296,15 +355,14 @@ const Admin_Students = ({ userName, onLogout }) => {
                             <p className="text-sm text-gray-500 mb-4 font-medium">
                                 This message will be sent directly to the inbox of the <span className="font-bold text-gray-900">{selectedUsers.length} selected students</span>.
                             </p>
-                            
-                            {/* 🌟 FIX 2: Added a helper warning for the Promo Offer so the admin knows how the system works */}
+
                             {bulkType === 'offer' && (
                                 <div className="mb-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-800">
                                     <strong>Heads up!</strong> This sends a message to the students telling them about an offer. Make sure you have actually created the code in your <strong>Marketing & Offers</strong> tab first!
                                 </div>
                             )}
 
-                            <textarea 
+                            <textarea
                                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white resize-none"
                                 rows="5"
                                 placeholder={bulkType === 'offer' ? "Hey! Use code ZIRON50 at checkout to get 50% off your next course..." : "Type your announcement here..."}
@@ -314,13 +372,13 @@ const Admin_Students = ({ userName, onLogout }) => {
                         </div>
 
                         <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3">
-                            <button 
+                            <button
                                 onClick={() => setIsBulkModalOpen(false)}
                                 className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleBulkSubmit}
                                 disabled={!bulkMessage.trim()}
                                 className={`px-6 py-2 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed
@@ -332,6 +390,55 @@ const Admin_Students = ({ userName, onLogout }) => {
                     </div>
                 </div>
             )}
+
+            {/* Slide-Out Chat Drawer */}
+            {isChatOpen && (
+                <div className="fixed inset-0 bg-black/20 z-40 transition-opacity" onClick={() => setIsChatOpen(false)}></div>
+            )}
+
+            <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
+                            {chatUser?.picture ? <img src={`http://localhost:3000/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 leading-tight">{chatUser?.name}</h3>
+                            <p className="text-xs text-gray-500">Direct Message</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex-1 p-6 bg-white overflow-y-auto">
+                    <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm mb-4">
+                        <p className="font-bold mb-1 flex items-center"><Clock size={16} className="mr-1.5" /> Auto-Delete Enabled</p>
+                        <p className="text-blue-600/80">Messages sent here are highly secure and will automatically self-destruct after 7 days to protect user privacy.</p>
+                    </div>
+                    <p className="text-gray-400 text-sm text-center mt-10">Start a new secure conversation with {chatUser?.name}...</p>
+                </div>
+
+                <div className="p-4 border-t border-gray-100 bg-gray-50">
+                    <textarea
+                        className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 resize-none text-sm"
+                        rows="3"
+                        placeholder="Type your message here..."
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                    ></textarea>
+                    <div className="flex justify-end mt-2">
+                        <button
+                            onClick={handleSendMessage}
+                            disabled={!chatMessage.trim() || isSending}
+                            className="px-6 py-2 bg-blue-600 text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center shadow-sm disabled:opacity-50"
+                        >
+                            {isSending ? 'Sending...' : <><Send size={16} className="mr-2" /> Send Message</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone,
-    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle
+    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle, ShieldCheck, Activity, MessageSquare, ShieldAlert
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
@@ -45,7 +45,10 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
-        { id: 'announcements', label: 'Announcements', icon: Megaphone, path: '/admin/announcements' },
+        { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
+        { id: 'escalations', label: 'Escalation Inbox', icon: ShieldAlert, path: '/admin/escalations' },
+        { id: 'team', label: 'Team Management', icon: ShieldCheck, path: '/admin/team' },
+        { id: 'logs', label: 'System Logs', icon: Activity, path: '/admin/system-logs' },
         { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
     ];
 
@@ -285,7 +288,8 @@ const Admin = ({ userName, onLogout }) => {
                         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-lg font-bold text-gray-800">Courses to Review</h3>
-                                <button className="text-sm text-[#4a0b59] font-semibold hover:underline">View All</button>
+                                {/* 🌟 FIX: Wired up 'View All' */}
+                                <button onClick={() => navigate('/admin/courses')} className="text-sm text-[#4a0b59] font-semibold hover:underline">View All</button>
                             </div>
                             <div className="space-y-4">
                                 {stats?.coursesToReview.length > 0 ? (
@@ -300,7 +304,8 @@ const Admin = ({ userName, onLogout }) => {
                                                     <p className="text-xs text-gray-500">By {course.author}</p>
                                                 </div>
                                             </div>
-                                            <button className="px-4 py-1.5 border border-[#4a0b59] text-[#4a0b59] text-xs font-bold rounded-lg hover:bg-[#4a0b59] hover:text-white transition-all">
+                                            {/* 🌟 FIX: Wired up 'Review' to go to the courses page */}
+                                            <button onClick={() => navigate('/admin/courses')} className="px-4 py-1.5 border border-[#4a0b59] text-[#4a0b59] text-xs font-bold rounded-lg hover:bg-[#4a0b59] hover:text-white transition-all">
                                                 Review
                                             </button>
                                         </div>

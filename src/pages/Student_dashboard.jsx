@@ -6,6 +6,8 @@ import StudentProfileEdit from '../components/StudentProfileEdit';
 
 // Import our new Lessons view
 import TuitionClass from './Class';
+import StudentCalendar from '../components/StudentCalendar';
+import DashboardHeader from '../components/DashboardHeader'; 
 
 import {
     LayoutDashboard,
@@ -101,10 +103,10 @@ const Student = ({ userName, onLogout }) => {
 
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
+        { name: 'Calendar', icon: Calendar },
         { name: 'Courses', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
         { name: 'Assessments', icon: FileText },
-        { name: 'Challenges', icon: Trophy },
         { name: 'Certification', icon: Award },
         { name: 'Project', icon: Briefcase },
         { name: 'Download', icon: Download },
@@ -170,7 +172,9 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-
+                    {/* ✅ CLEAN MERGE: The Dashboard Header from Teammate */}
+                    <DashboardHeader userName={userName} />
+                    
                     {/* --- MAIN CONTENT AREA LOGIC --- */}
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
@@ -178,6 +182,8 @@ const Student = ({ userName, onLogout }) => {
                         <AssessmentsPage />
                     ) : selectedSection === 'Lessons' ? (
                         <TuitionClass />
+                    ) : selectedSection === 'Calendar' ? (
+                        <StudentCalendar studentId={1} />
                     ) : (
                         <>
                             {/* Welcome Section */}
