@@ -147,4 +147,25 @@ router.post('/teacher-chat/send-message', async (req, res) => {
     }
 });
 
+// 4. Fetch users to start a new chat (Students & Admins)
+router.get('/teacher-chat/contacts', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const contacts = await query(`
+            SELECT u.id as user_id, u.name, u.picture, r.role_name
+            FROM users u
+            JOIN roles r ON u.role_id = r.id
+            WHERE u.id != ? AND r.role_name IN ('student', 'admin')
+            ORDER BY r.role_name, u.name ASC
+        `, [userId]);
+
+        res.status(200).json({ success: true, data: contacts });
+    } catch (error) {
+        console.error("Contacts fetch error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
 export default router;

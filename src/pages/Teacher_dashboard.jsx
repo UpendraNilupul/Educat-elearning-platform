@@ -1,34 +1,23 @@
+// Force Vite HMR reload
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client";
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Award,
-  Megaphone,
-  Video,
-  Users,
-  Calendar,
-  Edit2,
-  Menu,
-  X,
-  MessageSquare, // 🌟 New Chat Icons
-  ArrowLeft,
-  Send,
-  Clock,
-  ShieldAlert
+  LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
+  Users, Calendar, Edit2, Menu, X, MessageSquare, ArrowLeft, Send, 
+  ShieldAlert, Bell, Plus, Search
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 
 const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
   const navigate = useNavigate();
-  const teacherId = parseInt(localStorage.getItem('userId')); // 🌟 Safely parse ID for chat comparison
+  const teacherId = parseInt(localStorage.getItem('userId'));
 
   const [activeTab, setActiveTab] = useState("Overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [courses, setCourses] = useState([]);
 
-  // 🌟 NEW: Inbox & Chat States
+  // Inbox & Chat States
   const [isInboxOpen, setIsInboxOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
@@ -36,17 +25,31 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
   const [chatMessage, setChatMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
-  const navItems = [
-    { name: "Overview", icon: LayoutDashboard },
-    { name: "Course Management", icon: BookOpen },
-    { name: "Assessments", icon: FileText },
-    { name: "Certification", icon: Award },
-    { name: "Marketing", icon: Megaphone },
-    { name: "Virtual Classroom", icon: Video },
-    { name: "Messages", icon: MessageSquare }, // 🌟 Added Messages to Sidebar
-  ];
+  // Composing States
+  const [isComposing, setIsComposing] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
+  // Initialize Socket
+  useEffect(() => {
+      const newSocket = io("http://localhost:3000");
+      setSocket(newSocket);
+      newSocket.on("receive_message", (newMessage) => {
+          setMessages((prev) => [...prev, newMessage]);
+      });
+      return () => newSocket.disconnect();
+  }, []);
+
+  // Join Room
+  useEffect(() => {
+      if (socket && activeChat && activeChat.conversation_id && !activeChat.conversation_id.toString().startsWith('temp_')) {
+          socket.emit("join_room", activeChat.conversation_id);
+      }
+  }, [socket, activeChat]);
+
+  // Fetch Courses
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -55,14 +58,9 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          const formattedCourses = data.map(course => ({
-            ...course,
-            students: course.students || 0,
-            modules: course.modules || 0,
-            progress: course.progress || 0,
-            chapters: course.chapters || []
-          }));
-          setCourses(formattedCourses);
+          setCourses(data.map(course => ({
+            ...course, students: course.students || 0, modules: course.modules || 0, progress: course.progress || 0, chapters: course.chapters || []
+          })));
         }
       } catch (error) {
         console.error("Error fetching courses:", error);
@@ -71,12 +69,12 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
     fetchCourses();
   }, []);
 
-  // 🌟 Auto-scroll chat to bottom
+  // Auto-scroll chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🌟 Fetch Inbox Conversations
+  // Fetch Inbox Conversations
   const fetchConversations = async () => {
     try {
         const res = await fetch('http://localhost:3000/api/teacher-chat/conversations', { credentials: 'include' });
@@ -87,7 +85,18 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
     }
   };
 
-  // 🌟 Fetch specific Chat Messages
+  // Fetch Contacts for New Message
+  const fetchContacts = async () => {
+    try {
+        const res = await fetch('http://localhost:3000/api/teacher-chat/contacts', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) setContacts(data.data);
+    } catch (error) {
+        console.error("Failed to load contacts");
+    }
+  };
+
+  // Fetch specific Chat Messages
   const fetchMessages = async (conversationId) => {
     try {
         const res = await fetch(`http://localhost:3000/api/teacher-chat/conversations/${conversationId}/messages`, { credentials: 'include' });
@@ -98,14 +107,35 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
     }
   };
 
-  // 🌟 Open Inbox Trigger
+  // Open Inbox Trigger
   useEffect(() => {
-      if (isInboxOpen && !activeChat) {
+      if (isInboxOpen && !activeChat && !isComposing) {
           fetchConversations();
       }
-  }, [isInboxOpen, activeChat]);
+  }, [isInboxOpen, activeChat, isComposing]);
 
-  // 🌟 Send Message Logic
+  // Start a chat from the contacts list
+  const startNewChat = (contact) => {
+      const existingChat = conversations.find(c => c.other_user_id === contact.user_id);
+      
+      if (existingChat) {
+          setActiveChat(existingChat);
+          fetchMessages(existingChat.conversation_id);
+      } else {
+          setActiveChat({
+              conversation_id: `temp_${contact.user_id}`,
+              other_user_id: contact.user_id,
+              other_user_name: contact.name,
+              other_user_picture: contact.picture,
+              other_user_role: contact.role_name
+          });
+          setMessages([]);
+      }
+      setIsComposing(false);
+      setSearchTerm("");
+  };
+
+  // Send Message Logic
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatMessage.trim() || !activeChat) return;
@@ -125,8 +155,16 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
 
         const result = await response.json();
         if (result.success) {
-            setMessages([...messages, { sender_id: teacherId, body: chatMessage, created_at: new Date().toISOString() }]);
+            const newMessage = { sender_id: teacherId, body: chatMessage, created_at: new Date().toISOString() };
+            setMessages((prev) => [...prev, newMessage]);
+            
+            if (socket && !activeChat.conversation_id.toString().startsWith('temp_')) {
+                socket.emit("send_message", { room: activeChat.conversation_id, message: newMessage });
+            }
+
             setChatMessage('');
+            // Refresh inbox silently so it updates the side list
+            fetchConversations();
         }
     } catch (error) {
         alert("Failed to send message.");
@@ -148,9 +186,15 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-40 shadow-sm">
         <h2 className="text-xl font-extrabold text-[#4a0b59] tracking-wide">Educat</h2>
-        <button onClick={toggleSidebar} className="p-2 text-gray-600 hover:text-[#4a0b59]">
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center space-x-2">
+          <button className="relative p-2 text-gray-400 hover:text-[#4a0b59] transition-colors">
+            <Bell size={22} />
+            <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+          <button onClick={toggleSidebar} className="p-2 text-gray-600 hover:text-[#4a0b59]">
+            {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
@@ -163,17 +207,26 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         </div>
 
         <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
-          {navItems.map((item) => (
+          {[
+            { name: "Overview", icon: LayoutDashboard },
+            { name: "Course Management", icon: BookOpen },
+            { name: "Assessments", icon: FileText },
+            { name: "Certification", icon: Award },
+            { name: "Marketing", icon: Megaphone },
+            { name: "Virtual Classroom", icon: Video },
+            { name: "Messages", icon: MessageSquare },
+          ].map((item) => (
             <button
               key={item.name}
               onClick={() => {
-                // 🌟 Intercept the click if it's the Messages tab!
                 if (item.name === "Messages") {
                     setIsInboxOpen(true);
                     setActiveChat(null);
+                    setIsComposing(false);
                     setIsSidebarOpen(false);
                 } else {
                     setActiveTab(item.name);
+                    setIsInboxOpen(false);
                     setIsSidebarOpen(false);
                 }
               }}
@@ -211,12 +264,21 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 mt-16 lg:mt-0">
-        {activeTab === "Overview" && (
-          <div className="animate-in fade-in duration-500 flex flex-col gap-8">
-            <div className="mt-4">
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 leading-snug">Welcome back, {userName} 👋</h1>
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
+        <header className="hidden lg:flex h-20 items-center justify-end px-10 shrink-0 z-10 w-full pt-4">
+            <button className="relative p-2.5 text-gray-400 hover:text-[#4a0b59] bg-white border border-gray-200 shadow-sm rounded-full transition-all hover:shadow-md">
+              <Bell size={22} />
+              <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            </button>
+        </header>
+
+        {/* Scrollable Main Content */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:px-10 lg:pb-10 lg:pt-2 flex flex-col gap-8 mt-16 lg:mt-0">
+          {activeTab === "Overview" && (
+            <div className="animate-in fade-in duration-500 flex flex-col gap-8">
+              <div className="mt-2 lg:mt-0">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 leading-snug">Welcome back, {userName} 👋</h1>
               <p className="text-gray-500 mt-2 text-base lg:text-lg max-w-2xl">Manage courses, students, and live classes from your dashboard.</p>
             </div>
 
@@ -287,35 +349,83 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         )}
         
         {activeTab === "Course Management" && <TeachersCourse courses={courses} setCourses={setCourses} />}
-      </main>
+        </main>
+      </div>
 
       {/* ========================================== */}
-      {/* 🌟 NEW: SLIDING INBOX DRAWER */}
+      {/* SLIDING INBOX DRAWER */}
       {/* ========================================== */}
       
-      {/* Dark Overlay */}
       {isInboxOpen && (
         <div className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm transition-opacity" onClick={() => setIsInboxOpen(false)}></div>
       )}
 
-      {/* Drawer Panel */}
       <div className={`fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isInboxOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         
-        {/* State 1: The Inbox List View */}
-        {!activeChat ? (
+        {/* State 1: New Message Contact List */}
+        {isComposing ? (
+          <>
+            <div className="p-4 border-b border-gray-100 flex items-center space-x-3 bg-white shadow-sm z-10">
+                <button onClick={() => setIsComposing(false)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors mr-1">
+                    <ArrowLeft size={20} />
+                </button>
+                <h3 className="font-bold text-gray-900 flex-1">New Message</h3>
+            </div>
+            <div className="p-4 border-b border-gray-100 bg-gray-50">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input 
+                        type="text" 
+                        placeholder="Search students or admins..." 
+                        className="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:border-[#4a0b59] focus:ring-1 focus:ring-[#4a0b59]"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {contacts
+                    .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map((contact) => (
+                    <button 
+                        key={contact.user_id}
+                        onClick={() => startNewChat(contact)}
+                        className="w-full p-3 bg-white border border-gray-100 rounded-xl hover:shadow-md transition-all flex items-center space-x-4 text-left group"
+                    >
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
+                            {contact.picture ? <img src={`http://localhost:3000/uploads/${contact.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : contact.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <h4 className="font-bold text-gray-900 truncate">{contact.name}</h4>
+                            <p className="text-xs text-purple-600 font-medium capitalize">{contact.role_name}</p>
+                        </div>
+                    </button>
+                ))}
+            </div>
+          </>
+        ) : !activeChat ? (
+          /* State 2: The Inbox List View */
           <>
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h2 className="text-xl font-black text-gray-900 flex items-center">
                 <MessageSquare className="mr-3 text-[#4a0b59]" size={24} /> My Inbox
               </h2>
-              <button onClick={() => setIsInboxOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+              <div className="flex items-center gap-2">
+                  <button onClick={() => { fetchContacts(); setIsComposing(true); }} className="p-2 text-white bg-[#4a0b59] hover:bg-purple-900 rounded-full transition-colors shadow-sm" title="New Message">
+                      <Plus size={20} />
+                  </button>
+                  <button onClick={() => setIsInboxOpen(false)} className="p-2 text-gray-400 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+              </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {conversations.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
                         <MessageSquare size={48} className="mb-4 opacity-20" />
-                        <p className="font-medium">No active conversations.</p>
+                        <p className="font-medium text-gray-500">No active conversations.</p>
+                        <button onClick={() => { fetchContacts(); setIsComposing(true); }} className="mt-4 px-4 py-2 bg-purple-50 text-[#4a0b59] font-semibold rounded-lg text-sm hover:bg-purple-100 transition-colors">
+                            Start a chat
+                        </button>
                     </div>
                 ) : (
                     conversations.map((chat) => (
@@ -342,7 +452,7 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
             </div>
           </>
         ) : (
-          /* State 2: The Active Chat View */
+          /* State 3: The Active Chat View */
           <>
             <div className="p-4 border-b border-gray-100 flex items-center space-x-3 bg-white shadow-sm z-10">
                 <button onClick={() => setActiveChat(null)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors mr-1">
