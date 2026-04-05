@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
   FolderTree,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 const TeachersCourse = ({ courses, setCourses }) => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [formData, setFormData] = useState({ 
@@ -55,17 +57,56 @@ const TeachersCourse = ({ courses, setCourses }) => {
     title: "", 
     description: "", 
     deadline: "", 
+    publish_at: "",
     max_marks: 100, 
-    file: null 
+    files: [] 
+  });
+  const [assignmentErrors, setAssignmentErrors] = useState({});
+
+  React.useEffect(() => {
+    if (!isAssignmentModalOpen) {
+      setAssignmentErrors({});
+      return;
+    }
+    const errors = {};
+    const now = new Date();
+    if (assignmentData.deadline) {
+      const deadline = new Date(assignmentData.deadline);
+      if (deadline <= now) {
+        errors.deadline = "Deadline must be in the future";
+      }
+    }
+    if (assignmentData.publish_at && assignmentData.publish_at.trim() !== "") {
+      const publishAt = new Date(assignmentData.publish_at);
+      if (publishAt <= now) {
+        errors.publish_at = "Publish date must be in the future";
+      }
+      if (assignmentData.deadline) {
+        const deadline = new Date(assignmentData.deadline);
+        if (publishAt >= deadline) {
+          errors.publish_at = "Publish date must be before deadline";
+        }
+      }
+    }
+    setAssignmentErrors(errors);
+  }, [assignmentData.deadline, assignmentData.publish_at, isAssignmentModalOpen]);
+  
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [quizData, setQuizData] = useState({
+    number: 1,
+    time_limit: "00:30:00",
+    is_peer_reviewed: false,
+    questions: []
   });
 
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
-    setExpandedChapters(course.chapters?.map(c => c.id) || []);
-    setExpandedLessons(course.chapters?.flatMap(c => c.lessons?.map(l => l.id) || []) || []);
+    setExpandedChapters([]);
   };
 
-  const handleBackToDashboard = () => setSelectedCourse(null);
+  const handleBackToDashboard = () => {
+    setSelectedCourse(null);
+  };
 
   const toggleChapter = (chapterId) => {
     setExpandedChapters(prev => 
@@ -230,16 +271,19 @@ const TeachersCourse = ({ courses, setCourses }) => {
   
   const submitAssignment = async (e) => {
     e.preventDefault();
-    if (!assignmentData.title.trim() || !assignmentData.deadline) return;
+    if (!assignmentData.title.trim() || !assignmentData.deadline || Object.keys(assignmentErrors).length > 0) return;
 
     try {
         const formData = new FormData();
         formData.append('title', assignmentData.title);
         formData.append('description', assignmentData.description);
         formData.append('deadline', assignmentData.deadline);
+        formData.append('publish_at', assignmentData.publish_at);
         formData.append('max_marks', assignmentData.max_marks);
-        if (assignmentData.file) {
-            formData.append('attachment', assignmentData.file);
+        if (assignmentData.files && assignmentData.files.length > 0) {
+            Array.from(assignmentData.files).forEach(file => {
+                formData.append('attachments', file);
+            });
         }
 
         const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/assignments`, {
@@ -264,10 +308,116 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }));
 
         setIsAssignmentModalOpen(false);
-        setAssignmentData({ title: "", description: "", deadline: "", max_marks: 100, file: null });
+        setAssignmentData({ title: "", description: "", deadline: "", publish_at: "", max_marks: 100, files: [] });
     } catch (err) {
         console.error(err);
         alert('Error adding assignment');
+    }
+  };
+
+  const addQuizQuestion = () => {
+    setQuizData(prev => ({
+        ...prev,
+        questions: [...prev.questions, { 
+            question: "", 
+            type: "single", 
+            marks: 1, 
+            options: [{ answer: "", correct: true }] 
+        }]
+    }));
+  };
+
+  const updateQuizQuestion = (index, field, value) => {
+    const updatedQuestions = [...quizData.questions];
+    updatedQuestions[index][field] = value;
+    setQuizData({ ...quizData, questions: updatedQuestions });
+  };
+
+  const removeQuizQuestion = (index) => {
+    setQuizData({ ...quizData, questions: quizData.questions.filter((_, i) => i !== index) });
+  };
+
+  const addQuizOption = (qIndex) => {
+    const updatedQuestions = [...quizData.questions];
+    updatedQuestions[qIndex].options.push({ answer: "", correct: false });
+    setQuizData({ ...quizData, questions: updatedQuestions });
+  };
+
+  const updateQuizOption = (qIndex, oIndex, field, value) => {
+    const updatedQuestions = [...quizData.questions];
+    if (field === 'correct' && updatedQuestions[qIndex].type === 'single') {
+        updatedQuestions[qIndex].options.forEach((opt, i) => opt.correct = (i === oIndex));
+    } else {
+        updatedQuestions[qIndex].options[oIndex][field] = value;
+    }
+    setQuizData({ ...quizData, questions: updatedQuestions });
+  };
+
+  const removeQuizOption = (qIndex, oIndex) => {
+    const updatedQuestions = [...quizData.questions];
+    updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.filter((_, i) => i !== oIndex);
+    setQuizData({ ...quizData, questions: updatedQuestions });
+  };
+
+  const submitQuiz = async (e) => {
+    e.preventDefault();
+    if (quizData.questions.length === 0) {
+        alert("Please add at least one question.");
+        return;
+    }
+
+    try {
+        // 1. Create Quiz
+        const quizResp = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/quizzes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                number: quizData.number, 
+                time_limit: quizData.time_limit, 
+                is_peer_reviewed: quizData.is_peer_reviewed 
+            })
+        });
+        if (!quizResp.ok) throw new Error('Failed to create quiz');
+        const newQuiz = await quizResp.json();
+
+        // 2. Add Questions and link them
+        for (let q of quizData.questions) {
+            const qResp = await fetch(`http://localhost:3000/api/courses/${selectedCourse.id}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ...q, 
+                    t_id: selectedCourse.teacher_id || 1 
+                })
+            });
+            const { id: qId } = await qResp.json();
+
+            // Link to quiz
+            await fetch(`http://localhost:3000/api/quizzes/${newQuiz.id}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qId })
+            });
+        }
+
+        // Update local state
+        setCourses(courses.map(course => {
+            if (course.id === selectedCourse.id) {
+                const updatedChapters = (course.chapters || []).map(c => 
+                    c.id === activeModuleId ? { ...c, quizzes: [newQuiz, ...(c.quizzes || [])] } : c
+                );
+                const updatedCourse = { ...course, chapters: updatedChapters };
+                setSelectedCourse(updatedCourse);
+                return updatedCourse;
+            }
+            return course;
+        }));
+
+        setIsQuizModalOpen(false);
+        setQuizData({ number: 1, time_limit: "00:30:00", is_peer_reviewed: false, questions: [] });
+    } catch (err) {
+        console.error(err);
+        alert('Error adding quiz');
     }
   };
 
@@ -779,7 +929,6 @@ const TeachersCourse = ({ courses, setCourses }) => {
                                 + Create Assignment
                             </button>
                         </div>
-                        
                         {(chapter.assignments || []).length === 0 ? (
                             <p className="text-gray-400 text-xs italic">No assignments added yet.</p>
                         ) : (
@@ -807,9 +956,43 @@ const TeachersCourse = ({ courses, setCourses }) => {
                                 ))}
                             </div>
                         )}
+                        </div>
+                        
+                        <div className="mt-6 flex flex-col gap-4">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                    <BookOpen size={18} className="text-blue-500" /> Quizzes
+                                </h4>
+                                <button 
+                                    onClick={() => { setActiveModuleId(chapter.id); setIsQuizModalOpen(true); }}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                                >
+                                    + Create Quiz
+                                </button>
+                            </div>
+                            
+                            {(chapter.quizzes || []).length === 0 ? (
+                                <p className="text-gray-400 text-xs italic">No quizzes added yet.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {chapter.quizzes.map(qz => (
+                                        <div key={qz.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h5 className="font-bold text-gray-800">Quiz #{qz.number}</h5>
+                                                <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                                                    {qz.time_limit}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                                <span>Peer Reviewed: {qz.is_peer_reviewed ? 'Yes' : 'No'}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                   )}
                 </div>
               );
             })}
@@ -837,7 +1020,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {courses?.map((course) => (
               <div key={course.id} className="bg-white p-7 rounded-2xl shadow-md flex flex-col hover:shadow-lg transition-shadow duration-300 border border-gray-100">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -871,7 +1054,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
               </div>
             ))}
             
-            {courses.length === 0 && (
+            {(!courses || courses.length === 0) && (
               <div className="col-span-full bg-white border-2 border-dashed border-gray-200 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
                 <BookOpen className="w-16 h-16 text-gray-300 mb-4" />
                 <h3 className="text-xl font-bold text-gray-700 mb-2">No courses found</h3>
@@ -891,7 +1074,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
       {/* Assignment Modal */}
       {isAssignmentModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsAssignmentModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
@@ -925,9 +1108,14 @@ const TeachersCourse = ({ courses, setCourses }) => {
                     type="datetime-local" 
                     value={assignmentData.deadline}
                     onChange={e => setAssignmentData({...assignmentData, deadline: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
+                    className={`w-full px-4 py-3 rounded-xl border focus:ring-2 outline-none transition-all ${
+                      assignmentErrors.deadline 
+                        ? 'border-red-500 focus:ring-red-100 focus:border-red-600' 
+                        : 'border-gray-200 focus:ring-purple-100 focus:border-purple-600'
+                    }`}
                     required
                   />
+                  {assignmentErrors.deadline && <p className="text-[10px] text-red-500 mt-1 font-medium">{assignmentErrors.deadline}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Max Marks</label>
@@ -939,17 +1127,52 @@ const TeachersCourse = ({ courses, setCourses }) => {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Attachment (Optional)</label>
-                <input 
-                  type="file" 
-                  onChange={e => setAssignmentData({...assignmentData, file: e.target.files[0]})}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Publish On (Optional)</label>
+                  <input 
+                    type="datetime-local" 
+                    value={assignmentData.publish_at}
+                    onChange={e => setAssignmentData({...assignmentData, publish_at: e.target.value})}
+                    className={`w-full px-4 py-3 rounded-xl border focus:ring-2 outline-none transition-all ${
+                      assignmentErrors.publish_at 
+                        ? 'border-red-500 focus:ring-red-100 focus:border-red-600' 
+                        : 'border-gray-200 focus:ring-purple-100 focus:border-purple-600'
+                    }`}
+                  />
+                  {assignmentErrors.publish_at && <p className="text-[10px] text-red-500 mt-1 font-medium">{assignmentErrors.publish_at}</p>}
+                  {!assignmentErrors.publish_at && <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Attachments (Optional)</label>
+                  <input 
+                    type="file" 
+                    multiple
+                    onChange={e => setAssignmentData({...assignmentData, files: e.target.files})}
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  />
+                  {assignmentData.files?.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                          {Array.from(assignmentData.files).map((f, i) => (
+                              <div key={i} className="text-[10px] text-purple-600 font-medium truncate flex items-center gap-1">
+                                  <File size={10} /> {f.name}
+                              </div>
+                          ))}
+                      </div>
+                  )}
+                </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setIsAssignmentModalOpen(false)} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all shadow-md">Create</button>
+                <button 
+                  type="submit" 
+                  disabled={Object.keys(assignmentErrors).length > 0}
+                  className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${
+                    Object.keys(assignmentErrors).length > 0 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                >
+                  Create
+                </button>
               </div>
             </form>
           </div>
@@ -1151,6 +1374,116 @@ const TeachersCourse = ({ courses, setCourses }) => {
                 </div>
               )}
               <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">Add Resource</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quiz Modal */}
+      {isQuizModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setIsQuizModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Quiz</h2>
+            <form onSubmit={submitQuiz} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Quiz Number</label>
+                  <input 
+                    type="number" 
+                    value={quizData.number}
+                    onChange={e => setQuizData({...quizData, number: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Time Limit (HH:MM:SS)</label>
+                  <input 
+                    type="text" 
+                    value={quizData.time_limit}
+                    onChange={e => setQuizData({...quizData, time_limit: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+                    placeholder="00:30:00"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                 <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center justify-between">
+                    Questions
+                    <button type="button" onClick={addQuizQuestion} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100">+ Add Question</button>
+                 </h3>
+                 <div className="space-y-4">
+                    {quizData.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="p-4 border rounded-xl bg-gray-50/30 relative group">
+                            <button type="button" onClick={() => removeQuizQuestion(qIdx)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Trash2 size={16} />
+                            </button>
+                            <div className="space-y-3">
+                                <input 
+                                    type="text" 
+                                    value={q.question} 
+                                    onChange={e => updateQuizQuestion(qIdx, 'question', e.target.value)}
+                                    placeholder="Enter question text..."
+                                    className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-1 font-medium"
+                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select 
+                                        value={q.type} 
+                                        onChange={e => updateQuizQuestion(qIdx, 'type', e.target.value)}
+                                        className="text-xs border rounded p-1"
+                                    >
+                                        <option value="single">Single Selection (Radio)</option>
+                                        <option value="multiple">Multiple Selection (Checkboxes)</option>
+                                    </select>
+                                    <input 
+                                        type="number" 
+                                        value={q.marks} 
+                                        onChange={e => updateQuizQuestion(qIdx, 'marks', e.target.value)}
+                                        placeholder="Marks"
+                                        className="text-xs border rounded p-1"
+                                    />
+                                </div>
+                                <div className="space-y-2 mt-2">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Options</p>
+                                    {q.options.map((opt, oIdx) => (
+                                        <div key={oIdx} className="flex items-center gap-2">
+                                            <input 
+                                                type={q.type === 'single' ? 'radio' : 'checkbox'} 
+                                                checked={opt.correct}
+                                                onChange={e => updateQuizOption(qIdx, oIdx, 'correct', e.target.checked)}
+                                                className="rounded-full text-blue-600"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                value={opt.answer}
+                                                onChange={e => updateQuizOption(qIdx, oIdx, 'answer', e.target.value)}
+                                                placeholder={`Option ${oIdx + 1}`}
+                                                className="flex-1 text-sm bg-white border rounded px-2 py-1"
+                                            />
+                                            {q.options.length > 1 && (
+                                                <button type="button" onClick={() => removeQuizOption(qIdx, oIdx)} className="text-gray-300 hover:text-red-400">
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => addQuizOption(qIdx)} className="text-[10px] text-blue-500 hover:underline">+ Add Option</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                 </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setIsQuizModalOpen(false)} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">Create Quiz</button>
+              </div>
             </form>
           </div>
         </div>

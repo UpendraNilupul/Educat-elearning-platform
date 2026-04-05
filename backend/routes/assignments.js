@@ -24,21 +24,33 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // --- TEACHER: CREATE ASSIGNMENT ---
-router.post('/modules/:mId/assignments', upload.single('attachment'), async (req, res) => {
+router.post('/modules/:mId/assignments', upload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
-    const { title, description, deadline, max_marks } = req.body;
-    let attachment_url = null;
-
-    if (req.file) {
-        attachment_url = `/uploads/assignments/${req.file.filename}`;
-    }
+    const { title, description, deadline, max_marks, publish_at } = req.body;
+    
+    // Default to NULL if not provided or empty
+    const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
 
     try {
+        // 1. Insert assignment
         const result = await query(
-            'INSERT INTO assignments (m_id, title, description, attachment_url, deadline, max_marks) VALUES (?, ?, ?, ?, ?, ?)',
-            [mId, title, description, attachment_url, deadline, max_marks || 100.00]
+            'INSERT INTO assignments (m_id, title, description, deadline, max_marks, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [mId, title, description, deadline, max_marks || 100.00, publishAtValue]
         );
-        res.status(201).json({ id: result.insertId, message: 'Assignment created successfully' });
+        const aId = result.insertId;
+
+        // 2. Insert attachments if any
+        if (req.files && req.files.length > 0) {
+            for (let file of req.files) {
+                const file_url = `/uploads/assignments/${file.filename}`;
+                await query(
+                    'INSERT INTO assignment_attachments (a_id, file_url) VALUES (?, ?)',
+                    [aId, file_url]
+                );
+            }
+        }
+
+        res.status(201).json({ id: aId, message: 'Assignment created successfully' });
     } catch (err) {
         console.error('Error creating assignment:', err);
         res.status(500).json({ error: 'Failed to create assignment' });
@@ -64,7 +76,17 @@ router.get('/modules/:mId/assignments', async (req, res) => {
                         [assign.id, sId]
                     );
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
+                    
+                    // Fetch all attachments for this assignment
+                    const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                    assign.attachments = attachments.map(att => att.file_url);
                 }
+            }
+        } else {
+            // Even for teachers, fetch attachments
+            for (let assign of assignments) {
+                const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                assign.attachments = attachments.map(att => att.file_url);
             }
         }
 
@@ -81,7 +103,12 @@ router.get('/assignments/:id', async (req, res) => {
     try {
         const assignments = await query('SELECT * FROM assignments WHERE id = ?', [id]);
         if (assignments.length === 0) return res.status(404).json({ error: 'Assignment not found' });
-        res.json(assignments[0]);
+        
+        const assign = assignments[0];
+        const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [id]);
+        assign.attachments = attachments.map(att => att.file_url);
+        
+        res.json(assign);
     } catch (err) {
         console.error('Error fetching assignment:', err);
         res.status(500).json({ error: 'Failed to fetch assignment' });
