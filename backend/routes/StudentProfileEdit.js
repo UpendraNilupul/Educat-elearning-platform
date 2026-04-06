@@ -186,7 +186,8 @@ router.get('/:studentId/calendar', async (req, res) => {
     const studentId = req.params.studentId;
 
     try {
-        const [rows] = await db.promise().query(`
+        // Query 1: Fetch timetables (Classes)
+        const [classRows] = await db.promise().query(`
             SELECT 
                 t.id, 
                 t.title AS event_title, 
@@ -201,10 +202,108 @@ router.get('/:studentId/calendar', async (req, res) => {
             WHERE e.s_id = ? AND t.status = 'scheduled'
         `, [studentId]);
 
-        res.status(200).json(rows);
+        // Map classes to include type: 'class'
+        const classes = classRows.map(row => ({ ...row, type: 'class' }));
+
+        // Query 2: Fetch todos
+        const [todoRows] = await db.promise().query(`
+            SELECT 
+                id, 
+                task AS event_title, 
+                DATE_FORMAT(due_date, '%Y-%m-%d') AS scheduled_date, 
+                is_completed 
+            FROM todos 
+            WHERE user_id = ? AND due_date IS NOT NULL
+        `, [studentId]);
+
+        // Map todos to include type: 'todo' and dynamic theme_color
+        const todos = todoRows.map(row => ({
+            ...row,
+            type: 'todo',
+            theme_color: row.is_completed ? 'gray' : 'orange'
+        }));
+
+        // Merge both arrays
+        const mergedEvents = [...classes, ...todos];
+
+        res.status(200).json(mergedEvents);
     } catch (error) {
         console.error('❌ Error fetching student calendar events:', error);
         res.status(500).json({ success: false, message: 'Server error fetching calendar' });
+    }
+});
+
+/**
+ * @route   GET /api/student/:userId/todos
+ * @desc    Fetch todos for a user
+ */
+router.get('/:userId/todos', async (req, res) => {
+    const userId = req.params.userId;
+    try {
+        const [rows] = await db.promise().query(
+            'SELECT * FROM todos WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+        );
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('❌ Error fetching todos:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching todos' });
+    }
+});
+
+/**
+ * @route   POST /api/student/:userId/todos
+ * @desc    Add a new todo
+ */
+router.post('/:userId/todos', async (req, res) => {
+    const userId = req.params.userId;
+    const { task, due_date } = req.body;
+    try {
+        const [result] = await db.promise().query(
+            'INSERT INTO todos (user_id, task, due_date) VALUES (?, ?, ?)',
+            [userId, task, due_date || null]
+        );
+        res.status(201).json({ success: true, id: result.insertId });
+    } catch (error) {
+        console.error('❌ Error adding todo:', error);
+        res.status(500).json({ success: false, message: 'Server error adding todo' });
+    }
+});
+
+/**
+ * @route   PUT /api/student/todos/:todoId/toggle
+ * @desc    Toggle todo completion status
+ */
+router.put('/todos/:todoId/toggle', async (req, res) => {
+    const todoId = req.params.todoId;
+    const { is_completed } = req.body;
+    try {
+        await db.promise().query(
+            'UPDATE todos SET is_completed = ? WHERE id = ?',
+            [is_completed, todoId]
+        );
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('❌ Error toggling todo:', error);
+        res.status(500).json({ success: false, message: 'Server error toggling todo' });
+    }
+});
+
+/**
+ * @route   DELETE /api/student/todos/:todoId
+ * @desc    Delete a todo
+ */
+router.delete('/todos/:todoId', async (req, res) => {
+    const todoId = req.params.todoId;
+    try {
+        await db.promise().query(
+            'DELETE FROM todos WHERE id = ?',
+            [todoId]
+        );
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('❌ Error deleting todo:', error);
+        res.status(500).json({ success: false, message: 'Server error deleting todo' });
     }
 });
 
