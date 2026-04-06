@@ -22,6 +22,9 @@ import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
 import studentProfileRoutes from './routes/StudentProfileEdit.js';
 import classRoutes from './routes/class.js';
+import assignmentRoutes from './routes/assignments.js';
+import quizRoutes from './routes/quizzes.js';
+import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
 //chat
 import studentChatRoutes from './routes/studentChat.js';
@@ -89,6 +92,8 @@ app.use('/api/student', studentProfileRoutes);
 app.use('/api', studentChatRoutes);
 app.use('/api', teacherChatRoutes);
 app.use('/api', adminChatRoutes);
+app.use('/api', assignmentRoutes);
+app.use('/api', quizRoutes);
 
 // SERVE UPLOADS
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -124,4 +129,6 @@ app.use((req, res) => {
 // 🌟 FIX: Listen using 'server' instead of 'app'
 server.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
+    // Start background jobs
+    initAssignmentScheduler();
 });

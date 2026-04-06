@@ -106,6 +106,25 @@ router.get('/student/classes', async (req, res) => {
                         type: t.resource_type || 'Material',
                         size: t.file_size || 'Unknown Size',
                         link: t.link
+                    })),
+                    assignments: (await query(`
+                        SELECT a.*, sub.status as submissionStatus, sub.grade as submissionGrade, sub.feedback as submissionFeedback
+                        FROM assignments a
+                        LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
+                        WHERE a.m_id = ?
+                        ORDER BY a.created_at DESC
+                    `, [studentId, mod.id])).map(a => ({
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        deadline: a.deadline,
+                        maxMarks: a.max_marks,
+                        attachmentUrl: a.attachment_url,
+                        submission: a.submissionStatus ? {
+                            status: a.submissionStatus,
+                            grade: a.submissionGrade,
+                            feedback: a.submissionFeedback
+                        } : null
                     }))
                 });
             }

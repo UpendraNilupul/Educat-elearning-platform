@@ -292,7 +292,7 @@ const Student = ({ userName, onLogout }) => {
 
                             {/* Two-Column Grid: Deadlines and Recent Courses */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines */}
+                                {/* Upcoming Deadlines Column (Restored to static content as Todo list moved to Calendar) */}
                                 <div className="lg:col-span-1">
                                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
                                         <div className="flex items-center justify-between mb-6">
