@@ -6,8 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { v2 as cloudinary } from 'cloudinary';
-import pkg from 'multer-storage-cloudinary';
-const { CloudinaryStorage } = pkg;
+import cloudinaryStoragePkg from 'multer-storage-cloudinary'; // 🌟 Simple default import
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -20,15 +20,50 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure Cloudinary Storage
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'educat_profiles',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1E9)
+// 🌟 THE FIX: Robust Cloudinary Storage Initialization
+// This automatically detects what version of the library you have 
+// and initializes it correctly so it never crashes!
+let storage;
+
+if (cloudinaryStoragePkg.CloudinaryStorage) {
+    // Handles modern v4.x syntax
+    storage = new cloudinaryStoragePkg.CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: {
+            folder: 'educat_profiles',
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+            public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1E9)
+        }
+    });
+} else if (cloudinaryStoragePkg.default?.CloudinaryStorage) {
+    // Handles wrapped ESM exports
+    storage = new cloudinaryStoragePkg.default.CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: {
+            folder: 'educat_profiles',
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+            public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1E9)
+        }
+    });
+} else {
+    // Handles older v2.x syntax
+    const StorageConstructor = cloudinaryStoragePkg.default || cloudinaryStoragePkg;
+    try {
+        storage = new StorageConstructor({
+            cloudinary: cloudinary,
+            params: {
+                folder: 'educat_profiles',
+                allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+            }
+        });
+    } catch (e) {
+        storage = StorageConstructor({
+            cloudinary: cloudinary,
+            folder: 'educat_profiles',
+            allowedFormats: ['jpg', 'png', 'jpeg', 'webp']
+        });
     }
-});
+}
 
 const upload = multer({ storage: storage });
 
@@ -93,7 +128,6 @@ router.get('/basic-info/:userId', async (req, res) => {
 /**
  * @route   PUT /api/student/profile/:userId
  * @desc    Update student profile (Personal & Academic info)
- * @access  Private (Assume session/auth middleware exists or handled differently)
  */
 router.put('/profile/:userId', (req, res, next) => {
     upload.single('picture')(req, res, (err) => {
@@ -117,13 +151,9 @@ router.put('/profile/:userId', (req, res, next) => {
     let connection;
 
     try {
-        // Use connection pool with promise wrapper as requested
         connection = await db.promise().getConnection();
-
-        // Start Transaction
         await connection.beginTransaction();
 
-        // 1. Update USERS table (Personal Info)
         let userSQL = `
             UPDATE users 
             SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ?
@@ -132,7 +162,6 @@ router.put('/profile/:userId', (req, res, next) => {
 
         if (req.file) {
             userSQL += `, picture = ?`;
-            // Save the secure Cloudinary URL (path) instead of just the filename
             userParams.push(req.file.path);
         } else if (removePhoto === 'true') {
             userSQL += `, picture = NULL`;
@@ -143,7 +172,6 @@ router.put('/profile/:userId', (req, res, next) => {
 
         await connection.query(userSQL, userParams);
 
-        // 2. Update STUDENTS table (Academic Info)
         const studentSQL = `
             UPDATE students 
             SET school_name = ?, grade_level = ?, guardian_name = ?, guardian_phone = ? 
@@ -152,8 +180,6 @@ router.put('/profile/:userId', (req, res, next) => {
         const studentParams = [school_name, grade_level, guardian_name, guardian_phone, userId];
 
         await connection.query(studentSQL, studentParams);
-
-        // Commit Transaction
         await connection.commit();
 
         res.status(200).json({
@@ -163,9 +189,7 @@ router.put('/profile/:userId', (req, res, next) => {
         });
 
     } catch (error) {
-        // Rollback Transaction if anything fails
         if (connection) await connection.rollback();
-
         console.error('❌ Student Profile Update Error:', error);
         res.status(500).json({
             success: false,
@@ -173,7 +197,6 @@ router.put('/profile/:userId', (req, res, next) => {
             error: error.message
         });
     } finally {
-        // Release connection back to pool
         if (connection) connection.release();
     }
 });
@@ -186,7 +209,6 @@ router.get('/:studentId/calendar', async (req, res) => {
     const studentId = req.params.studentId;
 
     try {
-        // Query 1: Fetch timetables (Classes)
         const [classRows] = await db.promise().query(`
             SELECT 
                 t.id, 
@@ -202,10 +224,8 @@ router.get('/:studentId/calendar', async (req, res) => {
             WHERE e.s_id = ? AND t.status = 'scheduled'
         `, [studentId]);
 
-        // Map classes to include type: 'class'
         const classes = classRows.map(row => ({ ...row, type: 'class' }));
 
-        // Query 2: Fetch todos
         const [todoRows] = await db.promise().query(`
             SELECT 
                 id, 
@@ -216,14 +236,12 @@ router.get('/:studentId/calendar', async (req, res) => {
             WHERE user_id = ? AND due_date IS NOT NULL
         `, [studentId]);
 
-        // Map todos to include type: 'todo' and dynamic theme_color
         const todos = todoRows.map(row => ({
             ...row,
             type: 'todo',
             theme_color: row.is_completed ? 'gray' : 'orange'
         }));
 
-        // Merge both arrays
         const mergedEvents = [...classes, ...todos];
 
         res.status(200).json(mergedEvents);
