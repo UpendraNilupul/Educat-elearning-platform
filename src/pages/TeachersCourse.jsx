@@ -20,7 +20,7 @@ import {
   Calendar as CalendarIcon
 } from "lucide-react";
 
-const TeachersCourse = ({ courses, setCourses }) => {
+const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse }) => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -37,7 +37,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
     progress: 0 
   });
 
-  const [selectedCourse, setSelectedCourse] = useState(null);
+  // selectedCourse is now received as a prop
   const [expandedChapters, setExpandedChapters] = useState([]);
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState(null);
@@ -55,15 +55,18 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const [lessonTitle, setLessonTitle] = useState("");
 
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null);
   const [assignmentData, setAssignmentData] = useState({ 
     title: "", 
     description: "", 
     deadline: "", 
     publish_at: "",
     max_marks: 100, 
-    files: [] 
+    files: [], // Array of File objects
+    existingAttachments: []
   });
   const [assignmentErrors, setAssignmentErrors] = useState({});
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
 
   React.useEffect(() => {
     if (!isAssignmentModalOpen) {
@@ -90,14 +93,25 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }
       }
     }
+
+    // Require at least one file for new assignments, or ensure at least one exists for edits
+    const hasNewFiles = assignmentData.files && assignmentData.files.length > 0;
+    const hasExistingFiles = assignmentData.existingAttachments && assignmentData.existingAttachments.length > 0;
+    
+    if (!hasNewFiles && !hasExistingFiles) {
+        errors.files = "At least one attachment is required";
+    }
+
     setAssignmentErrors(errors);
-  }, [assignmentData.deadline, assignmentData.publish_at, isAssignmentModalOpen]);
+  }, [assignmentData.deadline, assignmentData.publish_at, assignmentData.files, assignmentData.existingAttachments, isAssignmentModalOpen]);
   
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [editingQuizId, setEditingQuizId] = useState(null);
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [quizData, setQuizData] = useState({
     number: 1,
     time_limit: "00:30:00",
-    is_peer_reviewed: false,
+    publish_at: "",
     questions: []
   });
 
@@ -451,6 +465,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
     e.preventDefault();
     if (!assignmentData.title.trim() || !assignmentData.deadline || Object.keys(assignmentErrors).length > 0) return;
 
+    setIsSavingAssignment(true);
     try {
         const formData = new FormData();
         formData.append('title', assignmentData.title);
@@ -464,20 +479,42 @@ const TeachersCourse = ({ courses, setCourses }) => {
             });
         }
 
-        const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/assignments`, {
-            method: 'POST',
+        const url = editingAssignmentId 
+            ? `http://localhost:3000/api/assignments/${editingAssignmentId}`
+            : `http://localhost:3000/api/modules/${activeModuleId}/assignments`;
+        
+        const response = await fetch(url, {
+            method: editingAssignmentId ? 'PUT' : 'POST',
             body: formData
         });
         
-        if (!response.ok) throw new Error('Failed to add assignment');
-        const newAssignment = await response.json();
+        if (!response.ok) throw new Error('Failed to save assignment');
+        const result = await response.json();
 
         // Update local state
         setCourses(courses.map(course => {
             if (course.id === selectedCourse.id) {
-                const updatedChapters = (course.chapters || []).map(c => 
-                    c.id === activeModuleId ? { ...c, assignments: [newAssignment, ...(c.assignments || [])] } : c
-                );
+                const updatedChapters = (course.chapters || []).map(c => {
+                    if (c.id === activeModuleId) {
+                        if (editingAssignmentId) {
+                            return {
+                                ...c,
+                                assignments: (c.assignments || []).map(a => 
+                                    a.id === editingAssignmentId 
+                                        ? { ...a, ...assignmentData, attachments: [...assignmentData.existingAttachments, ...(result.newAttachments || [])] } 
+                                        : a
+                                )
+                            };
+                        } else {
+                            // Backend now returns the full assignment object in 'result'
+                            return { 
+                                ...c, 
+                                assignments: [result, ...(c.assignments || [])] 
+                            };
+                        }
+                    }
+                    return c;
+                });
                 const updatedCourse = { ...course, chapters: updatedChapters };
                 setSelectedCourse(updatedCourse);
                 return updatedCourse;
@@ -486,10 +523,56 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }));
 
         setIsAssignmentModalOpen(false);
-        setAssignmentData({ title: "", description: "", deadline: "", publish_at: "", max_marks: 100, files: [] });
+        setEditingAssignmentId(null);
+        setAssignmentData({ title: "", description: "", deadline: "", publish_at: "", max_marks: 100, files: [], existingAttachments: [] });
     } catch (err) {
         console.error(err);
-        alert('Error adding assignment');
+        alert('Error saving assignment: ' + err.message);
+    } finally {
+        setIsSavingAssignment(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (aId, moduleId) => {
+    if (window.confirm("Are you sure you want to delete this assignment? All submissions will be lost.")) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/assignments/${aId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Failed to delete assignment');
+
+            setCourses(courses.map(course => {
+                if (course.id === selectedCourse.id) {
+                    const updatedChapters = (course.chapters || []).map(c => 
+                        c.id === moduleId ? { ...c, assignments: (c.assignments || []).filter(a => a.id !== aId) } : c
+                    );
+                    const updatedCourse = { ...course, chapters: updatedChapters };
+                    setSelectedCourse(updatedCourse);
+                    return updatedCourse;
+                }
+                return course;
+            }));
+        } catch (err) {
+            console.error(err);
+            alert('Error deleting assignment');
+        }
+    }
+  };
+
+  const handleRemoveExistingAttachment = async (attId, aId) => {
+    try {
+        const response = await fetch(`http://localhost:3000/api/attachments/${attId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to remove attachment');
+
+        setAssignmentData(prev => ({
+            ...prev,
+            existingAttachments: prev.existingAttachments.filter(att => att.id !== attId)
+        }));
+    } catch (err) {
+        console.error(err);
+        alert('Error removing attachment');
     }
   };
 
@@ -537,6 +620,63 @@ const TeachersCourse = ({ courses, setCourses }) => {
     setQuizData({ ...quizData, questions: updatedQuestions });
   };
 
+  const handleEditQuiz = async (qzId, moduleId) => {
+    try {
+        const response = await fetch(`http://localhost:3000/api/quizzes/${qzId}`);
+        if (!response.ok) throw new Error('Failed to fetch quiz details');
+        const data = await response.json();
+
+        setEditingQuizId(qzId);
+        setActiveModuleId(moduleId);
+        setQuizData({
+            number: data.number,
+            time_limit: data.time_limit,
+            publish_at: data.publish_at ? new Date(data.publish_at).toISOString().slice(0, 16) : "",
+            questions: data.questions.map(q => ({
+                id: q.id,
+                question: q.question,
+                type: q.type,
+                marks: q.marks,
+                options: q.options.map(o => ({
+                    id: o.id,
+                    answer: o.answer,
+                    correct: !!o.correct
+                }))
+            }))
+        });
+        setIsQuizModalOpen(true);
+    } catch (err) {
+        console.error(err);
+        alert('Error fetching quiz details');
+    }
+  };
+
+  const handleDeleteQuiz = async (qzId, moduleId) => {
+    if (window.confirm("Are you sure you want to delete this quiz? All submissions will be lost.")) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/quizzes/${qzId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Failed to delete quiz');
+
+            setCourses(courses.map(course => {
+                if (course.id === selectedCourse.id) {
+                    const updatedChapters = (course.chapters || []).map(c => 
+                        c.id === moduleId ? { ...c, quizzes: (c.quizzes || []).filter(q => q.id !== qzId) } : c
+                    );
+                    const updatedCourse = { ...course, chapters: updatedChapters };
+                    setSelectedCourse(updatedCourse);
+                    return updatedCourse;
+                }
+                return course;
+            }));
+        } catch (err) {
+            console.error(err);
+            alert('Error deleting quiz');
+        }
+    }
+  };
+
   const submitQuiz = async (e) => {
     e.preventDefault();
     if (quizData.questions.length === 0) {
@@ -544,46 +684,87 @@ const TeachersCourse = ({ courses, setCourses }) => {
         return;
     }
 
+    setIsSavingQuiz(true);
     try {
-        // 1. Create Quiz
-        const quizResp = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/quizzes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                number: quizData.number, 
-                time_limit: quizData.time_limit, 
-                is_peer_reviewed: quizData.is_peer_reviewed 
-            })
-        });
-        if (!quizResp.ok) throw new Error('Failed to create quiz');
-        const newQuiz = await quizResp.json();
+        let quizId = editingQuizId;
 
-        // 2. Add Questions and link them
+        // 1. Create or Update Quiz Metadata
+        const quizPayload = { 
+            number: quizData.number, 
+            time_limit: quizData.time_limit, 
+            publish_at: quizData.publish_at || null
+        };
+
+        if (editingQuizId) {
+            const resp = await fetch(`http://localhost:3000/api/quizzes/${editingQuizId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quizPayload)
+            });
+            if (!resp.ok) throw new Error('Failed to update quiz');
+        } else {
+            const resp = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/quizzes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quizPayload)
+            });
+            if (!resp.ok) throw new Error('Failed to create quiz');
+            const newQuiz = await resp.json();
+            quizId = newQuiz.id;
+        }
+
+        // 2. Handle Questions (Simplest approach for MVP: if it has an ID, update it; if not, create it)
+        // Note: For a more robust implementation, we should also handle deleted questions.
         for (let q of quizData.questions) {
-            const qResp = await fetch(`http://localhost:3000/api/courses/${selectedCourse.id}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    ...q, 
-                    t_id: selectedCourse.teacher_id || 1 
-                })
-            });
-            const { id: qId } = await qResp.json();
+            if (q.id) {
+                // Update existing question
+                await fetch(`http://localhost:3000/api/questions/${q.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        type: q.type, 
+                        marks: q.marks, 
+                        question: q.question, 
+                        options: q.options 
+                    })
+                });
+            } else {
+                // Create new question
+                const qResp = await fetch(`http://localhost:3000/api/courses/${selectedCourse.id}/questions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        ...q, 
+                        t_id: selectedCourse.teacher_id || 1 
+                    })
+                });
+                const { id: qId } = await qResp.json();
 
-            // Link to quiz
-            await fetch(`http://localhost:3000/api/quizzes/${newQuiz.id}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qId })
-            });
+                // Link to quiz
+                await fetch(`http://localhost:3000/api/quizzes/${quizId}/questions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qId })
+                });
+            }
         }
 
         // Update local state
         setCourses(courses.map(course => {
             if (course.id === selectedCourse.id) {
-                const updatedChapters = (course.chapters || []).map(c => 
-                    c.id === activeModuleId ? { ...c, quizzes: [newQuiz, ...(c.quizzes || [])] } : c
-                );
+                const updatedChapters = (course.chapters || []).map(c => {
+                    if (c.id === activeModuleId) {
+                        if (editingQuizId) {
+                            return { 
+                                ...c, 
+                                quizzes: (c.quizzes || []).map(q => q.id === editingQuizId ? { ...q, ...quizPayload, id: q.id } : q) 
+                            };
+                        } else {
+                            return { ...c, quizzes: [{ id: quizId, ...quizPayload }, ...(c.quizzes || [])] };
+                        }
+                    }
+                    return c;
+                });
                 const updatedCourse = { ...course, chapters: updatedChapters };
                 setSelectedCourse(updatedCourse);
                 return updatedCourse;
@@ -592,10 +773,13 @@ const TeachersCourse = ({ courses, setCourses }) => {
         }));
 
         setIsQuizModalOpen(false);
-        setQuizData({ number: 1, time_limit: "00:30:00", is_peer_reviewed: false, questions: [] });
+        setEditingQuizId(null);
+        setQuizData({ number: 1, time_limit: "00:30:00", is_peer_reviewed: false, publish_at: "", questions: [] });
     } catch (err) {
         console.error(err);
-        alert('Error adding quiz');
+        alert('Error saving quiz: ' + err.message);
+    } finally {
+        setIsSavingQuiz(false);
     }
   };
 
@@ -1153,11 +1337,40 @@ const TeachersCourse = ({ courses, setCourses }) => {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {chapter.assignments.map(assign => (
-                                    <div key={assign.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all">
-                                        <div className="flex justify-between items-start mb-2">
+                                    <div key={assign.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all relative group/assign">
+                                        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover/assign:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => {
+                                                    setEditingAssignmentId(assign.id);
+                                                    setActiveModuleId(chapter.id);
+                                                    setAssignmentData({
+                                                        title: assign.title || "",
+                                                        description: assign.description || "",
+                                                        deadline: (assign.deadline && !isNaN(new Date(assign.deadline))) ? new Date(assign.deadline).toISOString().slice(0, 16) : "",
+                                                        publish_at: (assign.publish_at && !isNaN(new Date(assign.publish_at))) ? new Date(assign.publish_at).toISOString().slice(0, 16) : "",
+                                                        max_marks: assign.max_marks || 100,
+                                                        files: [],
+                                                        existingAttachments: assign.attachments || []
+                                                    });
+                                                    setIsAssignmentModalOpen(true);
+                                                }}
+                                                className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+                                                title="Edit Assignment"
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteAssignment(assign.id, chapter.id)}
+                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                                title="Delete Assignment"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                        <div className="flex justify-between items-start mb-2 pr-12">
                                             <h5 className="font-bold text-gray-800">{assign.title}</h5>
-                                            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">
-                                                {assign.maxMarks} Marks
+                                            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold h-fit">
+                                                {assign.max_marks} Marks
                                             </span>
                                         </div>
                                         <p className="text-xs text-gray-500 line-clamp-2 mb-3">{assign.description}</p>
@@ -1195,15 +1408,36 @@ const TeachersCourse = ({ courses, setCourses }) => {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {chapter.quizzes.map(qz => (
-                                        <div key={qz.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all">
-                                            <div className="flex justify-between items-start mb-2">
+                                        <div key={qz.id} className="border rounded-xl p-4 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all relative group/quiz">
+                                            <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover/quiz:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => handleEditQuiz(qz.id, chapter.id)}
+                                                    className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+                                                    title="Edit Quiz"
+                                                >
+                                                    <Edit2 size={14} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteQuiz(qz.id, chapter.id)}
+                                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                                    title="Delete Quiz"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="flex justify-between items-start mb-2 pr-12">
                                                 <h5 className="font-bold text-gray-800">Quiz #{qz.number}</h5>
                                                 <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
                                                     {qz.time_limit}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                                <span>Peer Reviewed: {qz.is_peer_reviewed ? 'Yes' : 'No'}</span>
+                                            <div className="flex flex-col gap-1 text-[10px] text-gray-400">
+                                                {qz.publish_at && (
+                                                    <div className="flex items-center gap-1 text-blue-500 font-medium">
+                                                        <CalendarIcon size={10} />
+                                                        <span>Scheduled: {new Date(qz.publish_at).toLocaleString()}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -1297,7 +1531,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
             <button onClick={() => setIsAssignmentModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Assignment</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{editingAssignmentId ? 'Edit Assignment' : 'Create Assignment'}</h2>
             <form onSubmit={submitAssignment} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Assignment Title</label>
@@ -1361,36 +1595,92 @@ const TeachersCourse = ({ courses, setCourses }) => {
                   {assignmentErrors.publish_at && <p className="text-[10px] text-red-500 mt-1 font-medium">{assignmentErrors.publish_at}</p>}
                   {!assignmentErrors.publish_at && <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>}
                 </div>
+
+                {/* Existing Attachments */}
+                {editingAssignmentId && assignmentData.existingAttachments?.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Current Attachments</label>
+                    <div className="space-y-2">
+                      {assignmentData.existingAttachments.map((att) => (
+                        <div key={att.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <div className="flex items-center gap-2 text-purple-600 font-medium truncate">
+                            <File size={14} />
+                            <a href={att.file_url} target="_blank" rel="noreferrer" className="hover:underline truncate">
+                              {att.file_url.split('/').pop()}
+                            </a>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveExistingAttachment(att.id, editingAssignmentId)}
+                            className="text-red-400 hover:text-red-600 p-1"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Attachments (Optional)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    {editingAssignmentId ? 'Add New Attachments' : 'Attachments (Required)'}
+                  </label>
                   <input 
                     type="file" 
                     multiple
-                    onChange={e => setAssignmentData({...assignmentData, files: e.target.files})}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                    onChange={e => {
+                        const newFiles = Array.from(e.target.files);
+                        setAssignmentData(prev => ({
+                            ...prev, 
+                            files: [...prev.files, ...newFiles]
+                        }));
+                        // Reset input so the same file can be picked twice if needed, or just to clear selection
+                        e.target.value = null;
+                    }}
+                    className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold ${
+                        assignmentErrors.files 
+                        ? 'file:bg-red-50 file:text-red-700 hover:file:bg-red-100' 
+                        : 'file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100'
+                    }`}
                   />
+                  {assignmentErrors.files && <p className="text-[10px] text-red-500 mt-1 font-medium">{assignmentErrors.files}</p>}
                   {assignmentData.files?.length > 0 && (
                       <div className="mt-2 space-y-1">
-                          {Array.from(assignmentData.files).map((f, i) => (
-                              <div key={i} className="text-[10px] text-purple-600 font-medium truncate flex items-center gap-1">
-                                  <File size={10} /> {f.name}
+                          {assignmentData.files.map((f, i) => (
+                              <div key={i} className="text-[10px] text-purple-600 font-medium truncate flex items-center justify-between bg-purple-50 p-2 rounded-lg border border-purple-100">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <File size={12} /> {f.name}
+                                  </div>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setAssignmentData(prev => ({
+                                            ...prev,
+                                            files: prev.files.filter((_, idx) => idx !== i)
+                                        }));
+                                    }}
+                                    className="text-red-500 hover:text-red-700 p-0.5"
+                                  >
+                                    <X size={12} />
+                                  </button>
                               </div>
                           ))}
                       </div>
                   )}
                 </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsAssignmentModalOpen(false)} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button type="button" onClick={() => { setIsAssignmentModalOpen(false); setEditingAssignmentId(null); }} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
                 <button 
                   type="submit" 
-                  disabled={Object.keys(assignmentErrors).length > 0}
+                  disabled={Object.keys(assignmentErrors).length > 0 || isSavingAssignment}
                   className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${
-                    Object.keys(assignmentErrors).length > 0 
+                    (Object.keys(assignmentErrors).length > 0 || isSavingAssignment)
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                       : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
                 >
-                  Create
+                  {isSavingAssignment ? 'Saving...' : (editingAssignmentId ? 'Save Changes' : 'Create')}
                 </button>
               </div>
             </form>
@@ -1605,7 +1895,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
             <button onClick={() => setIsQuizModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Quiz</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{editingQuizId ? 'Edit Quiz' : 'Create Quiz'}</h2>
             <form onSubmit={submitQuiz} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1628,6 +1918,22 @@ const TeachersCourse = ({ courses, setCourses }) => {
                     placeholder="00:30:00"
                     required
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="mt-4">
+                  {/* Peer Review option removed */}
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Publish On (Optional)</label>
+                  <input 
+                    type="datetime-local" 
+                    value={quizData.publish_at}
+                    onChange={e => setQuizData({...quizData, publish_at: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all text-sm"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>
                 </div>
               </div>
 
@@ -1700,8 +2006,16 @@ const TeachersCourse = ({ courses, setCourses }) => {
               </div>
 
               <div className="flex gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsQuizModalOpen(false)} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md">Create Quiz</button>
+                <button type="button" onClick={() => { setIsQuizModalOpen(false); setEditingQuizId(null); }} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button 
+                    type="submit" 
+                    disabled={isSavingQuiz}
+                    className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${
+                        isSavingQuiz ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                >
+                    {isSavingQuiz ? 'Saving...' : (editingQuizId ? 'Save Changes' : 'Create Quiz')}
+                </button>
               </div>
             </form>
           </div>

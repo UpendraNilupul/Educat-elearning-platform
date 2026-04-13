@@ -181,6 +181,8 @@ CREATE TABLE resources (
     FOREIGN KEY(m_id) REFERENCES modules(id),
     FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
+ALTER TABLE resources ADD COLUMN type VARCHAR(50) DEFAULT 'pdf';
+
 
 CREATE TABLE quizes (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -188,6 +190,8 @@ CREATE TABLE quizes (
     time_limit TIME NOT NULL,
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     m_id INT NOT NULL,
+    publish_at DATETIME DEFAULT NULL,
+    notification_sent BOOLEAN DEFAULT FALSE,
     FOREIGN KEY(m_id) REFERENCES modules(id)
 );
 
@@ -218,28 +222,8 @@ CREATE TABLE quiz_questions (
     qz_id INT NOT NULL,
     q_id INT NOT NULL,
     PRIMARY KEY (qz_id, q_id),
-    FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
-    FOREIGN KEY(q_id) REFERENCES question_bank(id) ON DELETE CASCADE
-);
-
-CREATE TABLE quiz_submissions (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    qz_id INT NOT NULL,
-    s_id INT NOT NULL,
-    score DECIMAL(5,2),
-    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
-    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
-CREATE TABLE student_quiz_answers (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    submission_id INT NOT NULL,
-    q_id INT NOT NULL,
-    a_id INT NOT NULL,
-    FOREIGN KEY(submission_id) REFERENCES quiz_submissions(id) ON DELETE CASCADE,
-    FOREIGN KEY(q_id) REFERENCES question_bank(id) ON DELETE CASCADE,
-    FOREIGN KEY(a_id) REFERENCES answers(id) ON DELETE CASCADE
+    FOREIGN KEY(qz_id) REFERENCES quizes(id),
+    FOREIGN KEY(q_id) REFERENCES question_bank(id)
 );
 
 CREATE TABLE payments (
@@ -382,20 +366,14 @@ CREATE TABLE assignments (
     m_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
+    attachment_url VARCHAR(300),
     deadline DATETIME NOT NULL,
     max_marks DECIMAL(5,2) DEFAULT 100.00,
-    publish_at DATETIME DEFAULT NULL,
-    notification_sent BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
-
-CREATE TABLE assignment_attachments (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    a_id INT NOT NULL,
-    file_url VARCHAR(300) NOT NULL,
-    FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE
-);
+ALTER TABLE assignments ADD COLUMN publish_at DATETIME DEFAULT NULL;
+ALTER TABLE assignments ADD COLUMN notification_sent BOOLEAN DEFAULT FALSE;
 
 CREATE TABLE assignment_submissions (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -409,6 +387,12 @@ CREATE TABLE assignment_submissions (
     FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
+CREATE TABLE assignment_attachments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    a_id INT NOT NULL,
+    file_url VARCHAR(300) NOT NULL,
+    FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE
+);
 
 -- ==========================================
 -- SEED DATA
@@ -421,5 +405,16 @@ values('admin','$2b$10$ZemIIkWGaWhDaNFgHiXGyOEmzj2qoHzjNCoWNgNFBha9LfHhTPPJS', '
 INSERT INTO subjects (name) VALUES 
 ('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages'), ('A/L Physics'), ('A/L Chemistry');
 
--- Note: Ensure your admin user exists before running this update!
--- UPDATE admins SET admin_level = 'super' WHERE id = 1;
+insert into admins(user_id, admin_level) values(1, 'super');
+
+
+
+
+
+
+
+
+
+
+
+

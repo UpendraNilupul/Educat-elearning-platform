@@ -129,7 +129,7 @@ const AssignmentSubmissions = () => {
                                 </div>
                                 <div className="mt-4 flex items-center justify-between border-t border-gray-50 pt-4">
                                     <a 
-                                        href={`http://localhost:3000${sub.file_url}`} 
+                                        href={sub.file_url.startsWith('http') ? sub.file_url : `http://localhost:3000${sub.file_url}`} 
                                         target="_blank" 
                                         rel="noreferrer"
                                         onClick={(e) => e.stopPropagation()}

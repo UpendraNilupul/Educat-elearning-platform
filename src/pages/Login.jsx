@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import '../styles/login.css';
 
-// 🌟 ADDED setUserName HERE
-const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
+// 🌟 ADDED setUserName AND setUserPicture HERE
+const Login = ({ setUserRole, setUserName, setUserPicture ,setAdminLevel }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -40,11 +40,13 @@ const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
                 localStorage.setItem('adminLevel', data.adminLevel || 'super');
                 localStorage.setItem('userId', data.userId);
                 localStorage.setItem('userRole', safeRole);
+                localStorage.setItem('userPicture', data.userPicture || '');
                 localStorage.setItem('verificationStatus', data.verificationStatus || '');
 
                 if (setUserRole) setUserRole(safeRole);
                 if (setUserName) setUserName(data.userName);
                 if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
+                if (setUserPicture) setUserPicture(data.userPicture || '');
 
                 // 🔥 Redirect logic using safeRole
                 if (safeRole === 'admin') {
