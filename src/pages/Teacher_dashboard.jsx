@@ -312,8 +312,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
         
         {activeTab === "Course Management" && (
           <TeachersCourse 
@@ -324,11 +323,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
           />
         )}
         
-        {activeTab === "Course Management" && <TeachersCourse courses={courses} setCourses={setCourses} />}
         {activeTab === "Messages" && <TeacherChat />}
-        </main>
-      </div>
-
+      </main>
     </div>
   );
 };
