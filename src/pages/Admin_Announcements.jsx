@@ -4,6 +4,7 @@ import {
     Megaphone, Users, BookOpen, Target, 
     ArrowLeft, Send, AlertCircle, Calendar, GraduationCap
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_Announcements = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -28,8 +29,8 @@ const Admin_Announcements = ({ userName, onLogout }) => {
         const fetchDropdownData = async () => {
             try {
                 const [coursesRes, subjectsRes] = await Promise.all([
-                    fetch('http://localhost:3000/api/admin/all-courses', { credentials: 'include' }),
-                    fetch('http://localhost:3000/api/admin/subjects', { credentials: 'include' })
+                    fetch('/admin/all-courses', { credentials: 'include' }),
+                    fetch('/admin/subjects', { credentials: 'include' })
                 ]);
                 
                 const coursesData = await coursesRes.json();
@@ -61,7 +62,7 @@ const Admin_Announcements = ({ userName, onLogout }) => {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch('http://localhost:3000/api/admin/global-announcement', {
+            const response = await fetch('/admin/global-announcement', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ audienceType, targetId, minAge, maxAge, title, message }),

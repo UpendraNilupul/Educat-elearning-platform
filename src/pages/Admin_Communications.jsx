@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
     MessageSquare, Megaphone, ArrowLeft, Send, User, Clock, Users, Search
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_Communications = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -38,11 +39,11 @@ const Admin_Communications = ({ userName, onLogout }) => {
         setLoading(true);
         try {
             if (activeTab === 'messages') {
-                const res = await fetch('http://localhost:3000/api/admin/conversations', { credentials: 'include' });
+                const res = await fetch('/admin/conversations', { credentials: 'include' });
                 const data = await res.json();
                 if (data.success) setConversations(data.data);
             } else {
-                const res = await fetch('http://localhost:3000/api/admin/announcements-history', { credentials: 'include' });
+                const res = await fetch('/admin/announcements-history', { credentials: 'include' });
                 const data = await res.json();
                 if (data.success) setAnnouncements(data.data);
             }
@@ -55,7 +56,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
 
     const fetchMessages = async (conversationId) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/admin/conversations/${conversationId}/messages`, { credentials: 'include' });
+            const res = await fetch(`/admin/conversations/${conversationId}/messages`, { credentials: 'include' });
             const data = await res.json();
             if (data.success) setMessages(data.data);
         } catch (error) {
@@ -68,7 +69,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
         if (!newMessage.trim() || !activeChat) return;
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/send-message', {
+            const response = await fetch('/admin/send-message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

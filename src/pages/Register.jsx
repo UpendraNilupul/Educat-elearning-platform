@@ -166,8 +166,8 @@ const Register = ({ setUserName, setUserRole }) => {
   const isFormValid =
     Object.values(errors).every((err) => err === '') &&
     formData.name && formData.email && formData.password &&
-    formData.confirmPassword && formData.phoneNumber && formData.address &&
-    formData.gender && formData.province && formData.district; // Ensure new fields are filled
+    formData.confirmPassword && formData.phoneNumber && 
+    formData.gender && formData.province && formData.district;// Ensure new fields are filled
 
   const errorStyle = { color: 'red', fontSize: '0.85rem', marginTop: '4px' };
   const getInputClass = (field) => `box ${errors[field] ? 'border border-red-500' : ''}`;
@@ -247,10 +247,6 @@ const Register = ({ setUserName, setUserRole }) => {
                   {errors.district && <p style={errorStyle}>{errors.district}</p>}
               </div>
           </div>
-
-          <label>Street Address</label>
-          <textarea name="address" className="box"
-            value={formData.address} onChange={handleChange} required />
 
           <div className="grid grid-cols-2 gap-4">
               <div>

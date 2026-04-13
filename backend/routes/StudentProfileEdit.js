@@ -142,6 +142,11 @@ router.put('/profile/:userId', (req, res, next) => {
     });
 }, async (req, res) => {
     const userId = req.params.userId;
+
+    if (req.session && req.session.userId && req.session.userId !== parseInt(userId)) {
+        return res.status(403).json({ success: false, message: 'Unauthorized to edit this profile' });
+    }
+
     const {
         name, email, phone_number, address, dob, gender,
         school_name, grade_level, guardian_name, guardian_phone,

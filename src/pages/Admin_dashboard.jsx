@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../api';
 
 const Admin = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -21,7 +22,7 @@ const Admin = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`, {
+                const response = await fetch(`/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`, {
                     credentials: 'include'
                 });
                 const data = await response.json();

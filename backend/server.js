@@ -53,12 +53,21 @@ app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], crede
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-app.use(session({
-    secret: 'a_very_long_random_secret_string',
+// 🌟 THE FIX: Extract session config so Socket.io can share it
+const sessionMiddleware = session({
+    secret: process.env.SESSION_SECRET || 'a_very_long_random_secret_string',
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 }
-}));
+    cookie: { 
+        httpOnly: true, 
+        secure: process.env.NODE_ENV === 'production', // True in production (HTTPS)
+        sameSite: 'lax', 
+        maxAge: 1000 * 60 * 60 * 24 
+    }
+});
+
+app.use(sessionMiddleware);
+io.engine.use(sessionMiddleware); // 🌟 THE FIX: Bind Express session to WebSockets
 
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
@@ -99,20 +108,36 @@ app.use('/api', quizRoutes);
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ==========================================
-// 🌟 NEW: SOCKET.IO CHAT LOGIC
+// 🌟 SECURED: SOCKET.IO CHAT LOGIC
 // ==========================================
 io.on("connection", (socket) => {
+    const session = socket.request.session;
     console.log(`🟢 User Connected to Chat: ${socket.id}`);
 
     // Join a specific conversation room
-    socket.on("join_room", (conversationId) => {
-        socket.join(conversationId);
-        console.log(`User ${socket.id} joined conversation: ${conversationId}`);
+    socket.on("join_room", async (conversationId) => {
+        // 🌟 THE FIX: Verify Authentication & Authorization
+        if (!session || !session.userId) return;
+
+        try {
+            const check = await query(
+                'SELECT id FROM conversations WHERE id = ? AND (participant1_id = ? OR participant2_id = ?)', 
+                [conversationId, session.userId, session.userId]
+            );
+            
+            if (check.length > 0) {
+                socket.join(conversationId);
+                console.log(`🔒 User ${session.userId} securely joined chat ${conversationId}`);
+            } else {
+                console.warn(`⚠️ User ${session.userId} attempted to hack into unauthorized chat ${conversationId}`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     });
 
     // Handle sending/receiving messages
     socket.on("send_message", (data) => {
-        // data expects: { room: conversation_id, message: { sender_id, body, created_at } }
         socket.to(data.room).emit("receive_message", data.message);
     });
 
@@ -126,7 +151,6 @@ app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
-// 🌟 FIX: Listen using 'server' instead of 'app'
 server.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
     // Start background jobs

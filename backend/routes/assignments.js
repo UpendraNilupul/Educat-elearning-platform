@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import util from 'util';
+import { requireAuth, requireRole } from '../middleware/auth.js'; // 🌟 THE FIX: Auth Gatekeepers
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
@@ -21,25 +22,38 @@ const storage = multer.diskStorage({
         cb(null, `${prefix}-${Date.now()}-${file.originalname}`);
     }
 });
-const upload = multer({ storage });
+
+// 🌟 THE FIX: Strict File Filter to prevent RCE vulnerabilities
+const upload = multer({ 
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /pdf|doc|docx|zip|rar|jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('SECURITY BLOCKED: Only PDFs, Word Docs, ZIPs, and Images are allowed!'));
+        }
+    },
+    limits: { fileSize: 15 * 1024 * 1024 } // Limit files to 15MB to prevent storage exhaustion
+});
 
 // --- TEACHER: CREATE ASSIGNMENT ---
-router.post('/modules/:mId/assignments', upload.array('attachments'), async (req, res) => {
+router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), upload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
     
-    // Default to NULL if not provided or empty
     const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
 
     try {
-        // 1. Insert assignment
         const result = await query(
             'INSERT INTO assignments (m_id, title, description, deadline, max_marks, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
             [mId, title, description, deadline, max_marks || 100.00, publishAtValue]
         );
         const aId = result.insertId;
 
-        // 2. Insert attachments if any
         if (req.files && req.files.length > 0) {
             for (let file of req.files) {
                 const file_url = `/uploads/assignments/${file.filename}`;
@@ -58,15 +72,14 @@ router.post('/modules/:mId/assignments', upload.array('attachments'), async (req
 });
 
 // --- TEACHER & STUDENT: GET ASSIGNMENTS FOR MODULE ---
-router.get('/modules/:mId/assignments', async (req, res) => {
+router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
     const { mId } = req.params;
-    const userId = req.query.userId; // Optional: to check submission status if student
+    const userId = req.session.userId; // 🌟 THE FIX: Securely extract from session, not query params
 
     try {
         const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mId]);
         
-        // If userId is provided, check if the student has already submitted for these assignments
-        if (userId) {
+        if (req.session.userRole === 'student') {
             const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
             if (studentRes.length > 0) {
                 const sId = studentRes[0].id;
@@ -77,13 +90,11 @@ router.get('/modules/:mId/assignments', async (req, res) => {
                     );
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
                     
-                    // Fetch all attachments for this assignment
                     const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
                     assign.attachments = attachments.map(att => att.file_url);
                 }
             }
         } else {
-            // Even for teachers, fetch attachments
             for (let assign of assignments) {
                 const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
                 assign.attachments = attachments.map(att => att.file_url);
@@ -98,7 +109,7 @@ router.get('/modules/:mId/assignments', async (req, res) => {
 });
 
 // --- GET SINGLE ASSIGNMENT DETAILS ---
-router.get('/assignments/:id', async (req, res) => {
+router.get('/assignments/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     try {
         const assignments = await query('SELECT * FROM assignments WHERE id = ?', [id]);
@@ -116,9 +127,9 @@ router.get('/assignments/:id', async (req, res) => {
 });
 
 // --- STUDENT: SUBMIT ASSIGNMENT ---
-router.post('/assignments/:aId/submit', upload.single('submission'), async (req, res) => {
+router.post('/assignments/:aId/submit', requireRole(['student']), upload.single('submission'), async (req, res) => {
     const { aId } = req.params;
-    const { userId } = req.body;
+    const userId = req.session.userId; // 🌟 THE FIX: Get ID strictly from cookie to prevent IDOR
 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -129,7 +140,6 @@ router.post('/assignments/:aId/submit', upload.single('submission'), async (req,
 
         const file_url = `/uploads/submissions/${req.file.filename}`;
 
-        // Check if already submitted (Update if exists, or Insert new)
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
         
         if (existing.length > 0) {
@@ -152,7 +162,7 @@ router.post('/assignments/:aId/submit', upload.single('submission'), async (req,
 });
 
 // --- TEACHER: VIEW SUBMISSIONS FOR ASSIGNMENT ---
-router.get('/assignments/:aId/submissions', async (req, res) => {
+router.get('/assignments/:aId/submissions', requireRole(['teacher', 'admin']), async (req, res) => {
     const { aId } = req.params;
 
     try {
@@ -172,7 +182,7 @@ router.get('/assignments/:aId/submissions', async (req, res) => {
 });
 
 // --- TEACHER: GRADE SUBMISSION ---
-router.put('/submissions/:id/grade', async (req, res) => {
+router.put('/submissions/:id/grade', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
     const { grade, feedback } = req.body;
 
