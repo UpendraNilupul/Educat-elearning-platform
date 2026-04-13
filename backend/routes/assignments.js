@@ -1,59 +1,111 @@
 import express from 'express';
 import db from '../db.js';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { assignmentStorage, submissionStorage } from '../cloudinaryConfig.js';
 import util from 'util';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-// --- MULTER CONFIGURATION ---
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const type = req.query.type === 'submission' ? 'submissions' : 'assignments';
-        const dir = path.join(process.cwd(), 'uploads', type);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const prefix = req.query.type === 'submission' ? 'sub' : 'assign';
-        cb(null, `${prefix}-${Date.now()}-${file.originalname}`);
-    }
-});
-const upload = multer({ storage });
+const assignmentUpload = multer({ storage: assignmentStorage });
+const submissionUpload = multer({ storage: submissionStorage });
 
 // --- TEACHER: CREATE ASSIGNMENT ---
-router.post('/modules/:mId/assignments', upload.array('attachments'), async (req, res) => {
+router.post('/modules/:mId/assignments', assignmentUpload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
     
-    // Default to NULL if not provided or empty
     const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
 
     try {
-        // 1. Insert assignment
         const result = await query(
             'INSERT INTO assignments (m_id, title, description, deadline, max_marks, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
             [mId, title, description, deadline, max_marks || 100.00, publishAtValue]
         );
         const aId = result.insertId;
 
-        // 2. Insert attachments if any
+        const insertedAttachments = [];
         if (req.files && req.files.length > 0) {
             for (let file of req.files) {
-                const file_url = `/uploads/assignments/${file.filename}`;
-                await query(
+                const file_url = file.path; // Cloudinary URL
+                const attResult = await query(
                     'INSERT INTO assignment_attachments (a_id, file_url) VALUES (?, ?)',
                     [aId, file_url]
                 );
+                insertedAttachments.push({ id: attResult.insertId, file_url });
             }
         }
 
-        res.status(201).json({ id: aId, message: 'Assignment created successfully' });
+        res.status(201).json({ 
+            id: aId, 
+            m_id: mId,
+            title,
+            description,
+            deadline,
+            max_marks: max_marks || 100.00,
+            publish_at: publishAtValue,
+            attachments: insertedAttachments,
+            message: 'Assignment created successfully'
+        });
     } catch (err) {
         console.error('Error creating assignment:', err);
         res.status(500).json({ error: 'Failed to create assignment' });
+    }
+});
+
+// --- TEACHER: UPDATE ASSIGNMENT ---
+router.put('/assignments/:id', assignmentUpload.array('attachments'), async (req, res) => {
+    const { id } = req.params;
+    const { title, description, deadline, max_marks, publish_at } = req.body;
+    const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
+
+    try {
+        await query(
+            'UPDATE assignments SET title = ?, description = ?, deadline = ?, max_marks = ?, publish_at = ? WHERE id = ?',
+            [title, description, deadline, max_marks, publishAtValue, id]
+        );
+
+        const newAttachments = [];
+        if (req.files && req.files.length > 0) {
+            for (let file of req.files) {
+                const file_url = file.path;
+                const attResult = await query(
+                    'INSERT INTO assignment_attachments (a_id, file_url) VALUES (?, ?)',
+                    [id, file_url]
+                );
+                newAttachments.push({ id: attResult.insertId, file_url });
+            }
+        }
+
+        res.json({ message: 'Assignment updated successfully', newAttachments });
+    } catch (err) {
+        console.error('Error updating assignment:', err);
+        res.status(500).json({ error: 'Failed to update assignment' });
+    }
+});
+
+// --- TEACHER: DELETE ASSIGNMENT ---
+router.delete('/assignments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Cascading delete handles attachments and submissions if FK is set up correctly
+        await query('DELETE FROM assignments WHERE id = ?', [id]);
+        res.json({ message: 'Assignment deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting assignment:', err);
+        res.status(500).json({ error: 'Failed to delete assignment' });
+    }
+});
+
+// --- TEACHER: REMOVE SINGLE ATTACHMENT ---
+router.delete('/attachments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [id]);
+        res.json({ message: 'Attachment removed successfully' });
+    } catch (err) {
+        console.error('Error removing attachment:', err);
+        res.status(500).json({ error: 'Failed to remove attachment' });
     }
 });
 
@@ -78,15 +130,15 @@ router.get('/modules/:mId/assignments', async (req, res) => {
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
                     
                     // Fetch all attachments for this assignment
-                    const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
-                    assign.attachments = attachments.map(att => att.file_url);
+                    const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                    assign.attachments = attachments;
                 }
             }
         } else {
             // Even for teachers, fetch attachments
             for (let assign of assignments) {
-                const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
-                assign.attachments = attachments.map(att => att.file_url);
+                const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                assign.attachments = attachments; // Array of objects {id, file_url}
             }
         }
 
@@ -105,8 +157,8 @@ router.get('/assignments/:id', async (req, res) => {
         if (assignments.length === 0) return res.status(404).json({ error: 'Assignment not found' });
         
         const assign = assignments[0];
-        const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [id]);
-        assign.attachments = attachments.map(att => att.file_url);
+        const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [id]);
+        assign.attachments = attachments;
         
         res.json(assign);
     } catch (err) {
@@ -116,7 +168,7 @@ router.get('/assignments/:id', async (req, res) => {
 });
 
 // --- STUDENT: SUBMIT ASSIGNMENT ---
-router.post('/assignments/:aId/submit', upload.single('submission'), async (req, res) => {
+router.post('/assignments/:aId/submit', submissionUpload.single('submission'), async (req, res) => {
     const { aId } = req.params;
     const { userId } = req.body;
 
@@ -127,9 +179,9 @@ router.post('/assignments/:aId/submit', upload.single('submission'), async (req,
         if (studentRes.length === 0) return res.status(404).json({ error: 'Student profile not found' });
         const sId = studentRes[0].id;
 
-        const file_url = `/uploads/submissions/${req.file.filename}`;
+        const file_url = req.file.path; // Cloudinary URL
 
-        // Check if already submitted (Update if exists, or Insert new)
+        // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
         
         if (existing.length > 0) {

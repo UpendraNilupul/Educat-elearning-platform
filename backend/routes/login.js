@@ -59,8 +59,12 @@ router.post('/login', async (req, res) => {
             userRole: user.role_name, 
             adminLevel: user.admin_level || null, // Sent to frontend
             userName: user.name,
+            userPicture: user.picture,
             verificationStatus: user.verification_status || null
         });
+
+        // Save picture to session
+        req.session.userPicture = user.picture;
 
     } catch (error) {
         console.error('Error logging in:', error);
@@ -74,7 +78,8 @@ router.get('/status', (req, res) => {
             isLoggedIn: true, 
             userRole: req.session.userRole,
             adminLevel: req.session.adminLevel || null,
-            userName: req.session.userName
+            userName: req.session.userName,
+            userPicture: req.session.userPicture
         });
     } else {
         res.json({ isLoggedIn: false, userRole: null, adminLevel: null, userName: null });

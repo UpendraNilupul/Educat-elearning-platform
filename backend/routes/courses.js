@@ -51,13 +51,24 @@ router.get('/courses', async (req, res) => {
                     mod.lessons.push(mappedLesson);
                 }
                 const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mod.id]);
-                mod.assignments = assignments.map(a => ({
-                    id: a.id,
-                    title: a.title,
-                    description: a.description,
-                    attachmentUrl: a.attachment_url,
-                    deadline: a.deadline,
-                    maxMarks: a.max_marks
+                mod.assignments = await Promise.all(assignments.map(async (a) => {
+                    const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [a.id]);
+                    return {
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
+                        deadline: a.deadline,
+                        maxMarks: a.max_marks
+                    };
+                }));
+
+                const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
+                mod.quizzes = quizzes.map(q => ({
+                    id: q.id,
+                    number: q.number,
+                    timeLimit: q.time_limit,
+                    isPeerReviewed: q.is_peer_reviewed === 1
                 }));
             }
         }

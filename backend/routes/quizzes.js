@@ -8,12 +8,12 @@ const query = util.promisify(db.query).bind(db);
 // --- TEACHER: CREATE QUIZ ---
 router.post('/modules/:mId/quizzes', async (req, res) => {
     const { mId } = req.params;
-    const { number, time_limit, is_peer_reviewed } = req.body;
+    const { number, time_limit, publish_at } = req.body;
 
     try {
         const result = await query(
-            'INSERT INTO quizes (m_id, number, time_limit, is_peer_reviewed) VALUES (?, ?, ?, ?)',
-            [mId, number, time_limit || '00:30:00', is_peer_reviewed || false]
+            'INSERT INTO quizes (m_id, number, time_limit, is_peer_reviewed, publish_at) VALUES (?, ?, ?, ?, ?)',
+            [mId, number, time_limit || '00:30:00', false, publish_at || null]
         );
         res.status(201).json({ id: result.insertId, message: 'Quiz created successfully' });
     } catch (err) {
@@ -159,6 +159,82 @@ router.get('/modules/:mId/quizzes', async (req, res) => {
     } catch (err) {
         console.error('Error fetching quizzes:', err);
         res.status(500).json({ error: 'Failed to fetch quizzes' });
+    }
+});
+
+// --- TEACHER: UPDATE QUIZ METADATA ---
+router.put('/quizzes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { number, time_limit, publish_at } = req.body;
+
+    try {
+        await query(
+            'UPDATE quizes SET number = ?, time_limit = ?, publish_at = ? WHERE id = ?',
+            [number, time_limit, publish_at, id]
+        );
+        res.json({ message: 'Quiz updated successfully' });
+    } catch (err) {
+        console.error('Error updating quiz:', err);
+        res.status(500).json({ error: 'Failed to update quiz' });
+    }
+});
+
+// --- TEACHER: DELETE QUIZ ---
+router.delete('/quizzes/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // 1. Delete associated questions mapping
+        await query('DELETE FROM quiz_questions WHERE qz_id = ?', [id]);
+        
+        // 2. Delete the quiz
+        await query('DELETE FROM quizes WHERE id = ?', [id]);
+        
+        res.json({ message: 'Quiz deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting quiz:', err);
+        res.status(500).json({ error: 'Failed to delete quiz' });
+    }
+});
+
+// --- TEACHER: UPDATE QUESTION ---
+router.put('/questions/:id', async (req, res) => {
+    const { id } = req.params;
+    const { type, marks, question, options } = req.body;
+
+    try {
+        // 1. Update question_bank
+        await query(
+            'UPDATE question_bank SET type = ?, marks = ?, question = ? WHERE id = ?',
+            [type, marks, question, id]
+        );
+
+        // 2. Update options (Simplest: Delete and recreate if options are provided)
+        if (options && options.length > 0) {
+            await query('DELETE FROM answers WHERE q_id = ?', [id]);
+            for (let opt of options) {
+                await query(
+                    'INSERT INTO answers (answer, correct, q_id) VALUES (?, ?, ?)',
+                    [opt.answer, opt.correct, id]
+                );
+            }
+        }
+
+        res.json({ message: 'Question updated successfully' });
+    } catch (err) {
+        console.error('Error updating question:', err);
+        res.status(500).json({ error: 'Failed to update question' });
+    }
+});
+
+// --- TEACHER: UNLINK QUESTION FROM QUIZ ---
+router.delete('/quizzes/:qzId/questions/:qId', async (req, res) => {
+    const { qzId, qId } = req.params;
+    try {
+        await query('DELETE FROM quiz_questions WHERE qz_id = ? AND q_id = ?', [qzId, qId]);
+        res.json({ message: 'Question removed from quiz' });
+    } catch (err) {
+        console.error('Error unlinking question:', err);
+        res.status(500).json({ error: 'Failed to remove question' });
     }
 });
 
