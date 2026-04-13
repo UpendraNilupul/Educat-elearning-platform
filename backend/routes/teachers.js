@@ -5,15 +5,14 @@ const router = express.Router();
 
 // Get all teachers
 router.get('/teachers', (req, res) => {
-
-    const query = `
+    const sqlQuery = `
         SELECT u.id, u.name, u.picture, u.email
         FROM users u
         JOIN roles r ON u.role_id = r.id
         WHERE r.role_name = ?
     `;
 
-    db.query(query, ['teacher'], (err, results) => {
+    db.query(sqlQuery, ['teacher'], (err, results) => {
         if (err) {
             console.error('Error fetching teachers:', err);
             return res.status(500).json({ message: 'Server error' });
@@ -27,20 +26,18 @@ router.get('/teachers', (req, res) => {
     });
 });
 
-
 // Get a specific teacher by ID
 router.get('/teachers/:id', (req, res) => {
-
     const { id } = req.params;
 
-    const query = `
+    const sqlQuery = `
         SELECT u.id, u.name, u.picture, u.email
         FROM users u
         JOIN roles r ON u.role_id = r.id
         WHERE u.id = ? AND r.role_name = ?
     `;
 
-    db.query(query, [id, 'teacher'], (err, results) => {
+    db.query(sqlQuery, [id, 'teacher'], (err, results) => {
         if (err) {
             console.error('Error fetching teacher:', err);
             return res.status(500).json({ message: 'Server error' });

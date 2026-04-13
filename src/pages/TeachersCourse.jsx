@@ -44,12 +44,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [chapterTitle, setChapterTitle] = useState("");
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState(null);
-  const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null });
+  const [editingResourceId, setEditingResourceId] = useState(null);
+  const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null, isVisible: true });
 
   const [expandedLessons, setExpandedLessons] = useState([]);
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState(null);
   const [activeLessonId, setActiveLessonId] = useState(null);
+  const [editingLessonId, setEditingLessonId] = useState(null);
   const [lessonTitle, setLessonTitle] = useState("");
 
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
@@ -197,33 +199,58 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     if (!lessonTitle.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/lessons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: lessonTitle })
-      });
-      if (!response.ok) throw new Error('Failed to add lesson');
-      const newLesson = await response.json();
+      if (editingLessonId) {
+        const response = await fetch(`http://localhost:3000/api/lessons/${editingLessonId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: lessonTitle })
+        });
+        if (!response.ok) throw new Error('Failed to update lesson');
 
-      setCourses(courses.map(course => {
-        if (course.id === selectedCourse.id) {
-          const updatedChapters = (course.chapters || []).map(c => 
-            c.id === activeModuleId ? { ...c, lessons: [...(c.lessons || []), newLesson] } : c
-          );
-          const updatedCourse = { ...course, chapters: updatedChapters };
-          setSelectedCourse(updatedCourse);
-          setExpandedLessons([...expandedLessons, newLesson.id]);
-          return updatedCourse;
-        }
-        return course;
-      }));
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = (course.chapters || []).map(c => 
+              c.id === activeModuleId ? { 
+                ...c, 
+                lessons: (c.lessons || []).map(l => l.id === editingLessonId ? { ...l, title: lessonTitle } : l)
+              } : c
+            );
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } else {
+        const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/lessons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: lessonTitle })
+        });
+        if (!response.ok) throw new Error('Failed to add lesson');
+        const newLesson = await response.json();
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = (course.chapters || []).map(c => 
+              c.id === activeModuleId ? { ...c, lessons: [...(c.lessons || []), newLesson] } : c
+            );
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            setExpandedLessons([...expandedLessons, newLesson.id]);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      }
     } catch (err) {
       console.error(err);
-      alert('Error adding lesson');
+      alert('Error saving lesson');
     }
 
     setLessonTitle("");
     setActiveModuleId(null);
+    setEditingLessonId(null);
     setIsLessonModalOpen(false);
   };
 
@@ -232,55 +259,206 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     if (!resourceData.title.trim()) return;
 
     try {
-      let body;
-      let headers = {};
-      
-      if (resourceData.type === 'pdf') {
-        const formData = new FormData();
-        formData.append('title', resourceData.title);
-        formData.append('type', resourceData.type);
-        if (resourceData.file) {
-          formData.append('file', resourceData.file);
-        }
-        body = formData;
-      } else {
-        body = JSON.stringify({ 
-          title: resourceData.title, 
-          type: resourceData.type, 
-          url: resourceData.url 
+      if (editingResourceId) {
+        const response = await fetch(`http://localhost:3000/api/resources/${editingResourceId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            title: resourceData.title, 
+            url: resourceData.url,
+            isVisible: resourceData.isVisible
+          })
         });
-        headers['Content-Type'] = 'application/json';
+        if (!response.ok) throw new Error('Failed to update resource');
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = (course.chapters || []).map(c => ({
+              ...c,
+              lessons: (c.lessons || []).map(l => 
+                l.id === activeLessonId ? { 
+                  ...l, 
+                  resources: (l.resources || []).map(r => r.id === editingResourceId ? { ...r, title: resourceData.title, url: resourceData.url } : r) 
+                } : l
+              )
+            }));
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } else {
+        let body;
+        let headers = {};
+        
+        if (resourceData.type === 'pdf') {
+          const formData = new FormData();
+          formData.append('title', resourceData.title);
+          formData.append('type', resourceData.type);
+          if (resourceData.file) {
+            formData.append('file', resourceData.file);
+          }
+          body = formData;
+        } else {
+          body = JSON.stringify({ 
+            title: resourceData.title, 
+            type: resourceData.type, 
+            url: resourceData.url 
+          });
+          headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(`http://localhost:3000/api/lessons/${activeLessonId}/resources`, {
+          method: 'POST',
+          headers,
+          body
+        });
+        if (!response.ok) throw new Error('Failed to add resource');
+        const newResource = await response.json();
+
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = (course.chapters || []).map(c => ({
+              ...c,
+              lessons: (c.lessons || []).map(l => 
+                l.id === activeLessonId ? { ...l, resources: [...(l.resources || []), newResource] } : l
+              )
+            }));
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
       }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving resource');
+    }
 
-      const response = await fetch(`http://localhost:3000/api/lessons/${activeLessonId}/resources`, {
-        method: 'POST',
-        headers,
-        body
+    setResourceData({ title: "", type: "pdf", url: "", file: null, isVisible: true });
+    setEditingResourceId(null);
+    setIsResourceModalOpen(false);
+  };
+
+  const handleToggleLessonVisibility = async (chapterId, lessonId) => {
+    const chapter = selectedCourse.chapters.find(c => c.id === chapterId);
+    const lesson = chapter?.lessons.find(l => l.id === lessonId);
+    if (!lesson) return;
+    const newVisibility = lesson.isVisible === false ? true : false;
+    try {
+      await fetch(`http://localhost:3000/api/lessons/${lessonId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisible: newVisibility })
       });
-      if (!response.ok) throw new Error('Failed to add resource');
-      const newResource = await response.json();
-
       setCourses(courses.map(course => {
         if (course.id === selectedCourse.id) {
-          const updatedChapters = (course.chapters || []).map(c => ({
-            ...c,
-            lessons: (c.lessons || []).map(l => 
-              l.id === activeLessonId ? { ...l, resources: [...(l.resources || []), newResource] } : l
-            )
-          }));
+          const updatedChapters = course.chapters.map(c => 
+            c.id === chapterId ? {
+              ...c, lessons: c.lessons.map(l => l.id === lessonId ? { ...l, isVisible: newVisibility } : l)
+            } : c
+          );
           const updatedCourse = { ...course, chapters: updatedChapters };
           setSelectedCourse(updatedCourse);
           return updatedCourse;
         }
         return course;
       }));
-    } catch (err) {
-      console.error(err);
-      alert('Error adding resource');
-    }
+    } catch (err) { console.error(err); }
+  };
 
-    setResourceData({ title: "", type: "pdf", url: "", file: null });
-    setIsResourceModalOpen(false);
+  const handleDeleteLesson = async (chapterId, lessonId) => {
+    if (window.confirm("Are you sure you want to delete this lesson and all its resources?")) {
+      try {
+        await fetch(`http://localhost:3000/api/lessons/${lessonId}`, { method: 'DELETE' });
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = course.chapters.map(c => 
+              c.id === chapterId ? {
+                ...c, lessons: c.lessons.filter(l => l.id !== lessonId)
+              } : c
+            );
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } catch (err) { console.error(err); }
+    }
+  };
+
+  const handleOpenEditLesson = (chapterId, lesson) => {
+    setActiveModuleId(chapterId);
+    setEditingLessonId(lesson.id);
+    setLessonTitle(lesson.title);
+    setIsLessonModalOpen(true);
+  };
+
+  const handleToggleResourceVisibility = async (chapterId, lessonId, resourceId) => {
+    const chapter = selectedCourse.chapters.find(c => c.id === chapterId);
+    const lesson = chapter?.lessons.find(l => l.id === lessonId);
+    const resource = lesson?.resources.find(r => r.id === resourceId);
+    if (!resource) return;
+    const newVisibility = resource.isVisible === false ? true : false;
+    try {
+      await fetch(`http://localhost:3000/api/resources/${resourceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisible: newVisibility })
+      });
+      setCourses(courses.map(course => {
+        if (course.id === selectedCourse.id) {
+          const updatedChapters = course.chapters.map(c => 
+            c.id === chapterId ? {
+              ...c, lessons: c.lessons.map(l => 
+                l.id === lessonId ? {
+                  ...l, resources: l.resources.map(r => r.id === resourceId ? { ...r, isVisible: newVisibility } : r)
+                } : l
+              )
+            } : c
+          );
+          const updatedCourse = { ...course, chapters: updatedChapters };
+          setSelectedCourse(updatedCourse);
+          return updatedCourse;
+        }
+        return course;
+      }));
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteResource = async (chapterId, lessonId, resourceId) => {
+    if (window.confirm("Are you sure you want to delete this resource?")) {
+      try {
+        await fetch(`http://localhost:3000/api/resources/${resourceId}`, { method: 'DELETE' });
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedChapters = course.chapters.map(c => 
+              c.id === chapterId ? {
+                ...c, lessons: c.lessons.map(l => 
+                  l.id === lessonId ? {
+                    ...l, resources: l.resources.filter(r => r.id !== resourceId)
+                  } : l
+                )
+              } : c
+            );
+            const updatedCourse = { ...course, chapters: updatedChapters };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+      } catch (err) { console.error(err); }
+    }
+  };
+
+  const handleOpenEditResource = (lessonId, resource) => {
+    setActiveLessonId(lessonId);
+    setEditingResourceId(resource.id);
+    setResourceData({ title: resource.title, type: resource.type, url: resource.url, isVisible: resource.isVisible });
+    setIsResourceModalOpen(true);
   };
   
   const submitAssignment = async (e) => {
@@ -1019,9 +1197,15 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                         return (
                           <div key={lesson.id} className="border border-gray-200 rounded-lg overflow-hidden">
                             <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer" onClick={() => toggleLesson(lesson.id)}>
-                              <h4 className="font-semibold text-gray-700">{lesson.title}</h4>
+                              <h4 className={`font-semibold ${lesson.isVisible === false ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{lesson.title}</h4>
                               <div className="flex items-center gap-2">
-                                <div className="flex bg-white shadow-sm border rounded-md overflow-hidden mr-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleToggleLessonVisibility(chapter.id, lesson.id); }}
+                                  className={`p-1.5 rounded-md transition-colors mr-1 ${lesson.isVisible === false ? 'text-gray-400 hover:bg-gray-200' : 'text-purple-600 hover:bg-purple-100'}`}
+                                >
+                                  {lesson.isVisible === false ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                                <div className="flex bg-white shadow-sm border rounded-md overflow-hidden mr-1">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleMoveLessonUp(index, lessonIndex); }}
                                     disabled={lessonIndex === 0}
@@ -1039,7 +1223,21 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                     <ArrowDown size={14} strokeWidth={2.5} />
                                   </button>
                                 </div>
-                                <button className="text-gray-500">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleOpenEditLesson(chapter.id, lesson); }}
+                                  className="p-1.5 text-gray-500 hover:bg-blue-100 hover:text-blue-600 rounded-md transition-colors"
+                                  title="Edit Lesson"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteLesson(chapter.id, lesson.id); }}
+                                  className="p-1.5 text-gray-500 hover:bg-red-100 hover:text-red-600 rounded-md transition-colors mr-2"
+                                  title="Delete Lesson"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                                <button className="text-gray-500 border-l pl-2 border-gray-300">
                                   {isLessonExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                 </button>
                               </div>
@@ -1047,7 +1245,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                             {isLessonExpanded && (
                               <div className="p-4 bg-white flex flex-col gap-2">
                                 {lesson.resources?.map((res, resIndex) => (
-                                  <div key={res.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-transparent transition-colors group">
+                                  <div key={res.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-transparent transition-colors group ${res.isVisible === false ? 'opacity-60' : ''}`}>
                                     <a href={res.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
                                       {res.type === 'pdf' ? (
                                         <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 transition-colors group-hover:bg-red-100">
@@ -1059,10 +1257,17 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                         </div>
                                       )}
                                       <div className="flex-1">
-                                        <p className="text-sm text-gray-800 font-medium group-hover:text-purple-600 transition-colors">{res.title}</p>
+                                        <p className={`text-sm font-medium transition-colors ${res.isVisible === false ? 'text-gray-400 line-through' : 'text-gray-800 group-hover:text-purple-600'}`}>{res.title}</p>
                                       </div>
                                     </a>
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity mr-2">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleToggleResourceVisibility(chapter.id, lesson.id, res.id); }}
+                                        className={`p-1 rounded bg-white border ${res.isVisible === false ? 'text-gray-400 hover:bg-gray-100' : 'text-purple-600 hover:bg-purple-50'}`}
+                                        title={res.isVisible === false ? "Show Resource" : "Hide Resource"}
+                                      >
+                                        {res.isVisible === false ? <EyeOff size={12} /> : <Eye size={12} />}
+                                      </button>
                                       <button
                                         onClick={(e) => { e.stopPropagation(); handleMoveResourceUp(index, lessonIndex, resIndex); }}
                                         disabled={resIndex === 0}
@@ -1076,6 +1281,20 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                         className={`p-1 rounded bg-white border ${resIndex === (lesson.resources?.length || 0) - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
                                       >
                                         <ArrowDown size={12} strokeWidth={2.5} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleOpenEditResource(lesson.id, res); }}
+                                        className="p-1 rounded bg-white border text-gray-500 hover:bg-blue-50 hover:text-blue-600"
+                                        title="Edit"
+                                      >
+                                        <Edit2 size={12} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteResource(chapter.id, lesson.id, res.id); }}
+                                        className="p-1 rounded bg-white border text-gray-500 hover:bg-red-50 hover:text-red-600"
+                                        title="Delete"
+                                      >
+                                        <Trash2 size={12} />
                                       </button>
                                     </div>
                                     <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
@@ -1603,14 +1822,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       {isLessonModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-            <button onClick={() => setIsLessonModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Add Lesson</h2>
+            <button onClick={() => { setIsLessonModalOpen(false); setEditingLessonId(null); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">{editingLessonId ? "Edit Lesson" : "Add Lesson"}</h2>
             <form onSubmit={submitLesson} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Title</label>
                 <input type="text" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} required className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none" placeholder="e.g. Lesson 1: Introduction" />
               </div>
-              <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">Create Lesson</button>
+              <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">{editingLessonId ? "Save Changes" : "Create Lesson"}</button>
             </form>
           </div>
         </div>
@@ -1637,8 +1856,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       {isResourceModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-            <button onClick={() => setIsResourceModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Add Resource</h2>
+            <button onClick={() => { setIsResourceModalOpen(false); setEditingResourceId(null); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">{editingResourceId ? "Edit Resource" : "Add Resource"}</h2>
             <form onSubmit={submitResource} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Resource Title</label>
@@ -1655,7 +1874,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
               {resourceData.type === 'pdf' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Upload File</label>
-                  <input type="file" onChange={(e) => setResourceData({...resourceData, file: e.target.files[0]})} required className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none" accept=".pdf,image/*" />
+                  <input type="file" onChange={(e) => setResourceData({...resourceData, file: e.target.files[0]})} required={!editingResourceId} className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none" accept=".pdf,image/*" />
                 </div>
               ) : (
                 <div>
@@ -1663,7 +1882,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                   <input type="url" value={resourceData.url} onChange={(e) => setResourceData({...resourceData, url: e.target.value})} required className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://..." />
                 </div>
               )}
-              <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">Add Resource</button>
+              <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">{editingResourceId ? "Save Changes" : "Add Resource"}</button>
             </form>
           </div>
         </div>

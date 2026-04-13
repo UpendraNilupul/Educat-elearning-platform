@@ -1,22 +1,18 @@
-import React, { useState } from "react";
+// Force Vite HMR reload
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Award,
-  Megaphone,
-  Video,
-  Users,
-  Calendar,
-  Edit2,
-  Menu,
-  X
+  LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
+  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
+import TeacherChat from "./Teacher_Chat";
+
 
 const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) => {
   const navigate = useNavigate();
+  const teacherId = parseInt(localStorage.getItem('userId'));
+
   const [activeTab, setActiveTab] = useState("Overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -32,87 +28,71 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
 
   const [courses, setCourses] = useState([]);
 
-  React.useEffect(() => {
+  // Fetch Courses
+  useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const teacherId = localStorage.getItem('userId');
-        const url = teacherId ? `http://localhost:3000/api/courses?teacherId=${teacherId}` : 'http://localhost:3000/api/courses';
+        const id = localStorage.getItem('userId');
+        const url = id ? `http://localhost:3000/api/courses?teacherId=${id}` : 'http://localhost:3000/api/courses';
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          const formattedCourses = data.map(course => ({
-            ...course,
-            students: course.students || 0,
-            modules: course.modules || 0,
-            progress: course.progress || 0,
-            chapters: course.chapters || []
-          }));
-          setCourses(formattedCourses);
-        } else {
-          console.error("Failed to fetch courses");
+          setCourses(data.map(course => ({
+            ...course, students: course.students || 0, modules: course.modules || 0, progress: course.progress || 0, chapters: course.chapters || []
+          })));
         }
       } catch (error) {
         console.error("Error fetching courses:", error);
       }
     };
-    
     fetchCourses();
   }, []);
 
+
+
   const classes = [
-    {
-      title: "React Live Session",
-      course: "Full Stack Web Development",
-      date: "Oct 25",
-      time: "10:00 AM",
-    },
-    {
-      title: "Figma Design Workshop",
-      course: "UI/UX Design",
-      date: "Oct 27",
-      time: "2:00 PM",
-    },
+    { title: "React Live Session", course: "Full Stack Web Development", date: "Oct 25", time: "10:00 AM" },
+    { title: "Figma Design Workshop", course: "UI/UX Design", date: "Oct 27", time: "2:00 PM" },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans relative overflow-hidden">
+      
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-40 shadow-sm">
-        <h2 className="text-xl font-extrabold text-purple-700 tracking-wide">
-          Educat
-        </h2>
-        <button onClick={toggleSidebar} className="p-2 text-gray-600 hover:text-purple-700">
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <h2 className="text-xl font-extrabold text-[#4a0b59] tracking-wide">Educat</h2>
+        <div className="flex items-center space-x-2">
+          <button className="relative p-2 text-gray-400 hover:text-[#4a0b59] transition-colors">
+            <Bell size={22} />
+            <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+          <button onClick={toggleSidebar} className="p-2 text-gray-600 hover:text-[#4a0b59]">
+            {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
-      {/* Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r flex flex-col shadow-lg transform transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
-      `}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r flex flex-col shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-2xl font-extrabold text-purple-700 tracking-wide">
-            Educat Teacher
-          </h2>
-          <button className="lg:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}>
-            <X className="w-6 h-6" />
-          </button>
+          <h2 className="text-2xl font-extrabold text-[#4a0b59] tracking-wide">Educat Teacher</h2>
+          <button className="lg:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}><X className="w-6 h-6" /></button>
         </div>
 
         <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
-          {navItems.map((item) => (
+          {[
+            { name: "Overview", icon: LayoutDashboard },
+            { name: "Course Management", icon: BookOpen },
+            { name: "Assessments", icon: FileText },
+            { name: "Certification", icon: Award },
+            { name: "Marketing", icon: Megaphone },
+            { name: "Virtual Classroom", icon: Video },
+            { name: "Messages", icon: MessageSquare },
+          ].map((item) => (
             <button
               key={item.name}
               onClick={() => {
@@ -121,7 +101,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               }}
               className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === item.name
-                  ? "bg-purple-50 text-purple-700 font-semibold shadow-md"
+                  ? "bg-[#4a0b59] text-white font-semibold shadow-md"
                   : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
               }`}
             >
@@ -148,33 +128,16 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold truncate">{userName}</p>
-                <button
-                  onClick={() => {
-                    const teacherId = localStorage.getItem('userId');
-                    if (!teacherId) return alert('Teacher ID not found. Please login again.');
-                    navigate(`/teacher-profile-edit/${teacherId}`);
-                    setIsSidebarOpen(false);
-                  }}
-                  className="text-gray-400 hover:text-purple-700 transition-colors p-1 shrink-0"
-                  title="Edit Profile"
-                >
+                <button onClick={() => { navigate(`/teacher-profile-edit/${teacherId}`); setIsSidebarOpen(false); }} className="text-gray-400 hover:text-[#4a0b59] transition-colors p-1 shrink-0">
                   <Edit2 className="w-4 h-4" />
                 </button>
               </div>
               <p className="text-xs text-gray-500">Teacher</p>
             </div>
           </div>
-          <div className="flex flex-col mt-4 px-1">
-            <button
-              onClick={() => {
-                if (onLogout) onLogout();
-                navigate('/');
-              }}
-              className="text-red-500 text-sm text-left hover:text-red-600 font-medium transition-colors"
-            >
-              Logout
-            </button>
-          </div>
+          <button onClick={() => { if (onLogout) onLogout(); navigate('/'); }} className="text-red-500 text-sm text-left hover:text-red-600 font-medium transition-colors px-1">
+            Logout
+          </button>
         </div>
       </aside>
 
@@ -285,12 +248,9 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               </p>
             </div>
 
-            {/* Stats Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
-                <div className="p-3 bg-purple-50 rounded-xl">
-                  <BookOpen className="text-purple-600 w-6 h-6" />
-                </div>
+                <div className="p-3 bg-purple-50 rounded-xl"><BookOpen className="text-purple-600 w-6 h-6" /></div>
                 <div>
                   <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Courses</p>
                   <h3 className="text-2xl lg:text-3xl font-bold">{courses.length}</h3>
@@ -298,9 +258,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               </div>
 
               <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300">
-                <div className="p-3 bg-blue-50 rounded-xl">
-                  <Users className="text-blue-600 w-6 h-6" />
-                </div>
+                <div className="p-3 bg-blue-50 rounded-xl"><Users className="text-blue-600 w-6 h-6" /></div>
                 <div>
                   <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Students</p>
                   <h3 className="text-2xl lg:text-3xl font-bold">320</h3>
@@ -308,9 +266,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               </div>
 
               <div className="bg-white p-6 lg:p-7 rounded-2xl shadow-lg flex items-center gap-5 hover:shadow-xl transition-shadow duration-300 sm:col-span-2 lg:col-span-1">
-                <div className="p-3 bg-orange-50 rounded-xl">
-                  <FileText className="text-orange-500 w-6 h-6" />
-                </div>
+                <div className="p-3 bg-orange-50 rounded-xl"><FileText className="text-orange-500 w-6 h-6" /></div>
                 <div>
                   <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Reviews</p>
                   <h3 className="text-2xl lg:text-3xl font-bold">8</h3>
@@ -318,9 +274,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
               </div>
             </div>
 
-            {/* Content Mid Section */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Upcoming Live Classes */}
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl lg:text-2xl font-bold">Live Classes</h2>
@@ -328,10 +282,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 </div>
                 <div className="space-y-4">
                   {classes.map((cls, index) => (
-                    <div
-                      key={index}
-                      className="bg-white p-5 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300 group"
-                    >
+                    <div key={index} className="bg-white p-5 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300 group">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
                           <Video className="w-6 h-6 text-purple-400" />
@@ -339,9 +290,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                         <div>
                           <h3 className="font-semibold text-gray-800">{cls.title}</h3>
                           <p className="text-xs text-gray-500">{cls.course}</p>
-                          <p className="text-xs text-purple-600 mt-1 font-medium">
-                            {cls.date} • {cls.time}
-                          </p>
+                          <p className="text-xs text-purple-600 mt-1 font-medium">{cls.date} • {cls.time}</p>
                         </div>
                       </div>
                       <Calendar className="text-gray-300 w-5 h-5" />
@@ -350,17 +299,16 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 </div>
               </div>
 
-            {/* Recent Courses (Overview) */}
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Recent Courses</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses.slice(0, 3).map((course) => (
-                  <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
-                    <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{course.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1 mb-4">{course.students} Students enrolled</p>
-                    <div className="mt-auto"></div>
-                  </div>
-                ))}
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Recent Courses</h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {courses.slice(0, 3).map((course) => (
+                    <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
+                      <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{course.title}</h3>
+                      <p className="text-xs text-gray-500 mt-1 mb-4">{course.students} Students enrolled</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -375,7 +323,12 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             setSelectedCourse={setSelectedCourse} 
           />
         )}
-      </main>
+        
+        {activeTab === "Course Management" && <TeachersCourse courses={courses} setCourses={setCourses} />}
+        {activeTab === "Messages" && <TeacherChat />}
+        </main>
+      </div>
+
     </div>
   );
 };
