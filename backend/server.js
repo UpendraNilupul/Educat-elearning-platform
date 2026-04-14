@@ -1,96 +1,70 @@
-import 'dotenv/config';
 import express from 'express';
-import path from 'path';
 import cors from 'cors';
 import session from 'express-session';
-import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
 
-import db from './db.js';
-import util from 'util';
-const query = util.promisify(db.query).bind(db);
+// ==========================================
+// 🌟 TEAM EKE ROUTES IMPORTS 
+// ==========================================
+import adminRoute from './routes/admin.js';
+import classRoute from './routes/class.js';
+import coursesRoute from './routes/courses.js';
+import forgotPasswordRoute from './routes/forgotPassword.js';
+import loginRoute from './routes/login.js';
+import paymentRoute from './routes/paymentRoute.js';
+import registerRoute from './routes/register.js';
+import studentProfileRoute from './routes/StudentProfileEdit.js';
+import teachersRoute from './routes/teachers.js';
+import verifyRoute from './routes/verify.js';
 
-// Route Imports
-import loginRoutes from './routes/login.js';
-import registerRoutes from './routes/register.js';
-import teacherRoutes from './routes/teachers.js';
-import adminRoutes from './routes/admin.js';
-import forgotPasswordRoutes from './routes/forgotPassword.js';
-import verifyRoutes from './routes/verify.js';
-<<<<<<< HEAD
-import studentProfileRoutes from './routes/studentProfileEdit.js';
-=======
-
-
->>>>>>> 7a01597a655ba09130f2dfb4164a6f429daef200
-// 🌟 THE NEW TEAMMATE ROUTES
-import courseRoutes from './routes/courses.js';
-import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-import studentProfileRoutes from './routes/StudentProfileEdit.js'; // 🌟 ADD THIS LINE!
-
-import classRoutes from './routes/class.js';
-
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = 3000;
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'dist')));
-
-app.use(session({
-    secret: 'a_very_long_random_secret_string',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 }
+// ==========================================
+// 🌟 MIDDLEWARE TIKA
+// ==========================================
+// 1. CORS Allow kirima (Frontend ekata connect wenna)
+app.use(cors({ 
+    origin: 'http://localhost:5173', 
+    credentials: true 
 }));
 
-// FOOTPRINT TRACKER
-app.use('/api', async (req, res, next) => {
-    if (req.session && req.session.userId) {
-        try {
-            await query('UPDATE users SET last_active = NOW() WHERE id = ?', [req.session.userId]);
-        } catch (error) {
-            console.error("Failed to update last_active:", error);
-        }
-    }
-    next();
-});
+// 2. JSON saha PayHere Form Data kiyawanna
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); 
 
-// Heartbeat
-app.post('/api/heartbeat', (req, res) => {
-    res.status(200).json({ message: 'Heartbeat received' });
-});
+// 3. Login Sessions on kirima
+app.use(cookieParser());
+app.use(session({
+    secret: 'educat-secret-key-2024', 
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 }
+}));
 
-// 🌟 ROUTE MOUNTING
-app.use('/api', loginRoutes);
-app.use('/api', registerRoutes);
-app.use('/api', teacherRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/forgot-password', forgotPasswordRoutes);
+// ==========================================
+// 🌟 ROUTES TIKA
+// ==========================================
+app.use('/api', paymentRoute);
+app.use('/api/admin', adminRoute);
+app.use('/api', coursesRoute);
+app.use('/api', forgotPasswordRoute);
+app.use('/api', loginRoute);
+app.use('/api', registerRoute);
+app.use('/api', teachersRoute);
+app.use('/api', verifyRoute);
 
-// Mount the new routes
-<<<<<<< HEAD
-app.use('/api', courseRoutes); 
-app.use('/api/teacher', teacherProfileRoutes); 
-app.use('/api', verifyRoutes); 
-app.use('/api', classRoutes);
-=======
-app.use('/api', courseRoutes);
-app.use('/api/teacher', teacherProfileRoutes);
-app.use('/api', verifyRoutes);
->>>>>>> 7a01597a655ba09130f2dfb4164a6f429daef200
-app.use('/api/student', studentProfileRoutes);
+// 🌟 Student profile eke basic-info wada karanna
+app.use('/api/student', studentProfileRoute); 
 
+// 🌟 ALUTH FIX EKA: Classes route eka widi dekatama wada karanna damma
+app.use('/api/student', classRoute); // /student/classes wada karanna (My Lessons)
+app.use('/api', classRoute);         // /suggested-classes wada karanna (Suggested Classes)
 
-// 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-});
-
+// ==========================================
+// SERVER EKA START KIRIMA
+// ==========================================
+const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`🌱 Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT} 🚀`);
 });
+
