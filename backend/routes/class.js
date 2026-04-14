@@ -28,14 +28,109 @@ router.get('/student/classes', async (req, res) => {
             GROUP BY c.id
         `, [studentId]);
 
-        res.status(200).json(classes.map(cls => ({
-            id: cls.id,
-            grade: cls.grade,
-            subject: cls.subject,
-            monthlyFee: 2500,
-            teacher: { name: cls.teacher_name, image: cls.teacher_image },
-            months: [{ id: `m-${cls.id}`, name: 'Current Month', isPaid: true }]
-        })));
+        if (classes.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        // STEP 3: Build the JSON for React
+        const enrolledClasses = [];
+
+        for (let cls of classes) {
+            
+            const modules = await query(`
+                SELECT id, title AS name, title AS topics 
+                FROM modules 
+                WHERE c_id = ? AND status = 'active'
+                ORDER BY number ASC
+            `, [cls.id]);
+
+            const monthsData = [];
+
+            for (let mod of modules) {
+                
+                const videos = await query(`
+                    SELECT id, title, link, duration, DATE_FORMAT(upload_date, '%M %d') as formatted_date
+                    FROM lessons 
+                    WHERE m_id = ? AND type LIKE '%video%'
+                    ORDER BY number ASC
+                `, [mod.id]);
+
+                const tutes = await query(`
+                    SELECT id, name, link, resource_type, file_size 
+                    FROM resources 
+                    WHERE m_id = ?
+                    ORDER BY number ASC
+                `, [mod.id]);
+
+                const payments = await query(`
+                    SELECT id FROM payments 
+                    WHERE c_id = ? AND s_id = ? AND m_id = ? AND status = 'completed'
+                `, [cls.id, studentId, mod.id]);
+
+                const isPaid = payments.length > 0; 
+
+                monthsData.push({
+                    id: mod.id,
+                    name: mod.name,
+                    isPaid: isPaid,
+                    topics: mod.topics,
+                    videos: videos.map(v => ({
+                        id: v.id,
+                        title: v.title || 'Lesson Video',
+                        link: v.link,   
+                        date: v.formatted_date || 'Available Now',
+                        duration: v.duration || '--'
+                    })),
+                    tutes: tutes.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        type: t.resource_type || 'Material',
+                        size: t.file_size || 'Unknown Size',
+                        link: t.link
+                    })),
+                    assignments: await Promise.all((await query(`
+                        SELECT a.*, sub.status as submissionStatus, sub.grade as submissionGrade, sub.feedback as submissionFeedback
+                        FROM assignments a
+                        LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
+                        WHERE a.m_id = ?
+                        ORDER BY a.created_at DESC
+                    `, [studentId, mod.id])).map(async (a) => {
+                        const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [a.id]);
+                        return {
+                            id: a.id,
+                            title: a.title,
+                            description: a.description,
+                            deadline: a.deadline,
+                            maxMarks: a.max_marks,
+                            attachments: attachments.map(att => att.file_url),
+                            submission: a.submissionStatus ? {
+                                status: a.submissionStatus,
+                                grade: a.submissionGrade,
+                                feedback: a.submissionFeedback
+                            } : null
+                        };
+                    }))
+                });
+            }
+
+            enrolledClasses.push({
+                id: cls.id,
+                grade: cls.grade || 'Grade',
+                subject: cls.subject,
+                teacher: {
+                    name: cls.teacher_name,
+                    image: cls.teacher_image || `https://ui-avatars.com/api/?name=${cls.teacher_name.replace(/ /g, '+')}&background=4a0b59&color=fff`
+                },
+                monthlyFee: cls.monthly_fee || 2500, 
+                schedule: cls.generated_schedule || cls.schedule_text || 'Schedule TBA',
+                zoomLink: cls.zoomLink || '#',
+                studentsCount: cls.studentsCount,
+                months: monthsData
+            });
+        }
+
+        res.status(200).json(enrolledClasses);
+
     } catch (error) {
         console.error("Error in /student/classes:", error);
         res.status(500).json({ error: error.message });

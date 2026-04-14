@@ -43,13 +43,33 @@ router.get('/courses', async (req, res) => {
                 const lessons = await query('SELECT * FROM lessons WHERE m_id = ? ORDER BY number ASC, id ASC', [mod.id]);
                 mod.lessons = [];
                 for (let les of lessons) {
-                    const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title };
+                    const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title, isVisible: les.isVisible !== 0 };
                     const resources = await query('SELECT * FROM resources WHERE l_id = ? ORDER BY number ASC, id ASC', [les.id]);
                     mappedLesson.resources = resources.map(r => ({
-                        id: r.id, title: r.name, type: r.type || 'pdf', url: r.link
+                        id: r.id, title: r.name, type: r.type || 'pdf', url: r.link, isVisible: r.isVisible !== 0
                     }));
                     mod.lessons.push(mappedLesson);
                 }
+                const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mod.id]);
+                mod.assignments = await Promise.all(assignments.map(async (a) => {
+                    const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [a.id]);
+                    return {
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
+                        deadline: a.deadline,
+                        maxMarks: a.max_marks
+                    };
+                }));
+
+                const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
+                mod.quizzes = quizzes.map(q => ({
+                    id: q.id,
+                    number: q.number,
+                    timeLimit: q.time_limit,
+                    isPeerReviewed: q.is_peer_reviewed === 1
+                }));
             }
         }
         res.status(200).json(courses);
@@ -195,6 +215,37 @@ router.post('/modules/:m_id/lessons', async (req, res) => {
     }
 });
 
+router.put('/lessons/:id', async (req, res) => {
+    const { title, isVisible } = req.body;
+    try {
+        let updateQuery = 'UPDATE lessons SET ';
+        const params = [];
+        if (title !== undefined) { updateQuery += 'title = ?, '; params.push(title); }
+        if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
+        if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
+        
+        updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
+        params.push(req.params.id);
+        
+        await query(updateQuery, params);
+        res.status(200).json({ id: req.params.id, title, isVisible: isVisible ? true : false });
+    } catch (err) {
+        console.error('Error updating lesson:', err);
+        res.status(500).json({ message: 'Error updating lesson' });
+    }
+});
+
+router.delete('/lessons/:id', async (req, res) => {
+    try {
+        await query('DELETE FROM resources WHERE l_id = ?', [req.params.id]);
+        await query('DELETE FROM lessons WHERE id = ?', [req.params.id]);
+        res.status(200).json({ message: 'Deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting lesson:', err);
+        res.status(500).json({ message: 'Error deleting lesson' });
+    }
+});
+
 // --- RESOURCES ---
 router.post('/lessons/:l_id/resources', upload.single('file'), async (req, res) => {
     const { title, type } = req.body;
@@ -212,6 +263,37 @@ router.post('/lessons/:l_id/resources', upload.single('file'), async (req, res) 
     } catch (err) {
         console.error('Error adding resource:', err);
         res.status(500).json({ message: 'Error adding resource' });
+    }
+});
+
+router.put('/resources/:id', async (req, res) => {
+    const { title, url, isVisible } = req.body;
+    try {
+        let updateQuery = 'UPDATE resources SET ';
+        const params = [];
+        if (title !== undefined) { updateQuery += 'name = ?, '; params.push(title); }
+        if (url !== undefined) { updateQuery += 'link = ?, '; params.push(url); }
+        if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
+        if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
+        
+        updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
+        params.push(req.params.id);
+        
+        await query(updateQuery, params);
+        res.status(200).json({ id: req.params.id, title, url, isVisible: isVisible ? true : false });
+    } catch (err) {
+        console.error('Error updating resource:', err);
+        res.status(500).json({ message: 'Error updating resource' });
+    }
+});
+
+router.delete('/resources/:id', async (req, res) => {
+    try {
+        await query('DELETE FROM resources WHERE id = ?', [req.params.id]);
+        res.status(200).json({ message: 'Deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting resource:', err);
+        res.status(500).json({ message: 'Error deleting resource' });
     }
 });
 
@@ -242,6 +324,48 @@ router.put('/lessons/:l_id/resources/reorder', async (req, res) => {
     } catch (err) {
         console.error('Error reordering resources:', err);
         res.status(500).json({ message: 'Error reordering resources' });
+    }
+});
+
+// GET /courses/search - Dynamic Course Search
+router.get('/courses/search', async (req, res) => {
+    const { teacher, className, subject } = req.query;
+    
+    let sql = `
+        SELECT 
+            c.id, 
+            c.name AS class_name, 
+            c.title AS subject, 
+            c.type, 
+            c.theme_color, 
+            c.thumbnail_url, 
+            u.name AS teacher_name 
+        FROM classes_courses c 
+        JOIN teachers t ON c.t_id = t.id 
+        JOIN users u ON t.user_id = u.id 
+        WHERE c.is_published = TRUE
+    `;
+    const params = [];
+
+    if (teacher) {
+        sql += ` AND u.name LIKE ?`;
+        params.push(`%${teacher}%`);
+    }
+    if (className) {
+        sql += ` AND c.name LIKE ?`;
+        params.push(`%${className}%`);
+    }
+    if (subject) {
+        sql += ` AND c.title LIKE ?`;
+        params.push(`%${subject}%`);
+    }
+
+    try {
+        const results = await query(sql, params);
+        res.status(200).json(results);
+    } catch (err) {
+        console.error('Error searching courses:', err);
+        res.status(500).json({ message: 'Server error during search' });
     }
 });
 

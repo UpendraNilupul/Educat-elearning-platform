@@ -2,15 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
     ArrowLeft, Users, DollarSign, Star, BookOpen, 
-    Calendar, Clock, ShieldAlert, Mail 
+    Calendar, Clock, ShieldAlert, Mail, X, Send, ShieldCheck
 } from 'lucide-react';
 
 const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const adminId = localStorage.getItem('userId');
     
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Chat Panel States
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatMessage, setChatMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -36,13 +42,67 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
         fetchAnalytics();
     }, [id, navigate]);
 
+    // 🌟 FIX 1: The Suspend/Reactivate Toggle
+    const handleToggleStatus = async () => {
+        const newStatus = data.profile.status === 'active' ? 'suspended' : 'active';
+        if (!window.confirm(`Are you sure you want to ${newStatus} this teacher's account?`)) return;
+
+        try {
+            // We can safely reuse the student-status endpoint because it directly targets the main `users` table!
+            const response = await fetch(`http://localhost:3000/api/admin/student-status/${data.profile.user_id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (result.success) {
+                setData(prev => ({ ...prev, profile: { ...prev.profile, status: newStatus } }));
+            }
+        } catch (error) {
+            alert("Failed to update status.");
+        }
+    };
+
+    // 🌟 FIX 2: Send Chat Message
+    const handleSendMessage = async () => {
+        if (!chatMessage.trim()) return;
+        setIsSending(true);
+
+        try {
+            const response = await fetch('http://localhost:3000/api/admin/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: adminId,
+                    receiverId: data.profile.user_id,
+                    message: chatMessage
+                }),
+                credentials: 'include'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setChatMessage('');
+                setIsChatOpen(false);
+                alert(`Message sent securely to ${data.profile.name}!`);
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            alert("Failed to send message.");
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Loading Teacher Data...</div>;
     if (!data) return null;
 
     const { profile, kpis, courses, recentReviews } = data;
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8 font-sans">
+        <div className="min-h-screen bg-gray-50 p-8 font-sans relative overflow-hidden">
             {/* Header & Navigation */}
             <div className="max-w-7xl mx-auto mb-8 flex justify-between items-center">
                 <button 
@@ -52,11 +112,23 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                     <ArrowLeft size={20} className="mr-2" /> Back to Directory
                 </button>
                 <div className="flex space-x-3">
-                    <button className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center shadow-sm">
+                    <button 
+                        onClick={() => setIsChatOpen(true)}
+                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center shadow-sm transition-colors"
+                    >
                         <Mail size={16} className="mr-2" /> Message
                     </button>
-                    <button className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 flex items-center shadow-sm">
-                        <ShieldAlert size={16} className="mr-2" /> Suspend
+                    <button 
+                        onClick={handleToggleStatus}
+                        className={`px-4 py-2 font-bold rounded-xl flex items-center shadow-sm transition-colors ${
+                            profile.status === 'active' ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        }`}
+                    >
+                        {profile.status === 'active' ? (
+                            <><ShieldAlert size={16} className="mr-2" /> Suspend Account</>
+                        ) : (
+                            <><ShieldCheck size={16} className="mr-2" /> Reactivate Account</>
+                        )}
                     </button>
                 </div>
             </div>
@@ -191,6 +263,60 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
 
                 </div>
             </div>
+
+            {/* Slide-Out Chat Drawer */}
+            {isChatOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/20 z-40 transition-opacity" 
+                    onClick={() => setIsChatOpen(false)}
+                ></div>
+            )}
+            
+            <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0 overflow-hidden">
+                            {profile?.picture ? <img src={`http://localhost:3000/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 leading-tight">{profile?.name}</h3>
+                            <p className="text-xs text-gray-500">Direct Message</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex-1 p-6 bg-white overflow-y-auto">
+                    <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm mb-4">
+                        <p className="font-bold mb-1 flex items-center"><Clock size={16} className="mr-1.5"/> Auto-Delete Enabled</p>
+                        <p className="text-blue-600/80">Messages sent here are highly secure and will automatically self-destruct after 7 days to protect user privacy.</p>
+                    </div>
+                    <p className="text-gray-400 text-sm text-center mt-10">Start a new secure conversation with {profile?.name}...</p>
+                </div>
+
+                <div className="p-4 border-t border-gray-100 bg-gray-50">
+                    <textarea 
+                        className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
+                        rows="3"
+                        placeholder="Type your message here..."
+                        value={chatMessage}
+                        onChange={(e) => setChatMessage(e.target.value)}
+                    ></textarea>
+                    <div className="flex justify-end mt-2">
+                        <button 
+                            onClick={handleSendMessage}
+                            disabled={!chatMessage.trim() || isSending}
+                            className="px-6 py-2 bg-[#4a0b59] text-white font-bold text-sm rounded-lg hover:bg-purple-900 transition-colors flex items-center shadow-sm disabled:opacity-50"
+                        >
+                            {isSending ? 'Sending...' : <><Send size={16} className="mr-2" /> Send Message</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 };

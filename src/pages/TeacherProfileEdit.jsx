@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const TeacherProfileEdit = ({ teacherId, setUserName }) => {
+const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
   const params = useParams();
   const navigate = useNavigate();
   const resolvedTeacherId = teacherId || params.id || localStorage.getItem('userId');
@@ -46,7 +46,11 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
           bio: res.data.bio || '',
           '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
         }));
-        if (res.data.picture) setPreview(`http://localhost:3000/uploads/${res.data.picture}`);
+        // Handle dynamic image paths (Cloudinary full URL or local legacy path)
+        if (res.data.picture) {
+          const pic = res.data.picture;
+          setPreview(pic.startsWith('http') ? pic : `http://localhost:3000/uploads/profiles/${pic}`);
+        }
       })
       .catch(err => {
         console.error('Failed to load teacher profile', err);
@@ -82,16 +86,28 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
       const res = await axios.put(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, data, { withCredentials: true });
       setMessage({ type: 'success', text: res.data.message });
       
-      // Keep the frontend dashboard and header in sync with the new database Name!
+      // Keep the frontend dashboard and header in sync with the new database Name and Picture!
       if (typeof setUserName === 'function') {
         setUserName(formData.name);
       }
       localStorage.setItem('userName', formData.name);
 
+      if (typeof setUserPicture === 'function' && res.data.pictureUrl) {
+        setUserPicture(res.data.pictureUrl);
+        localStorage.setItem('userPicture', res.data.pictureUrl);
+      } else if (typeof setUserPicture === 'function' && res.data.picture) {
+        // Fallback for legacy filenames
+        setUserPicture(res.data.picture);
+        localStorage.setItem('userPicture', res.data.picture);
+      }
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Failed to update teacher profile', err);
-      setMessage({ type: 'error', text: 'Failed to update profile.' });
+      // Show actual error message from server if available
+      const errorMsg = err.response?.data?.error || 'Failed to update profile.';
+      setMessage({ type: 'error', text: errorMsg });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -112,6 +128,30 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
       )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4">
+        {/* Profile Picture Preview & Upload */}
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative group">
+            <img
+              src={preview || `https://ui-avatars.com/api/?name=${formData.name.replace(/ /g, '+')}&background=4a0b59&color=fff&size=128`}
+              alt="Profile"
+              className="w-32 h-32 object-cover rounded-full border-4 border-purple-100 shadow-md transition-transform group-hover:scale-105"
+            />
+            <label className="absolute bottom-0 right-0 bg-purple-600 text-white p-2 rounded-full cursor-pointer hover:bg-purple-700 shadow-lg transition-colors">
+              <input
+                type="file"
+                name="picture"
+                accept="image/*"
+                onChange={handleChange}
+                className="hidden"
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Click the icon to change profile picture</p>
+        </div>
+
         {/* Name */}
         <div>
           <label className="block text-gray-600 font-medium mb-1">Name</label>
@@ -121,7 +161,7 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
             value={formData.name}
             onChange={handleChange}
             required
-            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
           />
         </div>
 
@@ -240,24 +280,6 @@ const TeacherProfileEdit = ({ teacherId, setUserName }) => {
           ></textarea>
         </div>
 
-        {/* Profile Picture */}
-        <div>
-          <label className="block text-gray-600 font-medium mb-1">Profile Picture</label>
-          <input
-            type="file"
-            name="picture"
-            accept="image/*"
-            onChange={handleChange}
-            className="block w-full text-gray-700"
-          />
-          {preview && (
-            <img
-              src={preview}
-              alt="preview"
-              className="mt-2 w-32 h-32 object-cover rounded-full border border-gray-300"
-            />
-          )}
-        </div>
 
         {/* 2FA */}
         <div className="flex items-center">

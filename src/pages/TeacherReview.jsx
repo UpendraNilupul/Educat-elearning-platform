@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, IdCard } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, IdCard, ShieldAlert } from 'lucide-react';
 
 const TeacherReview = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -71,6 +71,10 @@ const TeacherReview = ({ userName, onLogout }) => {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Loading Application Data...</div>;
     if (!teacher) return null;
 
+    // 🌟 LOGIC: If the main account is suspended, that overrides everything else.
+    const isSuspended = teacher.status === 'suspended';
+    const isApproved = teacher.verification_status === 'approved';
+
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
             <div className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
@@ -88,24 +92,30 @@ const TeacherReview = ({ userName, onLogout }) => {
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Left Column: Teacher Data */}
-                <div className="lg:col-span-2 space-y-6">
+                {/* 🌟 FIX: Expands to full width if the admin box is hidden! */}
+                <div className={`space-y-6 ${(isApproved || isSuspended) ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
                     
                     {/* Basic Info Card */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                    <div className={`bg-white rounded-2xl shadow-sm border p-8 ${isSuspended ? 'border-red-200' : 'border-gray-100'}`}>
                         <div className="flex items-center space-x-6 mb-8">
-                            <div className="w-24 h-24 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 font-black text-4xl shrink-0 overflow-hidden">
+                            <div className={`w-24 h-24 rounded-2xl flex items-center justify-center font-black text-4xl shrink-0 overflow-hidden ${isSuspended ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'}`}>
                                 {teacher.picture ? (
-                                    <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                    <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className={`w-full h-full object-cover ${isSuspended ? 'grayscale' : ''}`} />
                                 ) : teacher.name.charAt(0)}
                             </div>
                             <div>
                                 <div className="flex items-center space-x-3 mb-1">
-                                    <h1 className="text-3xl font-black text-gray-900">{teacher.name}</h1>
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
-                                        ${teacher.verification_status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                    <h1 className={`text-3xl font-black ${isSuspended ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{teacher.name}</h1>
+                                    
+                                    {/* 🌟 FIX: Dynamic Badge based on Account Status AND Verification Status */}
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center
+                                        ${isSuspended ? 'bg-red-100 text-red-700 border border-red-200' : 
+                                          isApproved ? 'bg-green-100 text-green-700' : 
                                           teacher.verification_status === 'pending' ? 'bg-orange-100 text-orange-700' : 
-                                          'bg-red-100 text-red-700'}`}>
-                                        {teacher.verification_status}
+                                          'bg-gray-100 text-gray-700'}`}>
+                                        
+                                        {isSuspended && <ShieldAlert size={12} className="mr-1" />}
+                                        {isSuspended ? 'Account Suspended' : teacher.verification_status}
                                     </span>
                                 </div>
                                 <p className="text-gray-500 font-medium">{teacher.email} • {teacher.phone_number}</p>
@@ -142,7 +152,7 @@ const TeacherReview = ({ userName, onLogout }) => {
                             </div>
                         </div>
 
-                        {/* 🌟 NEW: Grid for Multiple Documents */}
+                        {/* Grid for Multiple Documents */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
                             {/* Document 1: CV */}
@@ -174,47 +184,50 @@ const TeacherReview = ({ userName, onLogout }) => {
                 </div>
 
                 {/* Right Column: Admin Actions */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col h-fit sticky top-8">
-                    <h2 className="text-xl font-bold text-gray-900 mb-6">Admin Decision</h2>
-                    
-                    <div className="mb-6 flex-1">
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            Feedback to Teacher <span className="text-red-400 normal-case">(Required for Rejection)</span>
-                        </label>
-                        <textarea 
-                            className="w-full h-40 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
-                            placeholder="Detail what is missing or explain why they are approved..."
-                            value={feedback}
-                            onChange={(e) => setFeedback(e.target.value)}
-                        ></textarea>
-                    </div>
-
-                    <div className="space-y-3">
-                        <button 
-                            onClick={() => handleVerifyAction('approved')}
-                            disabled={isSubmitting}
-                            className="w-full py-3 bg-[#00c853] text-white font-bold rounded-xl hover:bg-green-600 flex items-center justify-center shadow-sm disabled:opacity-50 transition-colors"
-                        >
-                            <CheckCircle size={18} className="mr-2" /> Approve Application
-                        </button>
+                {/* 🌟 FIX: Hide this box if the teacher is Approved OR Suspended */}
+                {!isApproved && !isSuspended && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col h-fit sticky top-8">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Admin Decision</h2>
                         
-                        <button 
-                            onClick={() => handleVerifyAction('rejected')}
-                            disabled={isSubmitting}
-                            className="w-full py-3 bg-red-50 border border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-100 flex items-center justify-center disabled:opacity-50 transition-colors"
-                        >
-                            <XCircle size={18} className="mr-2" /> Reject Application
-                        </button>
+                        <div className="mb-6 flex-1">
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                Feedback to Teacher <span className="text-red-400 normal-case">(Required for Rejection)</span>
+                            </label>
+                            <textarea 
+                                className="w-full h-40 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
+                                placeholder="Detail what is missing or explain why they are approved..."
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                            ></textarea>
+                        </div>
 
-                        <button 
-                            onClick={() => handleVerifyAction('pending')}
-                            disabled={isSubmitting}
-                            className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-100 flex items-center justify-center disabled:opacity-50 transition-colors"
-                        >
-                            <Clock size={18} className="mr-2" /> Request More Info (Keep Pending)
-                        </button>
+                        <div className="space-y-3">
+                            <button 
+                                onClick={() => handleVerifyAction('approved')}
+                                disabled={isSubmitting}
+                                className="w-full py-3 bg-[#00c853] text-white font-bold rounded-xl hover:bg-green-600 flex items-center justify-center shadow-sm disabled:opacity-50 transition-colors"
+                            >
+                                <CheckCircle size={18} className="mr-2" /> Approve Application
+                            </button>
+                            
+                            <button 
+                                onClick={() => handleVerifyAction('rejected')}
+                                disabled={isSubmitting}
+                                className="w-full py-3 bg-red-50 border border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-100 flex items-center justify-center disabled:opacity-50 transition-colors"
+                            >
+                                <XCircle size={18} className="mr-2" /> Reject Application
+                            </button>
+
+                            <button 
+                                onClick={() => handleVerifyAction('pending')}
+                                disabled={isSubmitting}
+                                className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-100 flex items-center justify-center disabled:opacity-50 transition-colors"
+                            >
+                                <Clock size={18} className="mr-2" /> Request More Info (Keep Pending)
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
             </div>
         </div>
