@@ -10,6 +10,7 @@ import {
     Send,
     AlertCircle
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const AssignmentSubmissions = () => {
     const { id } = useParams(); // assignment id
@@ -23,20 +24,16 @@ const AssignmentSubmissions = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch assignment details (We'll use the module assignments fetcher or a specific one)
-                // For now, let's assume we have an endpoint for single assignment
-                const assignRes = await fetch(`http://localhost:3000/api/assignments/${id}`);
-                if (assignRes.ok) {
-                    const data = await assignRes.json();
-                    setAssignment(data);
-                }
+                // 🌟 THE FIX: Use Promise.all with api.get to fetch both at the exact same time!
+                const [assignRes, subRes] = await Promise.all([
+                    api.get(`/assignments/${id}`),
+                    api.get(`/assignments/${id}/submissions`)
+                ]);
 
-                // Fetch submissions
-                const subRes = await fetch(`http://localhost:3000/api/assignments/${id}/submissions`);
-                if (subRes.ok) {
-                    const subData = await subRes.json();
-                    setSubmissions(subData);
-                }
+                // Axios automatically parsed the JSON for us
+                setAssignment(assignRes.data);
+                setSubmissions(subRes.data);
+                
             } catch (err) {
                 console.error("Error fetching submissions:", err);
             } finally {
@@ -50,13 +47,14 @@ const AssignmentSubmissions = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/submissions/${gradingData.id}/grade`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ grade: gradingData.grade, feedback: gradingData.feedback })
+            // 🌟 THE FIX: Use api.put. No need for headers or JSON.stringify!
+            const response = await api.put(`/submissions/${gradingData.id}/grade`, { 
+                grade: gradingData.grade, 
+                feedback: gradingData.feedback 
             });
 
-            if (response.ok) {
+            // Assuming the backend sends a success message
+            if (response.data) {
                 setSubmissions(submissions.map(s => 
                     s.id === gradingData.id ? { ...s, grade: gradingData.grade, feedback: gradingData.feedback, status: 'graded' } : s
                 ));
@@ -65,12 +63,16 @@ const AssignmentSubmissions = () => {
             }
         } catch (err) {
             console.error("Error grading:", err);
+            alert(err.response?.data?.error || "Failed to submit grade.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     if (loading) return <div className="p-8 text-center font-bold text-purple-600">Loading submissions...</div>;
+
+    // We leave the Download href pointing to localhost for now since window.open/href needs full URLs
+    const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
 
     return (
         <div className="p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
@@ -129,7 +131,7 @@ const AssignmentSubmissions = () => {
                                 </div>
                                 <div className="mt-4 flex items-center justify-between border-t border-gray-50 pt-4">
                                     <a 
-                                        href={`http://localhost:3000${sub.file_url}`} 
+                                        href={`${baseURL}${sub.file_url}`} 
                                         target="_blank" 
                                         rel="noreferrer"
                                         onClick={(e) => e.stopPropagation()}
@@ -189,7 +191,7 @@ const AssignmentSubmissions = () => {
                                 <button 
                                     type="button" 
                                     onClick={() => setGradingData({ id: null, grade: '', feedback: '' })}
-                                    className="w-full text-gray-500 text-sm font-bold mt-2"
+                                    className="w-full text-gray-500 text-sm font-bold mt-2 hover:text-gray-700"
                                 >
                                     Cancel
                                 </button>

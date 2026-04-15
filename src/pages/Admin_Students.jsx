@@ -4,6 +4,7 @@ import {
     Search, Filter, MoreVertical, ShieldAlert,
     Mail, Eye, X, Megaphone, Gift, Clock, Send, Download
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const Admin_Students = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -37,8 +38,9 @@ const Admin_Students = ({ userName, onLogout }) => {
             setLoading(true);
             try {
                 const queryParams = new URLSearchParams({ search: searchQuery, status: statusFilter }).toString();
-                const response = await fetch(`http://localhost:3000/api/admin/students-list?${queryParams}`, { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Use api.get and response.data
+                const response = await api.get(`/admin/students-list?${queryParams}`);
+                const data = response.data;
 
                 if (data.success) {
                     setStudents(data.data);
@@ -79,18 +81,14 @@ const Admin_Students = ({ userName, onLogout }) => {
         const title = bulkType === 'offer' ? 'Exclusive Discount Offer!' : 'Platform Announcement';
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/students/bulk-notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userIds: selectedUsers,
-                    title: title,
-                    message: bulkMessage
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.post. No headers, stringify, or credentials needed!
+            const response = await api.post('/admin/students/bulk-notify', {
+                userIds: selectedUsers,
+                title: title,
+                message: bulkMessage
             });
 
-            const result = await response.json();
+            const result = response.data;
             if (result.success) {
                 alert(result.message);
                 setIsBulkModalOpen(false);
@@ -100,7 +98,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to process bulk action.");
+            alert(error.response?.data?.message || "Failed to process bulk action.");
         }
     };
 
@@ -114,18 +112,14 @@ const Admin_Students = ({ userName, onLogout }) => {
         setIsSending(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderId: adminId,
-                    receiverId: chatUser.id,
-                    message: chatMessage
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.post
+            const response = await api.post('/admin/send-message', {
+                senderId: adminId,
+                receiverId: chatUser.id,
+                message: chatMessage
             });
 
-            const result = await response.json();
+            const result = response.data;
             if (result.success) {
                 setChatMessage('');
                 setIsChatOpen(false);
@@ -134,7 +128,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to send message.");
+             alert(error.response?.data?.message || "Failed to send message.");
         } finally {
             setIsSending(false);
         }
@@ -142,7 +136,9 @@ const Admin_Students = ({ userName, onLogout }) => {
 
     // 🌟 NEW: Trigger CSV Download
     const handleExportCSV = () => {
-        window.open('http://localhost:3000/api/admin/export/students', '_blank');
+        // We leave this as a raw URL because window.open needs a full URL string to trigger a browser download.
+        // Ideally, in production, this points to your real domain name.
+        window.open('http://localhost:3000/api/admin/export/students', '_blank'); 
     };
 
     return (
@@ -164,7 +160,6 @@ const Admin_Students = ({ userName, onLogout }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
                 <div className="flex-1 min-w-[250px] relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    {/* 🌟 FIX: Updated Placeholder */}
                     <input
                         type="text"
                         placeholder="Search by code, name, email, or phone..."
@@ -187,7 +182,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                         <option value="banned">Banned</option>
                     </select>
                 </div>
-                {/* 🌟 NEW: The Export Button */}
+                
                 <div className="pl-4 border-l border-gray-100">
                     <button
                         onClick={handleExportCSV}
@@ -269,7 +264,6 @@ const Admin_Students = ({ userName, onLogout }) => {
                                                     ) : student.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    {/* 🌟 FIX: Displays [CODE] Name */}
                                                     <p className="text-sm font-bold text-gray-900">
                                                         <span className="text-[#4a0b59] mr-1">[{student.user_code || 'N/A'}]</span>
                                                         {student.name}

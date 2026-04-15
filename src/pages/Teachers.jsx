@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Quote } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const Teachers = () => {
     const [teachers, setTeachers] = useState([]);
@@ -18,22 +19,30 @@ const Teachers = () => {
         const fetchTeachers = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('http://localhost:3000/api/teachers');
                 
-                if (!response.ok) {
-                    throw new Error('Failed to fetch teachers');
-                }
+                // 🌟 THE FIX: Use api.get() instead of fetch
+                const response = await api.get('/teachers');
+                const data = response.data; // Axios handles JSON parsing automatically
                 
-                const data = await response.json();
-                
+                // 🌟 THE FIX: Dynamically set the image base URL for local vs production
+                const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+
                 if (data.success && data.teachers) {
                     // Enhance teacher data with metadata
-                    const enhancedTeachers = data.teachers.map((teacher) => ({
-                        ...teacher,
-                        image: teacher.picture || '/teacher-placeholder.png',
-                        subject: teacherMetadata[teacher.id]?.subject || 'SUBJECT',
-                        quote: teacherMetadata[teacher.id]?.quote || 'No quote available'
-                    }));
+                    const enhancedTeachers = data.teachers.map((teacher) => {
+                        let picUrl = teacher.picture;
+                        if (picUrl && !picUrl.startsWith('http')) {
+                            // Assuming pictures are stored in an uploads folder
+                            picUrl = `${baseURL}/uploads/${picUrl}`;
+                        }
+
+                        return {
+                            ...teacher,
+                            image: picUrl || '/teacher-placeholder.png',
+                            subject: teacherMetadata[teacher.id]?.subject || 'SUBJECT',
+                            quote: teacherMetadata[teacher.id]?.quote || 'No quote available'
+                        };
+                    });
                     
                     setTeachers(enhancedTeachers);
                 } else {
@@ -41,7 +50,8 @@ const Teachers = () => {
                 }
             } catch (err) {
                 console.error('Error fetching teachers:', err);
-                setError(err.message);
+                // 🌟 THE FIX: Better Axios error handling
+                setError(err.response?.data?.message || err.message || 'Failed to fetch teachers');
             } finally {
                 setLoading(false);
             }

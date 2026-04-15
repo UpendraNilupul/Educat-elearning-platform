@@ -39,13 +39,12 @@ const Admin_Communications = ({ userName, onLogout }) => {
         setLoading(true);
         try {
             if (activeTab === 'messages') {
-                const res = await fetch('/admin/conversations', { credentials: 'include' });
-                const data = await res.json();
-                if (data.success) setConversations(data.data);
+                const res = await api.get('/admin/conversations');
+                if (res.data.success) setConversations(res.data.data);
             } else {
-                const res = await fetch('/admin/announcements-history', { credentials: 'include' });
-                const data = await res.json();
-                if (data.success) setAnnouncements(data.data);
+                // 🌟 THE FIX: Used api.get() and accessed .data
+                const res = await api.get('/admin/announcements-history');
+                if (res.data.success) setAnnouncements(res.data.data);
             }
         } catch (error) {
             console.error("Failed to fetch data");
@@ -56,9 +55,9 @@ const Admin_Communications = ({ userName, onLogout }) => {
 
     const fetchMessages = async (conversationId) => {
         try {
-            const res = await fetch(`/admin/conversations/${conversationId}/messages`, { credentials: 'include' });
-            const data = await res.json();
-            if (data.success) setMessages(data.data);
+            // 🌟 THE FIX: Used api.get() and accessed .data
+            const res = await api.get(`/admin/conversations/${conversationId}/messages`);
+            if (res.data.success) setMessages(res.data.data);
         } catch (error) {
             console.error("Failed to fetch messages");
         }
@@ -69,19 +68,14 @@ const Admin_Communications = ({ userName, onLogout }) => {
         if (!newMessage.trim() || !activeChat) return;
 
         try {
-            const response = await fetch('/admin/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderId: adminId,
-                    receiverId: activeChat.other_user_id,
-                    message: newMessage
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Used api.post() (it automatically handles headers and JSON.stringify!)
+            const response = await api.post('/admin/send-message', {
+                senderId: adminId,
+                receiverId: activeChat.other_user_id,
+                message: newMessage
             });
 
-            const result = await response.json();
-            if (result.success) {
+            if (response.data.success) {
                 // Optimistically add message to UI
                 setMessages([...messages, { sender_id: adminId, body: newMessage, created_at: new Date().toISOString() }]);
                 setNewMessage('');

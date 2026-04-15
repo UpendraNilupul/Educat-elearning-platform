@@ -4,6 +4,7 @@ import {
     ShieldCheck, Lock, UserPlus, ArrowLeft, 
     AlertTriangle, CheckCircle, Mail, Phone, MapPin, Calendar, Users
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const Admin_Team = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -21,8 +22,10 @@ const Admin_Team = ({ userName, onLogout }) => {
     useEffect(() => {
         const verifyAccess = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/status', { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Use api.get() and response.data
+                const response = await api.get('/status');
+                const data = response.data;
+                
                 if (data.isLoggedIn) {
                     setAdminLevel(data.adminLevel);
                 }
@@ -44,14 +47,9 @@ const Admin_Team = ({ userName, onLogout }) => {
         setIsSubmitting(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/create-sub-admin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-                credentials: 'include'
-            });
-
-            const result = await response.json();
+            // 🌟 THE FIX: Use api.post() - Pass formData directly, no stringify/headers needed!
+            const response = await api.post('/admin/create-sub-admin', formData);
+            const result = response.data;
 
             if (result.success) {
                 alert("🎉 Sub-Admin created successfully!");
@@ -61,7 +59,8 @@ const Admin_Team = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to connect to the server.");
+            // 🌟 THE FIX: Better Axios error handling
+            alert(error.response?.data?.message || "Failed to connect to the server.");
         } finally {
             setIsSubmitting(false);
         }

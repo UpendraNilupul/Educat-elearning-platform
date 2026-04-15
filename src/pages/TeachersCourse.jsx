@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Calendar as CalendarIcon
 } from "lucide-react";
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const TeachersCourse = ({ courses, setCourses }) => {
   const navigate = useNavigate();
@@ -128,12 +129,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
     try {
       if (editingChapterId) {
-        const response = await fetch(`http://localhost:3000/api/modules/${editingChapterId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: chapterTitle })
-        });
-        if (!response.ok) throw new Error('Failed to update chapter');
+        // 🌟 THE FIX: Put request via API
+        await api.put(`/modules/${editingChapterId}`, { title: chapterTitle });
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -147,13 +144,13 @@ const TeachersCourse = ({ courses, setCourses }) => {
           return course;
         }));
       } else {
-        const response = await fetch('http://localhost:3000/api/modules', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: chapterTitle, c_id: selectedCourse.id, isVisible: true })
+        // 🌟 THE FIX: Post request via API
+        const response = await api.post('/modules', { 
+            title: chapterTitle, 
+            c_id: selectedCourse.id, 
+            isVisible: true 
         });
-        if (!response.ok) throw new Error('Failed to add chapter');
-        const newChap = await response.json();
+        const newChap = response.data;
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -172,7 +169,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving chapter');
+      alert(err.response?.data?.message || 'Error saving chapter');
     }
 
     setChapterTitle("");
@@ -186,12 +183,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
     try {
       if (editingLessonId) {
-        const response = await fetch(`http://localhost:3000/api/lessons/${editingLessonId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: lessonTitle })
-        });
-        if (!response.ok) throw new Error('Failed to update lesson');
+        await api.put(`/lessons/${editingLessonId}`, { title: lessonTitle });
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -208,13 +200,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
           return course;
         }));
       } else {
-        const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/lessons`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: lessonTitle })
-        });
-        if (!response.ok) throw new Error('Failed to add lesson');
-        const newLesson = await response.json();
+        const response = await api.post(`/modules/${activeModuleId}/lessons`, { title: lessonTitle });
+        const newLesson = response.data;
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -231,7 +218,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving lesson');
+      alert(err.response?.data?.message || 'Error saving lesson');
     }
 
     setLessonTitle("");
@@ -246,16 +233,11 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
     try {
       if (editingResourceId) {
-        const response = await fetch(`http://localhost:3000/api/resources/${editingResourceId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            title: resourceData.title, 
-            url: resourceData.url,
-            isVisible: resourceData.isVisible
-          })
+        await api.put(`/resources/${editingResourceId}`, { 
+          title: resourceData.title, 
+          url: resourceData.url,
+          isVisible: resourceData.isVisible
         });
-        if (!response.ok) throw new Error('Failed to update resource');
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -275,33 +257,25 @@ const TeachersCourse = ({ courses, setCourses }) => {
           return course;
         }));
       } else {
-        let body;
-        let headers = {};
-        
+        let response;
         if (resourceData.type === 'pdf') {
+          // Axios handles FormData cleanly!
           const formData = new FormData();
           formData.append('title', resourceData.title);
           formData.append('type', resourceData.type);
           if (resourceData.file) {
             formData.append('file', resourceData.file);
           }
-          body = formData;
+          response = await api.post(`/lessons/${activeLessonId}/resources`, formData);
         } else {
-          body = JSON.stringify({ 
+          response = await api.post(`/lessons/${activeLessonId}/resources`, { 
             title: resourceData.title, 
             type: resourceData.type, 
             url: resourceData.url 
           });
-          headers['Content-Type'] = 'application/json';
         }
-
-        const response = await fetch(`http://localhost:3000/api/lessons/${activeLessonId}/resources`, {
-          method: 'POST',
-          headers,
-          body
-        });
-        if (!response.ok) throw new Error('Failed to add resource');
-        const newResource = await response.json();
+        
+        const newResource = response.data;
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -320,7 +294,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving resource');
+      alert(err.response?.data?.message || 'Error saving resource');
     }
 
     setResourceData({ title: "", type: "pdf", url: "", file: null, isVisible: true });
@@ -334,11 +308,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
     if (!lesson) return;
     const newVisibility = lesson.isVisible === false ? true : false;
     try {
-      await fetch(`http://localhost:3000/api/lessons/${lessonId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisible: newVisibility })
-      });
+      await api.put(`/lessons/${lessonId}`, { isVisible: newVisibility });
+      
       setCourses(courses.map(course => {
         if (course.id === selectedCourse.id) {
           const updatedChapters = course.chapters.map(c => 
@@ -358,7 +329,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const handleDeleteLesson = async (chapterId, lessonId) => {
     if (window.confirm("Are you sure you want to delete this lesson and all its resources?")) {
       try {
-        await fetch(`http://localhost:3000/api/lessons/${lessonId}`, { method: 'DELETE' });
+        await api.delete(`/lessons/${lessonId}`);
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
             const updatedChapters = course.chapters.map(c => 
@@ -390,11 +361,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
     if (!resource) return;
     const newVisibility = resource.isVisible === false ? true : false;
     try {
-      await fetch(`http://localhost:3000/api/resources/${resourceId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisible: newVisibility })
-      });
+      await api.put(`/resources/${resourceId}`, { isVisible: newVisibility });
       setCourses(courses.map(course => {
         if (course.id === selectedCourse.id) {
           const updatedChapters = course.chapters.map(c => 
@@ -418,7 +385,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const handleDeleteResource = async (chapterId, lessonId, resourceId) => {
     if (window.confirm("Are you sure you want to delete this resource?")) {
       try {
-        await fetch(`http://localhost:3000/api/resources/${resourceId}`, { method: 'DELETE' });
+        await api.delete(`/resources/${resourceId}`);
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
             const updatedChapters = course.chapters.map(c => 
@@ -464,13 +431,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
             });
         }
 
-        const response = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/assignments`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) throw new Error('Failed to add assignment');
-        const newAssignment = await response.json();
+        const response = await api.post(`/modules/${activeModuleId}/assignments`, formData);
+        const newAssignment = response.data;
 
         // Update local state
         setCourses(courses.map(course => {
@@ -489,7 +451,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
         setAssignmentData({ title: "", description: "", deadline: "", publish_at: "", max_marks: 100, files: [] });
     } catch (err) {
         console.error(err);
-        alert('Error adding assignment');
+        alert(err.response?.data?.message || 'Error adding assignment');
     }
   };
 
@@ -546,36 +508,23 @@ const TeachersCourse = ({ courses, setCourses }) => {
 
     try {
         // 1. Create Quiz
-        const quizResp = await fetch(`http://localhost:3000/api/modules/${activeModuleId}/quizzes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                number: quizData.number, 
-                time_limit: quizData.time_limit, 
-                is_peer_reviewed: quizData.is_peer_reviewed 
-            })
+        const quizResp = await api.post(`/modules/${activeModuleId}/quizzes`, { 
+            number: quizData.number, 
+            time_limit: quizData.time_limit, 
+            is_peer_reviewed: quizData.is_peer_reviewed 
         });
-        if (!quizResp.ok) throw new Error('Failed to create quiz');
-        const newQuiz = await quizResp.json();
+        const newQuiz = quizResp.data;
 
         // 2. Add Questions and link them
         for (let q of quizData.questions) {
-            const qResp = await fetch(`http://localhost:3000/api/courses/${selectedCourse.id}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    ...q, 
-                    t_id: selectedCourse.teacher_id || 1 
-                })
+            const qResp = await api.post(`/courses/${selectedCourse.id}/questions`, { 
+                ...q, 
+                t_id: selectedCourse.teacher_id || 1 
             });
-            const { id: qId } = await qResp.json();
+            const { id: qId } = qResp.data;
 
             // Link to quiz
-            await fetch(`http://localhost:3000/api/quizzes/${newQuiz.id}/questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qId })
-            });
+            await api.post(`/quizzes/${newQuiz.id}/questions`, { qId });
         }
 
         // Update local state
@@ -595,7 +544,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
         setQuizData({ number: 1, time_limit: "00:30:00", is_peer_reviewed: false, questions: [] });
     } catch (err) {
         console.error(err);
-        alert('Error adding quiz');
+        alert(err.response?.data?.message || 'Error adding quiz');
     }
   };
 
@@ -610,11 +559,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/courses/${course.id}/modules/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ moduleIds: newChapters.map(c => c.id) })
-        }).catch(err => console.error("Failed to reorder modules", err));
+        api.put(`/courses/${course.id}/modules/reorder`, { moduleIds: newChapters.map(c => c.id) })
+           .catch(err => console.error("Failed to reorder modules", err));
 
         return updatedCourse;
       }
@@ -633,11 +579,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/courses/${course.id}/modules/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ moduleIds: newChapters.map(c => c.id) })
-        }).catch(err => console.error("Failed to reorder modules", err));
+        api.put(`/courses/${course.id}/modules/reorder`, { moduleIds: newChapters.map(c => c.id) })
+           .catch(err => console.error("Failed to reorder modules", err));
 
         return updatedCourse;
       }
@@ -658,11 +601,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/modules/${newChapters[moduleIndex].id}/lessons/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ lessonIds: newLessons.map(l => l.id) })
-        }).catch(err => console.error("Failed to reorder lessons", err));
+        api.put(`/modules/${newChapters[moduleIndex].id}/lessons/reorder`, { lessonIds: newLessons.map(l => l.id) })
+           .catch(err => console.error("Failed to reorder lessons", err));
 
         return updatedCourse;
       }
@@ -683,11 +623,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/modules/${newChapters[moduleIndex].id}/lessons/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ lessonIds: newLessons.map(l => l.id) })
-        }).catch(err => console.error("Failed to reorder lessons", err));
+        api.put(`/modules/${newChapters[moduleIndex].id}/lessons/reorder`, { lessonIds: newLessons.map(l => l.id) })
+           .catch(err => console.error("Failed to reorder lessons", err));
 
         return updatedCourse;
       }
@@ -710,11 +647,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/lessons/${newLessons[lessonIndex].id}/resources/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ resourceIds: newResources.map(r => r.id) })
-        }).catch(err => console.error("Failed to reorder resources", err));
+        api.put(`/lessons/${newLessons[lessonIndex].id}/resources/reorder`, { resourceIds: newResources.map(r => r.id) })
+           .catch(err => console.error("Failed to reorder resources", err));
 
         return updatedCourse;
       }
@@ -737,11 +671,8 @@ const TeachersCourse = ({ courses, setCourses }) => {
         const updatedCourse = { ...course, chapters: newChapters };
         setSelectedCourse(updatedCourse);
         
-        fetch(`http://localhost:3000/api/lessons/${newLessons[lessonIndex].id}/resources/reorder`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ resourceIds: newResources.map(r => r.id) })
-        }).catch(err => console.error("Failed to reorder resources", err));
+        api.put(`/lessons/${newLessons[lessonIndex].id}/resources/reorder`, { resourceIds: newResources.map(r => r.id) })
+           .catch(err => console.error("Failed to reorder resources", err));
 
         return updatedCourse;
       }
@@ -755,11 +686,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
     const newVisibility = chapter.isVisible === false ? true : false;
 
     try {
-      await fetch(`http://localhost:3000/api/modules/${chapterId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisible: newVisibility })
-      });
+      await api.put(`/modules/${chapterId}`, { isVisible: newVisibility });
 
       setCourses(courses.map(course => {
         if (course.id === selectedCourse.id) {
@@ -780,10 +707,7 @@ const TeachersCourse = ({ courses, setCourses }) => {
   const handleDeleteChapter = async (chapterId) => {
     if (window.confirm("Are you sure you want to delete this chapter and all its resources?")) {
       try {
-        const response = await fetch(`http://localhost:3000/api/modules/${chapterId}`, {
-          method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete chapter');
+        await api.delete(`/modules/${chapterId}`);
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
@@ -863,56 +787,36 @@ const TeachersCourse = ({ courses, setCourses }) => {
     try {
       if (editingCourse) {
         // Edit Course
-        const response = await fetch(`http://localhost:3000/api/courses/${editingCourse.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
+        const response = await api.put(`/courses/${editingCourse.id}`, formData);
+        const updatedCourse = response.data;
         
-        if (response.ok) {
-          const updatedCourse = await response.json();
-          setCourses(courses.map(c => String(c.id) === String(updatedCourse.id) ? { ...c, ...updatedCourse, id: c.id } : c));
-        } else {
-          console.error("Failed to edit course");
-        }
+        setCourses(courses.map(c => String(c.id) === String(updatedCourse.id) ? { ...c, ...updatedCourse, id: c.id } : c));
       } else {
         // Create Course
         const payload = {
           ...formData,
           userId: localStorage.getItem('userId')
         };
-        const response = await fetch('http://localhost:3000/api/courses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        const response = await api.post('/courses', payload);
+        const newCourse = response.data;
         
-        if (response.ok) {
-          const newCourse = await response.json();
-          setCourses([...courses, newCourse]);
-        } else {
-          console.error("Failed to create course");
-        }
+        setCourses([...courses, newCourse]);
       }
       handleCloseModal();
     } catch (error) {
       console.error("Error submitting course:", error);
+      alert(error.response?.data?.message || "Failed to submit course");
     }
   };
 
   const handleDeleteCourse = async (id) => {
     if (window.confirm("Are you sure you want to delete this course?")) {
       try {
-        const response = await fetch(`http://localhost:3000/api/courses/${id}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          setCourses(courses.filter(c => String(c.id) !== String(id)));
-        } else {
-          console.error("Failed to delete course");
-        }
+        await api.delete(`/courses/${id}`);
+        setCourses(courses.filter(c => String(c.id) !== String(id)));
       } catch (error) {
         console.error("Error deleting course:", error);
+        alert(error.response?.data?.message || "Failed to delete course");
       }
     }
   };

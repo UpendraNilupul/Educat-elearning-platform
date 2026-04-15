@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 import '../styles/login.css';
 
 // 🌟 Sri Lankan Provinces & Districts Mapping
@@ -25,9 +26,9 @@ const Register = ({ setUserName, setUserRole }) => {
     password: '',
     confirmPassword: '',
     phoneNumber: '',
-    province: '', // 🌟 Added Province
-    district: '', // 🌟 Added District
-    address: '',
+    province: '', 
+    district: '', 
+    address: '', // Technically unused now, but keeping for state completeness
     dob: '',
     gender: '',
     role: 'student'
@@ -129,15 +130,11 @@ const Register = ({ setUserName, setUserRole }) => {
     try {
       const { confirmPassword, ...payload } = formData;
 
-      const res = await fetch('http://localhost:3000/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      // 🌟 THE FIX: Use api.post
+      const response = await api.post('/register', payload);
+      const data = response.data; // Axios handles JSON automatically
 
-      const data = await res.json();
-
-      if (res.ok) {
+      if (data.userId) { // Checking if userId was returned is a safe way to check success
         alert(`Registration successful! Your ID Code is: ${data.userCode}`);
 
         const safeRole = String(payload.role || data.userRole || '').toLowerCase().trim();
@@ -154,12 +151,11 @@ const Register = ({ setUserName, setUserRole }) => {
         else if (safeRole === 'teacher') navigate(`/verify-teacher/${data.userId}`);
         else if (safeRole === 'student') navigate('/student');
         else navigate('/login');
-      } else {
-        alert(data.message || 'Registration failed.');
       }
     } catch (err) {
       console.error(err);
-      alert('Server connection failed. Is your backend running?');
+      // 🌟 THE FIX: Handle backend validation errors gracefully
+      alert(err.response?.data?.message || 'Server connection failed. Is your backend running?');
     }
   };
 
@@ -167,7 +163,7 @@ const Register = ({ setUserName, setUserRole }) => {
     Object.values(errors).every((err) => err === '') &&
     formData.name && formData.email && formData.password &&
     formData.confirmPassword && formData.phoneNumber && 
-    formData.gender && formData.province && formData.district;// Ensure new fields are filled
+    formData.gender && formData.province && formData.district; 
 
   const errorStyle = { color: 'red', fontSize: '0.85rem', marginTop: '4px' };
   const getInputClass = (field) => `box ${errors[field] ? 'border border-red-500' : ''}`;
@@ -201,9 +197,9 @@ const Register = ({ setUserName, setUserRole }) => {
               required
             />
             <button type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-2 flex items-center justify-center"
               onClick={() => setShowPassword(!showPassword)}>
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              {showPassword ? <EyeOff size={20} className="text-gray-500" /> : <Eye size={20} className="text-gray-500" />}
             </button>
           </div>
           {errors.password && <p style={errorStyle}>{errors.password}</p>}

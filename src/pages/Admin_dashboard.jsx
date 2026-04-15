@@ -22,10 +22,12 @@ const Admin = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch(`/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`, {
-                    credentials: 'include'
-                });
-                const data = await response.json();
+                // 1. Make the Axios call
+                const response = await api.get(`/admin/dashboard-stats?period=${timeFilter}&role=${roleFilter}`);
+                
+                // 2. 🌟 THE FIX: Just grab .data (No await, no .json() needed!)
+                const data = response.data; 
+
                 if (data.success) {
                     setStats(data);
                 }

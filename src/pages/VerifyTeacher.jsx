@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const VerifyTeacher = () => {
   const { id: userId } = useParams();
@@ -12,9 +12,10 @@ const VerifyTeacher = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 🌟 THE FIX: Use Promise.all with api.get to fetch both concurrently without hardcoded URLs
         const [notifRes, statusRes] = await Promise.all([
-          axios.get(`http://localhost:3000/api/notifications/${userId}`),
-          axios.get(`http://localhost:3000/api/teacher-status/${userId}`)
+          api.get(`/notifications/${userId}`),
+          api.get(`/teacher-status/${userId}`)
         ]);
 
         if (notifRes.data.success) {
@@ -49,11 +50,13 @@ const VerifyTeacher = () => {
     if (files.cv) formData.append('cv', files.cv);
 
     try {
-      await axios.post(`http://localhost:3000/api/upload-docs/${userId}`, formData);
+      // 🌟 THE FIX: Use api.post for the FormData upload
+      await api.post(`/upload-docs/${userId}`, formData);
       alert(submittedDocs ? "Documents updated successfully!" : "Submission successful! Please wait for admin approval.");
       navigate('/login');
     } catch (err) {
-      alert("Upload failed. Please try again.");
+      // 🌟 THE FIX: Added better error extraction just in case the backend sends a specific failure reason
+      alert(err.response?.data?.message || err.response?.data?.error || "Upload failed. Please try again.");
     }
   };
 

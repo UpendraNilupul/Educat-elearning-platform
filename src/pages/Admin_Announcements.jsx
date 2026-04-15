@@ -28,13 +28,15 @@ const Admin_Announcements = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchDropdownData = async () => {
             try {
+                // 🌟 THE FIX: Use api.get() instead of fetch()
                 const [coursesRes, subjectsRes] = await Promise.all([
-                    fetch('/admin/all-courses', { credentials: 'include' }),
-                    fetch('/admin/subjects', { credentials: 'include' })
+                    api.get('/admin/all-courses'),
+                    api.get('/admin/subjects')
                 ]);
                 
-                const coursesData = await coursesRes.json();
-                const subjectsData = await subjectsRes.json();
+                // Axios automatically parses the JSON into the `.data` property!
+                const coursesData = coursesRes.data;
+                const subjectsData = subjectsRes.data;
 
                 if (coursesData.success) setCourses(coursesData.data);
                 if (subjectsData.success) setSubjects(subjectsData.data);
@@ -62,14 +64,12 @@ const Admin_Announcements = ({ userName, onLogout }) => {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch('/admin/global-announcement', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audienceType, targetId, minAge, maxAge, title, message }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.post(). It automatically handles headers, JSON stringify, and credentials!
+            const response = await api.post('/admin/global-announcement', { 
+                audienceType, targetId, minAge, maxAge, title, message 
             });
 
-            const result = await response.json();
+            const result = response.data; // Axios puts the response body inside .data
             
             if (result.success) {
                 alert(result.message);
@@ -81,7 +81,9 @@ const Admin_Announcements = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to connect to the server.");
+            // Axios puts server error messages inside error.response.data
+            const errorMsg = error.response?.data?.message || "Failed to connect to the server.";
+            alert(errorMsg);
         } finally {
             setIsSubmitting(false);
         }

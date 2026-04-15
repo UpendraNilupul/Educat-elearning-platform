@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { 
-  ClipboardList, BookOpen, Clock, ChevronRight, 
-  ChevronLeft, X, CheckCircle2, Trophy, AlertCircle
+    ClipboardList, BookOpen, Clock, ChevronRight, 
+    ChevronLeft, X, CheckCircle2, Trophy, AlertCircle
 } from 'lucide-react';
-import api from '../api';
+import api from '../api'; // 🌟 THE FIX: Using your configured Axios instance!
 
 const AssessmentsPage = () => {
     const [activeTab, setActiveTab] = useState('pending');
@@ -24,13 +23,12 @@ const AssessmentsPage = () => {
         fetchAssessments();
     }, [userId]);
 
-    // 🌟 THE FIX: Replaced N+1 loop with a single optimized call
+    // 🌟 THE FIX: Switched from generic axios to api.get
     const fetchAssessments = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`/student/my-assessments`, {
-                withCredentials: true // Needed for session validation
-            });
+            // api instance automatically handles baseURL and withCredentials!
+            const response = await api.get(`/student/my-assessments`); 
             setAssessments(response.data);
         } catch (err) {
             console.error("Failed to fetch assessments:", err);
@@ -41,7 +39,8 @@ const AssessmentsPage = () => {
 
     const handleStartQuiz = async (quiz) => {
         try {
-            const resp = await axios.get(`/quizzes/${quiz.id}`);
+            // 🌟 THE FIX: Switched to api.get
+            const resp = await api.get(`/quizzes/${quiz.id}`);
             setActiveQuiz(resp.data);
             setCurrentQuestionIdx(0);
             setStudentAnswers({});
@@ -68,7 +67,8 @@ const AssessmentsPage = () => {
                 aId: parseInt(aId)
             }));
 
-            const resp = await axios.post(`/quizzes/${activeQuiz.id}/submit`, {
+            // 🌟 THE FIX: Switched to api.post
+            const resp = await api.post(`/quizzes/${activeQuiz.id}/submit`, {
                 userId,
                 answers: answersArray
             });
@@ -113,7 +113,6 @@ const AssessmentsPage = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* 🌟 THE FIX: Dynamically filter pending vs completed based on backend data */}
                 {assessments.filter(a => {
                     const matchesTab = a.status === activeTab;
                     const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
