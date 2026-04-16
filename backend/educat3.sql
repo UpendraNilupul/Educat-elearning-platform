@@ -2,6 +2,9 @@ DROP DATABASE IF EXISTS educat;
 CREATE DATABASE educat;
 USE educat;
 
+-- Turn on the Event Scheduler for the 7-day auto-delete message feature
+SET GLOBAL event_scheduler = ON;
+
 -- ==========================================
 -- LEVEL 1: CORE TABLES (No Foreign Keys)
 -- ==========================================
@@ -9,6 +12,11 @@ USE educat;
 CREATE TABLE roles (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE subjects (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- ==========================================
@@ -28,33 +36,34 @@ CREATE TABLE users (
     status VARCHAR(20) DEFAULT 'active',
     join_date DATE NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
     picture VARCHAR(300),
     2fa_enabled BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (role_id) REFERENCES roles(id)
 );
-ALTER TABLE users 
-ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP;
 
 -- ==========================================
--- LEVEL 3: SPECIFIC USER PROFILES
+-- LEVEL 3: SPECIFIC USER PROFILES & ACTIVITY
 -- ==========================================
 
 CREATE TABLE teachers (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
+    user_code VARCHAR(20) UNIQUE,
     highest_qualification VARCHAR(200),
     university VARCHAR(200),
     experience_years INT,
     bio TEXT,
     resume_link VARCHAR(300),
+    nic_path VARCHAR(300),
     verification_status VARCHAR(20) DEFAULT 'pending', 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-ALTER TABLE teachers ADD COLUMN nic_path VARCHAR(300);
 
 CREATE TABLE students (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
+    user_code VARCHAR(20) UNIQUE,
     grade_level VARCHAR(50),
     school_name VARCHAR(150),
     guardian_name VARCHAR(150),
@@ -77,6 +86,16 @@ CREATE TABLE user_activity (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE todos (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    task VARCHAR(255) NOT NULL,
+    is_completed BOOLEAN DEFAULT FALSE,
+    due_date DATE DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- ==========================================
 -- LEVEL 4: COURSES & CONTENT
 -- ==========================================
@@ -94,10 +113,14 @@ CREATE TABLE classes_courses (
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
     t_id INT NOT NULL, 
+    teacher_id INT DEFAULT 1,          -- MIGRATION ADDED
+    students INT DEFAULT 0,            -- MIGRATION ADDED
+    modules INT DEFAULT 0,             -- MIGRATION ADDED
+    progress INT DEFAULT 0,            -- MIGRATION ADDED
     status VARCHAR(20) DEFAULT 'not_active',
     is_published BOOLEAN DEFAULT FALSE,
-    theme_color VARCHAR(20) DEFAULT 'purple', -- Added for Course.jsx UI
-    thumbnail_url VARCHAR(300), -- Added for Course.jsx UI
+    theme_color VARCHAR(20) DEFAULT 'purple', 
+    thumbnail_url VARCHAR(300), 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(t_id) REFERENCES teachers(id)
 );
@@ -117,8 +140,21 @@ CREATE TABLE modules (
     number INT NOT NULL,
     title VARCHAR(100) NOT NULL,
     status VARCHAR(20) DEFAULT 'active',
+    isVisible TINYINT(1) DEFAULT 1,    -- MIGRATION ADDED
     c_id INT NOT NULL,
     FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+);
+
+CREATE TABLE timetables (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    duration_minutes INT DEFAULT 60,
+    meeting_link VARCHAR(300),
+    status VARCHAR(20) DEFAULT 'scheduled',
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 -- ==========================================
@@ -128,6 +164,7 @@ CREATE TABLE modules (
 CREATE TABLE lessons (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     number DECIMAL(4,2) NOT NULL,
+    title VARCHAR(150) DEFAULT '',     -- MIGRATION ADDED
     type VARCHAR(20) NOT NULL,
     link VARCHAR(300) NOT NULL,
     m_id INT NOT NULL,
@@ -140,8 +177,12 @@ CREATE TABLE resources (
     link VARCHAR(300) NOT NULL,
     number INT NOT NULL,
     m_id INT NOT NULL,
-    FOREIGN KEY(m_id) REFERENCES modules(id)
+    l_id INT,                          -- MIGRATION ADDED
+    FOREIGN KEY(m_id) REFERENCES modules(id),
+    FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
+ALTER TABLE resources ADD COLUMN type VARCHAR(50) DEFAULT 'pdf';
+
 
 CREATE TABLE quizes (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -149,6 +190,8 @@ CREATE TABLE quizes (
     time_limit TIME NOT NULL,
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     m_id INT NOT NULL,
+    publish_at DATETIME DEFAULT NULL,
+    notification_sent BOOLEAN DEFAULT FALSE,
     FOREIGN KEY(m_id) REFERENCES modules(id)
 );
 
@@ -217,7 +260,7 @@ CREATE TABLE reviews (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     description VARCHAR(500) NOT NULL,
-    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0, -- Added for frontend star rating
+    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0, 
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -226,7 +269,7 @@ CREATE TABLE reviews (
 );
 
 -- ==========================================
--- LEVEL 7: STUDENT PROGRESS & TRACKING
+-- LEVEL 7: STATUS & PROGRESS TRACKING
 -- ==========================================
 
 CREATE TABLE enrollments (
@@ -257,13 +300,6 @@ CREATE TABLE teacher_reviews (
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
--- Create a master list of all subjects offered on the platform
-CREATE TABLE subjects (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
-);
-
--- Create the bridge table linking teachers to their subjects
 CREATE TABLE teacher_subjects (
     t_id INT NOT NULL,
     sub_id INT NOT NULL,
@@ -272,25 +308,113 @@ CREATE TABLE teacher_subjects (
     FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
 );
 
--- (Optional) Insert some default subjects to get you started!
-INSERT INTO subjects (name) VALUES 
-('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages');
-
-CREATE TABLE timetables (
+CREATE TABLE admin_escalations (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    c_id INT NOT NULL,
-    title VARCHAR(150) NOT NULL,
-    scheduled_date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    duration_minutes INT DEFAULT 60,
-    meeting_link VARCHAR(300),
-    status VARCHAR(20) DEFAULT 'scheduled', -- 'scheduled', 'completed', 'cancelled'
-    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+    sub_admin_id INT NOT NULL,
+    entity_type VARCHAR(50) NOT NULL, 
+    entity_id INT NOT NULL,           
+    reason TEXT NOT NULL,             
+    status VARCHAR(20) DEFAULT 'pending', 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(sub_admin_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- ==========================================
+-- LEVEL 8: COMMUNICATION & CHAT SYSTEM
+-- ==========================================
 
+CREATE TABLE conversations (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    participant1_id INT NOT NULL,
+    participant2_id INT NOT NULL,
+    last_message_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (participant1_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (participant2_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_chat (participant1_id, participant2_id) 
+);
+
+CREATE TABLE messages (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    conversation_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    body TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 9 AUTOMATED CLEANUP EVENTS
+-- ==========================================
+
+DELIMITER $$
+CREATE EVENT IF NOT EXISTS purge_old_messages
+ON SCHEDULE EVERY 1 DAY
+DO
+  BEGIN
+    DELETE FROM messages WHERE created_at < NOW() - INTERVAL 7 DAY;
+  END$$
+DELIMITER ;
+
+-- ==========================================
+-- LEVEL 10: ASSIGNMENTS
+-- ==========================================
+
+CREATE TABLE assignments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    m_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    attachment_url VARCHAR(300),
+    deadline DATETIME NOT NULL,
+    max_marks DECIMAL(5,2) DEFAULT 100.00,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
+);
+ALTER TABLE assignments ADD COLUMN publish_at DATETIME DEFAULT NULL;
+ALTER TABLE assignments ADD COLUMN notification_sent BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE assignment_submissions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    a_id INT NOT NULL,
+    s_id INT NOT NULL,
+    file_url VARCHAR(300) NOT NULL,
+    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    grade DECIMAL(5,2),
+    feedback TEXT,
+    status VARCHAR(20) DEFAULT 'submitted',
+    FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
+);
+CREATE TABLE assignment_attachments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    a_id INT NOT NULL,
+    file_url VARCHAR(300) NOT NULL,
+    FOREIGN KEY(a_id) REFERENCES assignments(id) ON DELETE CASCADE
+);
 
 -- ==========================================
 -- SEED DATA
 -- ==========================================
 INSERT INTO roles (role_name) VALUES ('admin'), ('teacher'), ('student');
+
+insert into users(name, password,role_id,email,phone_number,address,dob,gender,status,join_date,picture) 
+values('admin','$2b$10$ZemIIkWGaWhDaNFgHiXGyOEmzj2qoHzjNCoWNgNFBha9LfHhTPPJS', '1','admin.user@example.com','077777777','kandy','2000-02-01','male','active','2023-12-03','gfghhjhhhhjhj');
+
+INSERT INTO subjects (name) VALUES 
+('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages'), ('A/L Physics'), ('A/L Chemistry');
+
+insert into admins(user_id, admin_level) values(1, 'super');
+
+
+
+
+
+
+
+
+
+
+
+

@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
+import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -24,13 +25,17 @@ import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
-import VerifyTeacher from './pages/verifyTeacher';
+import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
 import Admin_Settings from './pages/Admin_Settings';
-
+import AssignmentSubmissions from './pages/AssignmentSubmissions';
+import Admin_Team from './pages/Admin_Team';
+import Admin_SystemLogs from './pages/Admin_SystemLogs';
 import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
+import Admin_Communications from './pages/Admin_Communications';
+import Admin_Escalations from './pages/Admin_Escalations';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -60,7 +65,9 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 
 function App() {
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
+  const [userPicture, setUserPicture] = useState(localStorage.getItem('userPicture') || '');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -72,6 +79,11 @@ function App() {
         const safeRole = String(data.userRole || '').toLowerCase().trim();
         setUserRole(safeRole);
         setUserName(data.userName);
+        if (data.adminLevel) setAdminLevel(data.adminLevel);
+        if (data.userPicture) {
+          setUserPicture(data.userPicture);
+          localStorage.setItem('userPicture', data.userPicture);
+        }
       })
       .catch(err => console.log("User is likely not logged in yet."))
       .finally(() => {
@@ -93,22 +105,22 @@ function App() {
     return () => clearInterval(heartbeatInterval);
   }, [userRole]);
 
-  // 🌟 Bulletproof Logout Logic
+  // Logout Logic
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:3000/api/logout', {
         method: 'POST',
         credentials: 'include'
       });
-      
-      // 1. Wipe everything from the browser's memory
-      localStorage.clear(); 
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userPicture');
+      localStorage.removeItem('adminLevel');
+      localStorage.removeItem('verificationStatus');
       setUserRole(null);
       setUserName('');
-
-      // 2. Force the browser to reload at the homepage (Stops the routing loop!)
-      window.location.href = '/'; 
-
+      setUserPicture('');
+      setAdminLevel('super');
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -126,7 +138,10 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
           
-          <Route path="/login" element={<Login setUserRole={setUserRole} setUserName={setUserName} userName={userName} />} />
+          <Route 
+            path="/login" 
+            element={<Login setUserRole={setUserRole} setUserName={setUserName} setUserPicture={setUserPicture} setAdminLevel={setAdminLevel} userName={userName} />} 
+          />
 
           <Route
             path="/register"
@@ -148,18 +163,22 @@ function App() {
             element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
           />
 
-          {/* Protected Route: Admin */}
+          {/* Protected Route: Admin Traffic Cop */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                <Admin userName={userName} onLogout={handleLogout} />
+                adminLevel === 'sub' ? (
+                  <SubAdmin_dashboard userName={userName} onLogout={handleLogout} />
+                ) : (
+                  <Admin userName={userName} onLogout={handleLogout} />
+                )
               ) : (
                 <Navigate to="/" />
               )
             }
           />
-
+          
           <Route
             path="/admin/teachers"
             element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
@@ -201,25 +220,34 @@ function App() {
           />
 
           <Route
+            path="/admin/team"
+            element={userRole === 'admin' ? <Admin_Team userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
             path="/admin/settings"
             element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Proper 3-way logic for the Teacher Route */}
           <Route
-            path="/teacher"
-            element={
-              userRole === 'teacher' ? (
-                verificationStatus === 'approved' ? (
-                  <TeacherDashboard userName={userName} onLogout={handleLogout} />
-                ) : (
-                  <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
-                )
-              ) : (
-                <Navigate to="/" />
-              )
-            }
+            path="/admin/system-logs"
+            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_SystemLogs userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
+          <Route
+            path="/admin/communications"
+            element={userRole === 'admin' ? <Admin_Communications userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/admin/escalations"
+            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Escalations userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Teacher */}
+          <Route path="/teacher" element={
+            (userRole === 'teacher' && verificationStatus === 'approved')
+              ? <TeacherDashboard userName={userName} userPicture={userPicture} onLogout={handleLogout} />
+              : <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+          } />
 
           {/* Protected Route: Student */}
           <Route
@@ -234,33 +262,26 @@ function App() {
           />
 
           {/* Teacher Profile Edit */}
-          <Route
-            path="/teacher-profile-edit/:id?"
-            element={
-              userRole === 'teacher' ? (
-                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} />
-              ) : (
-                <Navigate to="/" />
-              )} 
-          />
-              
-          <Route
-            path="/courses"
-            element={
-              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                <CoursesPage />
-              </MainLayout>
-            }
-          />
-          
-          <Route
-            path="/assessments"
-            element={
-              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                <AssessmentsPage />
-              </MainLayout>
-            }
-          />
+          <Route path="/teacher-profile-edit/:id?" element={
+            (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher')
+              ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} setUserPicture={setUserPicture} />
+              : <Navigate to="/" />
+          } />
+
+          {/* Courses */}
+          <Route path="/courses" element={
+            <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+              <CoursesPage />
+            </MainLayout>
+          } />
+
+          {/* Assessments */}
+          <Route path="/assessments" element={
+            <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+              <AssessmentsPage />
+            </MainLayout>
+          } />
+
         </Routes>
       </div>
     </Router>

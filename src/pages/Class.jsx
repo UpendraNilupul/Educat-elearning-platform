@@ -13,7 +13,8 @@ import {
     AlertCircle,
     CheckCircle,
     ArrowLeft,
-    Sparkles
+    Sparkles,
+    ClipboardList
 } from 'lucide-react';
 
 const TuitionClass = () => {
@@ -32,6 +33,10 @@ const TuitionClass = () => {
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
+    const [activeAssignment, setActiveAssignment] = useState(null);
+    const [submissionFile, setSubmissionFile] = useState(null);
 
     // 🌟 MOCK DATA FOR SUGGESTED CLASSES
     const mockSuggestedClasses = [
@@ -121,6 +126,38 @@ const TuitionClass = () => {
             }
         } catch (error) {
             console.error("Payment error:", error);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleAssignmentSubmit = async (e) => {
+        e.preventDefault();
+        if (!submissionFile || !activeAssignment) return;
+        
+        setIsProcessing(true);
+        try {
+            const userId = localStorage.getItem('userId');
+            const formData = new FormData();
+            formData.append('submission', submissionFile);
+            formData.append('userId', userId);
+            formData.append('type', 'submission');
+
+            const response = await fetch(`http://localhost:3000/api/assignments/${activeAssignment.id}/submit`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                alert("Assignment submitted successfully!");
+                setIsSubmissionModalOpen(false);
+                setSubmissionFile(null);
+                window.location.reload(); // Refresh to show submission status
+            } else {
+                alert("Submission failed.");
+            }
+        } catch (err) {
+            console.error(err);
         } finally {
             setIsProcessing(false);
         }
@@ -396,7 +433,7 @@ const TuitionClass = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                        {['Recordings', 'Live Class', 'Tutes'].map((tab) => (
+                        {['Recordings', 'Live Class', 'Assignments', 'Tutes'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -406,6 +443,7 @@ const TuitionClass = () => {
                             >
                                 {tab === 'Recordings' && <PlayCircle className="w-4 h-4" />}
                                 {tab === 'Live Class' && <Video className="w-4 h-4" />}
+                                {tab === 'Assignments' && <ClipboardList className="w-4 h-4" />}
                                 {tab === 'Tutes' && <FileText className="w-4 h-4" />}
                                 {tab}
                             </button>
@@ -450,7 +488,86 @@ const TuitionClass = () => {
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Join Live Class</h2>
                                 <a href={currentClass.zoomLink} target="_blank" rel="noreferrer" className="px-8 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-md mt-4 hover:bg-blue-700 transition-colors">
                                     Open Zoom Link
-                                </a>
+                                    </a>
+                                </div>
+                        )}
+
+                        {activeTab === 'Assignments' && (
+                            <div className="p-8">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6">Assignments</h2>
+                                {(currentMonthData?.assignments || []).length === 0 ? (
+                                    <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                        <p className="text-gray-500">No assignments for this module.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {currentMonthData.assignments.map(assign => (
+                                            <div key={assign.id} className="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:border-purple-200 transition-all flex flex-col">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <h3 className="text-lg font-bold text-gray-900">{assign.title}</h3>
+                                                    {assign.submission ? (
+                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full uppercase flex items-center gap-1">
+                                                            <CheckCircle size={10} /> {assign.submission.status}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full uppercase flex items-center gap-1">
+                                                            <Clock size={10} /> Pending
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{assign.description}</p>
+                                                
+                                                {/* Teacher Attachments */}
+                                                {(assign.attachments || []).length > 0 && (
+                                                    <div className="mb-4 space-y-2">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Attachments</p>
+                                                        {assign.attachments.map(att => (
+                                                            <a 
+                                                                key={att.id} 
+                                                                href={att.file_url} 
+                                                                target="_blank" 
+                                                                rel="noreferrer"
+                                                                className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100 hover:border-purple-200 transition-colors group"
+                                                            >
+                                                                <Download size={12} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-medium text-gray-600 truncate">
+                                                                    {att.file_url.split('/').pop()}
+                                                                </span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                
+                                                <div className="mt-auto space-y-4">
+                                                    <div className="flex justify-between text-[11px] font-bold text-gray-400">
+                                                        <span>Due: {new Date(assign.deadline).toLocaleDateString()}</span>
+                                                        <span>{assign.max_marks} Marks</span>
+                                                    </div>
+                                                    
+                                                    {assign.submission?.status === 'graded' ? (
+                                                        <div className="bg-purple-100 p-4 rounded-xl border border-purple-200">
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-xs font-bold text-purple-700">Grade</span>
+                                                                <span className="text-lg font-black text-purple-900">{assign.submission.grade}/{assign.max_marks}</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-purple-600 italic">"{assign.submission.feedback}"</p>
+                                                        </div>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => { setActiveAssignment(assign); setIsSubmissionModalOpen(true); }}
+                                                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
+                                                                assign.submission ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-brand-purple text-white hover:bg-purple-700 shadow-md'
+                                                            }`}
+                                                        >
+                                                            {assign.submission ? 'Resubmit Assignment' : 'Submit Assignment'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -510,6 +627,45 @@ const TuitionClass = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Submission Modal */}
+            {isSubmissionModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-300">
+                        <button onClick={() => setIsSubmissionModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Submit Assignment</h2>
+                        <p className="text-gray-500 mb-6 text-sm font-medium">{activeAssignment?.title}</p>
+                        
+                        <form onSubmit={handleAssignmentSubmit} className="space-y-6">
+                            <div className="border-2 border-dashed border-purple-100 rounded-2xl p-10 text-center bg-purple-50/50 hover:bg-purple-50 transition-colors cursor-pointer group relative">
+                                <input 
+                                    type="file" 
+                                    onChange={(e) => setSubmissionFile(e.target.files[0])}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    required
+                                />
+                                <div className="flex flex-col items-center">
+                                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-brand-purple group-hover:scale-110 transition-transform">
+                                        <Download size={24} />
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-700">{submissionFile ? submissionFile.name : "Choose or drag file"}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-widest">PDF, DOCX or ZIP preferred</p>
+                                </div>
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                disabled={isProcessing}
+                                className="w-full py-4 bg-brand-purple text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                            >
+                                {isProcessing ? "Uploading..." : "Click to Submit"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

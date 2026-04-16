@@ -36,6 +36,8 @@ const VerifyTeacher = () => {
     }
   }, [userId]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleUpload = async (e) => {
     e.preventDefault();
     
@@ -44,16 +46,29 @@ const VerifyTeacher = () => {
       return;
     }
 
+    setIsSubmitting(true);
     const formData = new FormData();
     if (files.nic) formData.append('nic', files.nic);
     if (files.cv) formData.append('cv', files.cv);
 
+    // Safeguard: Check if userId is actually a value
+    if (!userId || userId === "null" || userId === "undefined") {
+        alert("System Error: No User ID found. Please try logging in again.");
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
-      await axios.post(`http://localhost:3000/api/upload-docs/${userId}`, formData);
+      const response = await axios.post(`http://localhost:3000/api/upload-docs/${userId}`, formData);
+      console.log("Upload Success:", response.data);
       alert(submittedDocs ? "Documents updated successfully!" : "Submission successful! Please wait for admin approval.");
       navigate('/login');
     } catch (err) {
-      alert("Upload failed. Please try again.");
+      console.error("Upload Detailed Error:", err);
+      const errorMsg = err.response?.data?.error || err.message || "Unknown error";
+      alert("Upload failed: " + errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -61,33 +76,38 @@ const VerifyTeacher = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-10 px-4 relative">
       <form onSubmit={handleUpload} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md z-10">
         <h2 className="text-2xl font-bold mb-4">Teacher Verification</h2>
-        <p className="text-gray-500 mb-6">Upload your NIC and CV to complete your application.</p>
+        <p className="text-gray-500 mb-6">Upload your NIC and CV (Photo or PDF) to complete your application.</p>
         
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">NIC Photo (Front)</label>
+          <label className="block text-sm font-medium mb-1">NIC (Photo or PDF)</label>
           {submittedDocs?.nic && (
             <p className="text-sm text-green-600 mb-2 font-medium">
               ✓ Document previously submitted
             </p>
           )}
-          <input type="file" onChange={(e) => setFiles({...files, nic: e.target.files[0]})} required={!submittedDocs?.nic} className="w-full border p-2 rounded" />
+          <input type="file" onChange={(e) => setFiles({...files, nic: e.target.files[0]})} required={!submittedDocs?.nic} className="w-full border p-2 rounded" accept="image/*,application/pdf" />
         </div>
         
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-1">Teacher CV (PDF)</label>
+          <label className="block text-sm font-medium mb-1">Teacher CV (Photo or PDF)</label>
           {submittedDocs?.cv && (
             <p className="text-sm text-green-600 mb-2 font-medium">
               ✓ Document previously submitted
             </p>
           )}
-          <input type="file" onChange={(e) => setFiles({...files, cv: e.target.files[0]})} required={!submittedDocs?.cv} className="w-full border p-2 rounded" />
+          <input type="file" onChange={(e) => setFiles({...files, cv: e.target.files[0]})} required={!submittedDocs?.cv} className="w-full border p-2 rounded" accept="image/*,application/pdf" />
         </div>
 
         <button
           type="submit"
-          className="w-full bg-orange-600 hover:bg-orange-700 transition-colors text-white py-3 rounded-xl font-bold cursor-pointer"
+          disabled={isSubmitting}
+          className={`w-full transition-colors text-white py-3 rounded-xl font-bold ${
+            isSubmitting 
+            ? 'bg-orange-300 cursor-not-allowed' 
+            : 'bg-orange-600 hover:bg-orange-700 cursor-pointer'
+          }`}
         >
-          {submittedDocs ? 'Update Documents' : 'Submit Documents'}
+          {isSubmitting ? 'Uploading Documents...' : (submittedDocs ? 'Update Documents' : 'Submit Documents')}
         </button>
       </form>
 

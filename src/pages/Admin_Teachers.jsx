@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, FileText, CheckCircle, Clock, X, Send 
+    Mail, Eye, FileText, CheckCircle, Clock, X, Send ,Download
 } from 'lucide-react';
 
 const Admin_Teachers = ({ userName, onLogout }) => {
     const navigate = useNavigate();
-    const adminId = localStorage.getItem('userId'); // 🌟 Get Admin's ID for the chat
+    const adminId = localStorage.getItem('userId');
     
     // Data States
     const [teachers, setTeachers] = useState([]);
@@ -22,7 +22,7 @@ const Admin_Teachers = ({ userName, onLogout }) => {
     // UI States
     const [openMenuId, setOpenMenuId] = useState(null);
 
-    // 🌟 NEW: Chat Panel States
+    // Chat Panel States
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatUser, setChatUser] = useState(null);
     const [chatMessage, setChatMessage] = useState('');
@@ -62,7 +62,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
 
     const toggleMenu = (id) => setOpenMenuId(openMenuId === id ? null : id);
 
-    // 🌟 NEW: Handle Sending the Chat Message
     const handleSendMessage = async () => {
         if (!chatMessage.trim()) return;
         setIsSending(true);
@@ -94,6 +93,11 @@ const Admin_Teachers = ({ userName, onLogout }) => {
         }
     };
 
+    // 🌟 NEW: Trigger CSV Download
+    const handleExportCSV = () => {
+        window.open('http://localhost:3000/api/admin/export/teachers', '_blank');
+    };
+
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
             {/* Header Area */}
@@ -111,7 +115,7 @@ const Admin_Teachers = ({ userName, onLogout }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
                 <div className="flex-1 min-w-[250px] relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="text" placeholder="Search by name, email, or phone..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59] text-sm transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    <input type="text" placeholder="Search by code, name, email, or phone..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:border-[#4a0b59] text-sm transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -131,8 +135,18 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                         {subjectsList.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
                     </select>
                 </div>
-            </div>
 
+                {/* 🌟 NEW: The Export Button */}
+                <div className="pl-4 border-l border-gray-100">
+                    <button 
+                        onClick={handleExportCSV}
+                        className="px-4 py-2.5 bg-green-50 text-green-700 font-bold text-sm rounded-xl hover:bg-green-100 transition-colors flex items-center border border-green-200"
+                    >
+                        <Download size={16} className="mr-2" /> Export to CSV
+                    </button>
+                </div>
+            </div>
+            
             {/* Data Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible min-h-[400px] mb-12">
                 <div className="overflow-visible w-full">
@@ -161,7 +175,11 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                                     {teacher.picture ? <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className="w-full h-full rounded-full object-cover" /> : teacher.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-gray-900">{teacher.name}</p>
+                                                    {/* 🌟 FIX: Displays [CODE] Name */}
+                                                    <p className="text-sm font-bold text-gray-900">
+                                                        <span className="text-[#4a0b59] mr-1">[{teacher.user_code || 'N/A'}]</span>
+                                                        {teacher.name}
+                                                    </p>
                                                     <p className="text-xs text-gray-500">{teacher.email}</p>
                                                 </div>
                                             </div>
@@ -187,7 +205,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                                     
                                                     <Link to={`/admin/review-teacher/${teacher.teacher_id}`} className="w-full flex items-center px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors"><FileText size={16} className="mr-2" /> Review Application</Link>
 
-                                                    {/* 🌟 THE FIX: The Message Button now opens the sliding chat drawer! */}
                                                     <button 
                                                         onClick={() => {
                                                             setChatUser({ id: teacher.user_id, name: teacher.name, picture: teacher.picture });
@@ -198,9 +215,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                                     >
                                                         <Mail size={16} className="mr-2" /> Message
                                                     </button>
-
-                                                    <div className="my-1 border-t border-gray-100"></div>
-                                                    <button className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><ShieldAlert size={16} className="mr-2" /> Suspend Account</button>
                                                 </div>
                                             )}
                                         </td>
@@ -212,19 +226,12 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                 </div>
             </div>
 
-            {/* 🌟 NEW: The Slide-Out Chat Drawer */}
-            {/* Background Overlay */}
+            {/* Slide-Out Chat Drawer */}
             {isChatOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/20 z-40 transition-opacity" 
-                    onClick={() => setIsChatOpen(false)}
-                ></div>
+                <div className="fixed inset-0 bg-black/20 z-40 transition-opacity" onClick={() => setIsChatOpen(false)}></div>
             )}
             
-            {/* Sliding Panel */}
             <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isChatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                
-                {/* Chat Header */}
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0 overflow-hidden">
@@ -240,7 +247,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                     </button>
                 </div>
 
-                {/* Chat Instructions */}
                 <div className="flex-1 p-6 bg-white overflow-y-auto">
                     <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-xl text-sm mb-4">
                         <p className="font-bold mb-1 flex items-center"><Clock size={16} className="mr-1.5"/> Auto-Delete Enabled</p>
@@ -249,7 +255,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                     <p className="text-gray-400 text-sm text-center mt-10">Start a new secure conversation with {chatUser?.name}...</p>
                 </div>
 
-                {/* Chat Input Area */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50">
                     <textarea 
                         className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
@@ -268,7 +273,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>
     );
