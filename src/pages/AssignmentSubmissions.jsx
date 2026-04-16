@@ -131,7 +131,8 @@ const AssignmentSubmissions = () => {
                                 </div>
                                 <div className="mt-4 flex items-center justify-between border-t border-gray-50 pt-4">
                                     <a 
-                                        href={`${baseURL}${sub.file_url}`} 
+                                        // 🌟 THE FIX: Safely handle Cloudinary URLs or Local Files
+                                        href={sub.file_url?.startsWith('http') ? sub.file_url : `${baseURL}${sub.file_url}`} 
                                         target="_blank" 
                                         rel="noreferrer"
                                         onClick={(e) => e.stopPropagation()}

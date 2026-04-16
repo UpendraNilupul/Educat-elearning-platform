@@ -500,17 +500,38 @@ const TuitionClass = () => {
                                                 </div>
                                                 <p className="text-xs text-gray-500 mb-4 line-clamp-2">{assign.description}</p>
                                                 
+                                                {/* Teacher Attachments */}
+                                                {(assign.attachments || []).length > 0 && (
+                                                    <div className="mb-4 space-y-2">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Attachments</p>
+                                                        {assign.attachments.map(att => (
+                                                            <a 
+                                                                key={att.id} 
+                                                                href={att.file_url} 
+                                                                target="_blank" 
+                                                                rel="noreferrer"
+                                                                className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100 hover:border-purple-200 transition-colors group"
+                                                            >
+                                                                <Download size={12} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-medium text-gray-600 truncate">
+                                                                    {att.file_url.split('/').pop()}
+                                                                </span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                
                                                 <div className="mt-auto space-y-4">
                                                     <div className="flex justify-between text-[11px] font-bold text-gray-400">
                                                         <span>Due: {new Date(assign.deadline).toLocaleDateString()}</span>
-                                                        <span>{assign.maxMarks} Marks</span>
+                                                        <span>{assign.max_marks} Marks</span>
                                                     </div>
                                                     
                                                     {assign.submission?.status === 'graded' ? (
                                                         <div className="bg-purple-100 p-4 rounded-xl border border-purple-200">
                                                             <div className="flex justify-between items-center mb-1">
                                                                 <span className="text-xs font-bold text-purple-700">Grade</span>
-                                                                <span className="text-lg font-black text-purple-900">{assign.submission.grade}/{assign.maxMarks}</span>
+                                                                <span className="text-lg font-black text-purple-900">{assign.submission.grade}/{assign.max_marks}</span>
                                                             </div>
                                                             <p className="text-[11px] text-purple-600 italic">"{assign.submission.feedback}"</p>
                                                         </div>

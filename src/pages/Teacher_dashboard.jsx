@@ -10,12 +10,23 @@ import TeacherChat from "./Teacher_Chat";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
-const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
+const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) => {
   const navigate = useNavigate();
   const teacherId = parseInt(localStorage.getItem('userId'));
 
   const [activeTab, setActiveTab] = useState("Overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
+  const navItems = [
+    { name: "Overview", icon: LayoutDashboard },
+    { name: "Course Management", icon: BookOpen },
+    { name: "Assessments", icon: FileText },
+    { name: "Certification", icon: Award },
+    { name: "Marketing", icon: Megaphone },
+    { name: "Virtual Classroom", icon: Video },
+  ];
+
   const [courses, setCourses] = useState([]);
 
   // Fetch Courses
@@ -104,9 +115,17 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         {/* User / Logout */}
         <div className="p-5 border-t bg-gray-50 rounded-tl-xl rounded-tr-xl mt-auto">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center font-bold text-[#4a0b59] text-lg shrink-0">
-              {userName[0]}
-            </div>
+            {userPicture ? (
+              <img
+                src={userPicture.startsWith('http') ? userPicture : `http://localhost:3000/uploads/profiles/${userPicture}`}
+                alt="Profile"
+                className="w-10 h-10 rounded-full object-cover border-2 border-purple-100 shadow-sm"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center font-bold text-purple-700 text-lg shrink-0">
+                {userName[0]}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold truncate">{userName}</p>
@@ -123,22 +142,111 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
         </div>
       </aside>
 
-      {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
-        <header className="hidden lg:flex h-20 items-center justify-end px-10 shrink-0 z-10 w-full pt-4">
-            <button className="relative p-2.5 text-gray-400 hover:text-[#4a0b59] bg-white border border-gray-200 shadow-sm rounded-full transition-all hover:shadow-md">
-              <Bell size={22} />
-              <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-        </header>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 mt-16 lg:mt-0">
+        
+        {activeTab === "Assessments" && (
+          <div className="animate-in fade-in duration-500">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">Assessments</h1>
+              <p className="text-gray-500 mt-2">Manage assignments and quizzes across your courses.</p>
+            </div>
 
-        {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:px-10 lg:pb-10 lg:pt-2 flex flex-col gap-8 mt-16 lg:mt-0">
-          {activeTab === "Overview" && (
-            <div className="animate-in fade-in duration-500 flex flex-col gap-8">
-              <div className="mt-2 lg:mt-0">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 leading-snug">Welcome back, {userName} 👋</h1>
-              <p className="text-gray-500 mt-2 text-base lg:text-lg max-w-2xl">Manage courses, students, and live classes from your dashboard.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {courses.filter(course => {
+                let hasAssessment = false;
+                course.chapters?.forEach(ch => {
+                  if ((ch.assignments?.length > 0) || (ch.quizzes?.length > 0)) {
+                    hasAssessment = true;
+                  }
+                });
+                return hasAssessment;
+              }).map(course => {
+                let assignCount = 0;
+                let quizCount = 0;
+                course.chapters?.forEach(ch => {
+                  assignCount += (ch.assignments?.length || 0);
+                  quizCount += (ch.quizzes?.length || 0);
+                });
+
+                return (
+                  <div key={course.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex flex-col group">
+                    <div className="mb-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors uppercase tracking-tight">{course.title}</h3>
+                        <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">COURSE ID: {course.id}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 font-medium">{course.name}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                       <div className="bg-purple-50 p-3 rounded-xl border border-purple-100/50">
+                          <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Assignments</p>
+                          <div className="flex items-center gap-2">
+                            <FileText size={16} className="text-purple-600" />
+                            <span className="text-lg font-black text-purple-900">{assignCount}</span>
+                          </div>
+                       </div>
+                       <div className="bg-blue-50 p-3 rounded-xl border border-blue-100/50">
+                          <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Quizzes</p>
+                          <div className="flex items-center gap-2">
+                            <Award size={16} className="text-blue-600" />
+                            <span className="text-lg font-black text-blue-900">{quizCount}</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setSelectedCourse(course);
+                        setActiveTab("Course Management");
+                      }}
+                      className="mt-auto w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md group-hover:translate-x-1"
+                    >
+                      Manage Assessments
+                    </button>
+                  </div>
+                );
+              })}
+
+              {courses.filter(course => {
+                let hasAssessment = false;
+                course.chapters?.forEach(ch => {
+                  if ((ch.assignments?.length > 0) || (ch.quizzes?.length > 0)) hasAssessment = true;
+                });
+                return hasAssessment;
+              }).length === 0 && (
+                <div className="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-center px-6">
+                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="text-gray-300 w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">No Assessments Found</h3>
+                  <p className="text-xs text-gray-500 max-w-xs">You haven't created any assignments or quizzes yet. Go to Course Management to get started.</p>
+                  <button 
+                    onClick={() => {
+                      setSelectedCourse(null);
+                      setActiveTab("Course Management");
+                    }}
+                    className="mt-6 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md"
+                  >
+                    Go to Course Management
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Overview" && (
+          <div className="animate-in fade-in duration-500 flex flex-col gap-8">
+            {/* Welcome Section */}
+            <div className="mt-4">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 leading-snug">
+                Welcome back, {userName} 👋
+              </h1>
+              <p className="text-gray-500 mt-2 text-base lg:text-lg max-w-2xl">
+                Manage courses, students, and live classes from your dashboard.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
@@ -207,11 +315,17 @@ const TeacherDashboard = ({ userName = "Teacher", onLogout }) => {
           </div>
         )}
         
-        {activeTab === "Course Management" && <TeachersCourse courses={courses} setCourses={setCourses} />}
+        {activeTab === "Course Management" && (
+          <TeachersCourse 
+            courses={courses} 
+            setCourses={setCourses} 
+            selectedCourse={selectedCourse} 
+            setSelectedCourse={setSelectedCourse} 
+          />
+        )}
+        
         {activeTab === "Messages" && <TeacherChat />}
-        </main>
-      </div>
-
+      </main>
     </div>
   );
 };

@@ -1,30 +1,11 @@
 import express from 'express';
 import db from '../db.js'; // MySQL connection
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { profileStorage } from '../cloudinaryConfig.js';
 
 const router = express.Router();
 
-// 🌟 THE NEW TEAMMATE: ENHANCED DIRECTORY LOGIC
-const verificationUploadDir = path.join(process.cwd(), 'uploads', 'verification');
-
-// Ensure the folder exists to prevent crashes
-if (!fs.existsSync(verificationUploadDir)) {
-  fs.mkdirSync(verificationUploadDir, { recursive: true });
-}
-
-// Configure multer for image uploads (Now going to uploads/verification/)
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, verificationUploadDir);
-  },
-  filename: function (req, file, cb) {
-    // userId is in req.params.id for this PUT route
-    cb(null, `profile-${req.params.id}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-const upload = multer({ storage: storage });
+const upload = multer({ storage: profileStorage });
 
 // ==========================
 // GET teacher info (current data)
@@ -107,7 +88,7 @@ router.put('/:id', upload.single('picture'), (req, res) => {
 
       if (req.file) {
         userQuery += ', picture = ?';
-        userParams.push(req.file.filename);
+        userParams.push(req.file.path); // Cloudinary URL
       }
 
       userQuery += ' WHERE id = ?';
@@ -155,7 +136,10 @@ router.put('/:id', upload.single('picture'), (req, res) => {
               });
             }
             connection.release();
-            res.json({ message: 'Profile updated successfully' });
+            res.json({ 
+              message: 'Profile updated successfully',
+              pictureUrl: req.file ? req.file.path : null 
+            });
           });
         });
       });

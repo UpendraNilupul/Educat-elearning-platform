@@ -4,8 +4,8 @@ import { Eye, EyeOff } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import the unified API instance
 import '../styles/login.css';
 
-// 🌟 ADDED setUserName HERE
-const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
+// 🌟 ADDED setUserName AND setUserPicture HERE
+const Login = ({ setUserRole, setUserName, setUserPicture, setAdminLevel }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -36,10 +36,12 @@ const Login = ({ setUserRole, setUserName, setAdminLevel }) => {
             localStorage.setItem('userId', data.userId);
             localStorage.setItem('userRole', safeRole);
             localStorage.setItem('verificationStatus', data.verificationStatus || '');
+            localStorage.setItem('userPicture', data.userPicture || ''); // 🌟 MERGED from Dev
 
             if (setUserRole) setUserRole(safeRole);
             if (setUserName) setUserName(data.userName);
             if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
+            if (setUserPicture) setUserPicture(data.userPicture || ''); // 🌟 MERGED from Dev
 
             // 🔥 Redirect logic using safeRole
             if (safeRole === 'admin') {

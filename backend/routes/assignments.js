@@ -1,47 +1,37 @@
 import express from 'express';
 import db from '../db.js';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import path from 'path'; // Required for the file filter
+import { assignmentStorage, submissionStorage } from '../cloudinaryConfig.js';
 import util from 'util';
-import { requireAuth, requireRole } from '../middleware/auth.js'; // 🌟 THE FIX: Auth Gatekeepers
+import { requireAuth, requireRole } from '../middleware/auth.js'; // 🌟 Auth Gatekeepers
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-// --- MULTER CONFIGURATION ---
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const type = req.query.type === 'submission' ? 'submissions' : 'assignments';
-        const dir = path.join(process.cwd(), 'uploads', type);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const prefix = req.query.type === 'submission' ? 'sub' : 'assign';
-        cb(null, `${prefix}-${Date.now()}-${file.originalname}`);
+// 🌟 COMBINED FIX: Strict File Filter to prevent RCE vulnerabilities
+const fileFilter = (req, file, cb) => {
+    const filetypes = /pdf|doc|docx|zip|rar|jpeg|jpg|png/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb(new Error('SECURITY BLOCKED: Only PDFs, Word Docs, ZIPs, and Images are allowed!'));
     }
-});
+};
 
-// 🌟 THE FIX: Strict File Filter to prevent RCE vulnerabilities
-const upload = multer({ 
-    storage: storage,
-    fileFilter: (req, file, cb) => {
-        const filetypes = /pdf|doc|docx|zip|rar|jpeg|jpg|png/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
+const limits = { fileSize: 15 * 1024 * 1024 }; // Limit files to 15MB
 
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('SECURITY BLOCKED: Only PDFs, Word Docs, ZIPs, and Images are allowed!'));
-        }
-    },
-    limits: { fileSize: 15 * 1024 * 1024 } // Limit files to 15MB to prevent storage exhaustion
-});
+// 🌟 COMBINED FIX: Use Cloudinary storage with our security limits
+const assignmentUpload = multer({ storage: assignmentStorage, fileFilter, limits });
+const submissionUpload = multer({ storage: submissionStorage, fileFilter, limits });
+
 
 // --- TEACHER: CREATE ASSIGNMENT ---
-router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), upload.array('attachments'), async (req, res) => {
+// 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
+router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assignmentUpload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
     
@@ -54,27 +44,95 @@ router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), uplo
         );
         const aId = result.insertId;
 
+        const insertedAttachments = [];
         if (req.files && req.files.length > 0) {
             for (let file of req.files) {
-                const file_url = `/uploads/assignments/${file.filename}`;
-                await query(
+                const file_url = file.path; // Cloudinary URL
+                const attResult = await query(
                     'INSERT INTO assignment_attachments (a_id, file_url) VALUES (?, ?)',
                     [aId, file_url]
                 );
+                insertedAttachments.push({ id: attResult.insertId, file_url });
             }
         }
 
-        res.status(201).json({ id: aId, message: 'Assignment created successfully' });
+        res.status(201).json({ 
+            id: aId, 
+            m_id: mId,
+            title,
+            description,
+            deadline,
+            max_marks: max_marks || 100.00,
+            publish_at: publishAtValue,
+            attachments: insertedAttachments,
+            message: 'Assignment created successfully'
+        });
     } catch (err) {
         console.error('Error creating assignment:', err);
         res.status(500).json({ error: 'Failed to create assignment' });
     }
 });
 
+// --- TEACHER: UPDATE ASSIGNMENT ---
+router.put('/assignments/:id', assignmentUpload.array('attachments'), async (req, res) => {
+    const { id } = req.params;
+    const { title, description, deadline, max_marks, publish_at } = req.body;
+    const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
+
+    try {
+        await query(
+            'UPDATE assignments SET title = ?, description = ?, deadline = ?, max_marks = ?, publish_at = ? WHERE id = ?',
+            [title, description, deadline, max_marks, publishAtValue, id]
+        );
+
+        const newAttachments = [];
+        if (req.files && req.files.length > 0) {
+            for (let file of req.files) {
+                const file_url = file.path;
+                const attResult = await query(
+                    'INSERT INTO assignment_attachments (a_id, file_url) VALUES (?, ?)',
+                    [id, file_url]
+                );
+                newAttachments.push({ id: attResult.insertId, file_url });
+            }
+        }
+
+        res.json({ message: 'Assignment updated successfully', newAttachments });
+    } catch (err) {
+        console.error('Error updating assignment:', err);
+        res.status(500).json({ error: 'Failed to update assignment' });
+    }
+});
+
+// --- TEACHER: DELETE ASSIGNMENT ---
+router.delete('/assignments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Cascading delete handles attachments and submissions if FK is set up correctly
+        await query('DELETE FROM assignments WHERE id = ?', [id]);
+        res.json({ message: 'Assignment deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting assignment:', err);
+        res.status(500).json({ error: 'Failed to delete assignment' });
+    }
+});
+
+// --- TEACHER: REMOVE SINGLE ATTACHMENT ---
+router.delete('/attachments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [id]);
+        res.json({ message: 'Attachment removed successfully' });
+    } catch (err) {
+        console.error('Error removing attachment:', err);
+        res.status(500).json({ error: 'Failed to remove attachment' });
+    }
+});
+
 // --- TEACHER & STUDENT: GET ASSIGNMENTS FOR MODULE ---
 router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
     const { mId } = req.params;
-    const userId = req.session.userId; // 🌟 THE FIX: Securely extract from session, not query params
+    const userId = req.session.userId; 
 
     try {
         const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mId]);
@@ -90,14 +148,15 @@ router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
                     );
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
                     
-                    const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
-                    assign.attachments = attachments.map(att => att.file_url);
+                    // 🌟 COMBINED FIX: Map attachments correctly with IDs for the frontend
+                    const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                    assign.attachments = attachments;
                 }
             }
         } else {
             for (let assign of assignments) {
-                const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
-                assign.attachments = attachments.map(att => att.file_url);
+                const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
+                assign.attachments = attachments; // Array of objects {id, file_url}
             }
         }
 
@@ -116,8 +175,8 @@ router.get('/assignments/:id', requireAuth, async (req, res) => {
         if (assignments.length === 0) return res.status(404).json({ error: 'Assignment not found' });
         
         const assign = assignments[0];
-        const attachments = await query('SELECT file_url FROM assignment_attachments WHERE a_id = ?', [id]);
-        assign.attachments = attachments.map(att => att.file_url);
+        const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [id]);
+        assign.attachments = attachments;
         
         res.json(assign);
     } catch (err) {
@@ -127,9 +186,10 @@ router.get('/assignments/:id', requireAuth, async (req, res) => {
 });
 
 // --- STUDENT: SUBMIT ASSIGNMENT ---
-router.post('/assignments/:aId/submit', requireRole(['student']), upload.single('submission'), async (req, res) => {
+// 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
+router.post('/assignments/:aId/submit', requireRole(['student']), submissionUpload.single('submission'), async (req, res) => {
     const { aId } = req.params;
-    const userId = req.session.userId; // 🌟 THE FIX: Get ID strictly from cookie to prevent IDOR
+    const userId = req.session.userId; 
 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -138,8 +198,9 @@ router.post('/assignments/:aId/submit', requireRole(['student']), upload.single(
         if (studentRes.length === 0) return res.status(404).json({ error: 'Student profile not found' });
         const sId = studentRes[0].id;
 
-        const file_url = `/uploads/submissions/${req.file.filename}`;
+        const file_url = req.file.path; // Cloudinary URL
 
+        // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
         
         if (existing.length > 0) {

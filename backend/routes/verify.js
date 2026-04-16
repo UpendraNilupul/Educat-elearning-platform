@@ -1,99 +1,103 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { verificationStorage } from '../cloudinaryConfig.js';
 import db from '../db.js';
 import fs from 'fs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const router = express.Router();
 
-// 1. Configure storage to save in uploads/verification/
-const verificationUploadDir = path.join(process.cwd(), 'uploads', 'verification');
-
-// Automatically create the folder if it doesn't already exist to prevent crashes
-if (!fs.existsSync(verificationUploadDir)) {
-  fs.mkdirSync(verificationUploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, verificationUploadDir);
-  },
-  filename: (req, file, cb) => {
-    // Format: userId-fieldname-timestamp.extension
-    cb(null, `${req.params.userId}-${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-
-const upload = multer({ storage });
+const upload = multer({ storage: verificationStorage });
 
 // 2. Multi-file upload endpoint
-router.post('/upload-docs/:userId', upload.fields([
-  { name: 'nic', maxCount: 1 },
-  { name: 'cv', maxCount: 1 }
-]), (req, res) => {
-  try {
-    const { userId } = req.params;
+router.post('/upload-docs/:userId', (req, res) => {
+  upload.fields([
+    { name: 'nic', maxCount: 1 },
+    { name: 'cv', maxCount: 1 }
+  ])(req, res, (err) => {
+    if (err) {
+      console.error("Multer/Cloudinary Error:", err);
+      return res.status(400).json({ error: "Upload error: " + err.message });
+    }
 
-    const nicFile = req.files?.nic ? req.files.nic[0].filename : null;
-    const cvFile = req.files?.cv ? req.files.cv[0].filename : null;
-
-    // STEP 1: Check if teacher exists
-    const checkSql = "SELECT * FROM teachers WHERE user_id = ?";
-
-    db.query(checkSql, [userId], (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
-
-      if (result.length === 0) {
-        if (!nicFile || !cvFile) {
-          return res.status(400).json({ error: "Both NIC and CV are required for first-time submission" });
-        }
-        // ✅ INSERT (FIRST TIME)
-        // Set to 'pending' so it appears correctly in the Admin Dashboard
-        const insertSql = `
-          INSERT INTO teachers 
-          (user_id, resume_link, nic_path, verification_status)
-          VALUES (?, ?, ?, 'pending')
-        `;
-
-        db.query(insertSql, [userId, cvFile, nicFile], (err2) => {
-          if (err2) return res.status(500).json({ error: err2.message });
-
-          res.json({ message: "Documents submitted successfully." });
-        });
-
-      } else {
-        // ✅ UPDATE (IF EXISTS)
-        // Set to 'pending' so it appears correctly in the Admin Dashboard
-        let updateSql = "UPDATE teachers SET verification_status = 'pending'";
-        const queryParams = [];
-
-        if (cvFile) {
-          updateSql += ", resume_link = ?";
-          queryParams.push(cvFile);
-        }
-        if (nicFile) {
-          updateSql += ", nic_path = ?";
-          queryParams.push(nicFile);
-        }
-
-        updateSql += " WHERE user_id = ?";
-        queryParams.push(userId);
-
-        db.query(updateSql, queryParams, (err2) => {
-          if (err2) return res.status(500).json({ error: err2.message });
-
-          res.json({ message: "Documents updated successfully." });
-        });
+    try {
+      const { userId } = req.params;
+      
+      if (!userId || userId === "null") {
+          return res.status(400).json({ error: "Invalid User ID provided" });
       }
-    });
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
-  }
+      const nicFile = req.files?.nic ? req.files.nic[0].path : null;
+      const cvFile = req.files?.cv ? req.files.cv[0].path : null;
+
+      console.log(`Processing upload for User ID: ${userId}`);
+      console.log("NIC File Path:", nicFile);
+      console.log("CV File Path:", cvFile);
+
+      // STEP 1: Check if teacher exists
+      const checkSql = "SELECT * FROM teachers WHERE user_id = ?";
+
+      db.query(checkSql, [userId], (err, result) => {
+        if (err) {
+          console.error("Database Check Error:", err);
+          return res.status(500).json({ error: "Database error during check: " + err.message });
+        }
+
+        if (result.length === 0) {
+          if (!nicFile || !cvFile) {
+            return res.status(400).json({ error: "Both NIC and CV are required for first-time submission" });
+          }
+          // ✅ INSERT (FIRST TIME)
+          const insertSql = `
+            INSERT INTO teachers 
+            (user_id, resume_link, nic_path, verification_status)
+            VALUES (?, ?, ?, 'submitted')
+          `;
+
+          db.query(insertSql, [userId, cvFile, nicFile], (err2) => {
+            if (err2) {
+              console.error("Database Insert Error:", err2);
+              return res.status(500).json({ error: "Database error during insert: " + err2.message });
+            }
+
+            console.log("Teacher verification documents inserted successfully.");
+            res.json({ message: "Documents submitted successfully." });
+          });
+
+        } else {
+          // ✅ UPDATE (IF EXISTS)
+          let updateSql = "UPDATE teachers SET verification_status = 'submitted'";
+          const queryParams = [];
+
+          if (cvFile) {
+            updateSql += ", resume_link = ?";
+            queryParams.push(cvFile);
+          }
+          if (nicFile) {
+            updateSql += ", nic_path = ?";
+            queryParams.push(nicFile);
+          }
+
+          updateSql += " WHERE user_id = ?";
+          queryParams.push(userId);
+
+          db.query(updateSql, queryParams, (err2) => {
+            if (err2) {
+              console.error("Database Update Error:", err2);
+              return res.status(500).json({ error: "Database error during update: " + err2.message });
+            }
+
+            console.log("Teacher verification documents updated successfully.");
+            res.json({ message: "Documents updated successfully." });
+          });
+        }
+      });
+
+    } catch (error) {
+      console.error("Unexpected Server Error:", error);
+      res.status(500).json({ error: "Server error: " + error.message });
+    }
+  });
 });
 
 // 3. Get Notifications endpoint for retrieving admin messages
