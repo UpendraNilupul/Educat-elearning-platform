@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Search, 
@@ -10,16 +10,20 @@ import {
     MoreVertical,
     CheckCircle
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Imported API ready for backend connection!
 
 const CoursesPage = () => {
+    const navigate = useNavigate();
+    
+    // UI States
     const [showFilter, setShowFilter] = useState(false);
     const [filterStatus, setFilterStatus] = useState('All');
     const [activeTab, setActiveTab] = useState('In Progress');
     const [searchTerm, setSearchTerm] = useState('');
-    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
 
-    // Sample data - eventually, this will be fetched from your backend
-    const courses = [
+    // 🌟 THE FIX: Moved courses to State so it can be updated by the backend
+    const [courses, setCourses] = useState([
         {
             id: 1,
             title: 'Full Stack Web Development',
@@ -72,19 +76,43 @@ const CoursesPage = () => {
             color: 'orange',
             thumbnail: 'bg-gradient-to-br from-orange-400 to-red-500'
         }
-    ];
+    ]);
+
+    // 🌟 THE FIX: Built the API connector for when your backend is ready
+    useEffect(() => {
+        const fetchMyCourses = async () => {
+            // setLoading(true);
+            try {
+                // UNCOMMENT THIS WHEN BACKEND IS READY:
+                // const response = await api.get('/student/my-courses-progress');
+                // if (response.data.success) setCourses(response.data.data);
+            } catch (error) {
+                console.error("Failed to load courses:", error);
+            } finally {
+                // setLoading(false);
+            }
+        };
+
+        fetchMyCourses();
+    }, []);
 
     let filteredCourses = courses;
+    
     if (filterStatus !== 'All') {
         filteredCourses = filteredCourses.filter(c => c.status === filterStatus);
     } else if (activeTab !== 'All') {
         filteredCourses = filteredCourses.filter(c => c.status === activeTab);
     }
+    
     if (searchTerm.trim() !== '') {
         filteredCourses = filteredCourses.filter(c =>
             c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             c.instructor.toLowerCase().includes(searchTerm.toLowerCase())
         );
+    }
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-brand-purple font-bold">Loading your courses...</div>;
     }
 
     return (

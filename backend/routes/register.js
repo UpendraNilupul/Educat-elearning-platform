@@ -52,7 +52,7 @@ router.post('/register', async (req, res) => {
             INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
         `;
-        const userResult = await query(insertUserQuery, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
+        const userResult = await query(insertUserQuery, [name, email, hashedPassword, phoneNumber, address || 'Not provided', dob, gender, roleId]);
 
         const newUserId = userResult.insertId; 
         let finalUserCode = '';

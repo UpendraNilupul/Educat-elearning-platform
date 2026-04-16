@@ -4,6 +4,7 @@ import {
   MessageSquare, ArrowLeft, Send, ShieldAlert, 
   Search, Plus, X, UserCircle
 } from "lucide-react";
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const TeacherChat = () => {
   const teacherId = parseInt(localStorage.getItem('userId'));
@@ -26,7 +27,12 @@ const TeacherChat = () => {
   // 🌟 INITIALIZE SOCKET CONNECTION
   // ==========================================
   useEffect(() => {
-      const newSocket = io("http://localhost:3000");
+      // 🌟 THE FIX: Dynamically connect to the backend whether on localhost or live production
+      const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+      const newSocket = io(SOCKET_URL, {
+          withCredentials: true // Ensures secure session cookies are sent over WebSockets too
+      });
+      
       setSocket(newSocket);
 
       // Register Teacher as online
@@ -58,9 +64,9 @@ const TeacherChat = () => {
   // ==========================================
   const fetchConversations = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/teacher-chat/conversations', { credentials: 'include' });
-        const data = await res.json();
-        if (data.success) setConversations(data.data);
+        // 🌟 THE FIX: Use api.get()
+        const res = await api.get('/teacher-chat/conversations');
+        if (res.data.success) setConversations(res.data.data);
     } catch (error) {
         console.error("Failed to load inbox");
     }
@@ -68,9 +74,9 @@ const TeacherChat = () => {
 
   const fetchContacts = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/teacher-chat/contacts', { credentials: 'include' });
-        const data = await res.json();
-        if (data.success) setContacts(data.data);
+        // 🌟 THE FIX: Use api.get()
+        const res = await api.get('/teacher-chat/contacts');
+        if (res.data.success) setContacts(res.data.data);
     } catch (error) {
         console.error("Failed to load contacts");
     }
@@ -78,9 +84,9 @@ const TeacherChat = () => {
 
   const fetchMessages = async (conversationId) => {
     try {
-        const res = await fetch(`http://localhost:3000/api/teacher-chat/conversations/${conversationId}/messages`, { credentials: 'include' });
-        const data = await res.json();
-        if (data.success) setMessages(data.data);
+        // 🌟 THE FIX: Use api.get()
+        const res = await api.get(`/teacher-chat/conversations/${conversationId}/messages`);
+        if (res.data.success) setMessages(res.data.data);
     } catch (error) {
         console.error("Failed to load messages");
     }
@@ -119,18 +125,14 @@ const TeacherChat = () => {
     setIsSending(true);
 
     try {
-        const response = await fetch('http://localhost:3000/api/teacher-chat/send-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                senderId: teacherId,
-                receiverId: activeChat.other_user_id,
-                message: chatMessage
-            }),
-            credentials: 'include'
+        // 🌟 THE FIX: Use api.post()
+        const response = await api.post('/teacher-chat/send-message', {
+            senderId: teacherId,
+            receiverId: activeChat.other_user_id,
+            message: chatMessage
         });
 
-        const result = await response.json();
+        const result = response.data;
         
         if (result.success) {
             const newMessage = { sender_id: teacherId, body: chatMessage, created_at: new Date().toISOString() };
@@ -146,7 +148,7 @@ const TeacherChat = () => {
             alert("Backend blocked it: " + result.message);
         }
     } catch (error) {
-        alert("Failed to send message.");
+        alert(error.response?.data?.message || "Failed to send message.");
     } finally {
         setIsSending(false);
     }

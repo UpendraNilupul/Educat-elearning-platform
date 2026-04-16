@@ -1,11 +1,11 @@
-const express = require('express');
-const crypto = require('crypto');
-const router = express.Router();
+import { Router } from 'express';
+import { createHash } from 'crypto';
+const router = Router();
 
 // 🔴 REPLACE THESE WITH YOUR ACTUAL PAYHERE KEYS
 // (In a real production app, keep these safely inside a .env file)
-const MERCHANT_ID = '1234834'; 
-const MERCHANT_SECRET = '4ZHjyo58mk28MSMv0xruGj4ks40GRAGW64jlTL3V1oLC';
+const MERCHANT_ID = process.env.PAYHERE_MERCHANT_ID; 
+const MERCHANT_SECRET = process.env.PAYHERE_SECRET;
 
 // ==========================================
 // 1. GENERATE PAYMENT HASH API
@@ -18,13 +18,13 @@ router.post('/api/student/pay/hash', (req, res) => {
     const formattedAmount = parseFloat(amount).toFixed(2);
 
     // Step 1: Generate an MD5 hash of the Merchant Secret and convert it to Uppercase
-    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
+    const hashedSecret = createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
     
     // Step 2: Concatenate the required parameters
     const hashString = `${MERCHANT_ID}${order_id}${formattedAmount}${currency}${hashedSecret}`;
     
     // Step 3: Generate the final MD5 hash
-    const finalHash = crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
+    const finalHash = createHash('md5').update(hashString).digest('hex').toUpperCase();
 
     // Send the generated hash back to the React frontend
     res.json({ hash: finalHash });
@@ -46,9 +46,9 @@ router.post('/api/student/pay/notify', (req, res) => {
     } = req.body;
 
     // Security Check: Verify that this request actually came from PayHere
-    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
+    const hashedSecret = createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
     const hashString = `${merchant_id}${order_id}${payhere_amount}${payhere_currency}${status_code}${hashedSecret}`;
-    const expectedMd5sig = crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
+    const expectedMd5sig = createHash('md5').update(hashString).digest('hex').toUpperCase();
 
     // status_code '2' means "Payment Success"
     if (md5sig === expectedMd5sig && status_code === '2') {
@@ -67,4 +67,4 @@ router.post('/api/student/pay/notify', (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;
