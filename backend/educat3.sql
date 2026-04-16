@@ -121,9 +121,12 @@ CREATE TABLE classes_courses (
     is_published BOOLEAN DEFAULT FALSE,
     theme_color VARCHAR(20) DEFAULT 'purple', 
     thumbnail_url VARCHAR(300), 
+	monthly_fee DECIMAL(10,2) DEFAULT 0,
+	schedule_text VARCHAR(255) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(t_id) REFERENCES teachers(id)
 );
+
 
 CREATE TABLE promo_codes (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -194,6 +197,7 @@ CREATE TABLE quizes (
     notification_sent BOOLEAN DEFAULT FALSE,
     FOREIGN KEY(m_id) REFERENCES modules(id)
 );
+
 
 CREATE TABLE question_bank (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -406,15 +410,5 @@ INSERT INTO subjects (name) VALUES
 ('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages'), ('A/L Physics'), ('A/L Chemistry');
 
 insert into admins(user_id, admin_level) values(1, 'super');
-
-
-
-
-
-
-
-
-
-
 
 
