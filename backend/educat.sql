@@ -2,6 +2,8 @@ DROP DATABASE IF EXISTS educat;
 CREATE DATABASE educat;
 USE educat;
 
+-- Turn on the Event Scheduler for the 7-day auto-delete message feature
+SET GLOBAL event_scheduler = ON;
 SET FOREIGN_KEY_CHECKS = 0; -- Prevents errors when dropping/creating
 
 -- ==========================================
@@ -41,14 +43,22 @@ CREATE TABLE users (
     FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
+CREATE TABLE password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    otp VARCHAR(10) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================
--- LEVEL 3: SPECIFIC USER PROFILES
+-- LEVEL 3: SPECIFIC USER PROFILES & ACTIVITY
 -- ==========================================
 
 CREATE TABLE teachers (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
-    user_code VARCHAR(20) UNIQUE, -- 🌟 FIXED: Required by register.js
+    user_code VARCHAR(20) UNIQUE,
     highest_qualification VARCHAR(200),
     university VARCHAR(200),
     experience_years INT,
@@ -62,7 +72,7 @@ CREATE TABLE teachers (
 CREATE TABLE students (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
-    user_code VARCHAR(20) UNIQUE, -- 🌟 FIXED: Required by register.js
+    user_code VARCHAR(20) UNIQUE,
     grade_level VARCHAR(50),
     school_name VARCHAR(150),
     guardian_name VARCHAR(150),
@@ -99,21 +109,32 @@ CREATE TABLE todos (
 -- LEVEL 4: COURSES & CONTENT
 -- ==========================================
 
+-- From Teammate: Advertisements Table
+CREATE TABLE advertisements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    t_id INT NOT NULL,
+    ad_link VARCHAR(300),
+    FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
 CREATE TABLE classes_courses (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
     t_id INT NOT NULL, 
-    students INT DEFAULT 0,            -- 🌟 FIXED: Required by courses.js
-    modules INT DEFAULT 0,             -- 🌟 FIXED: Required by courses.js
-    progress INT DEFAULT 0,            -- 🌟 FIXED: Required by courses.js
+    teacher_id INT DEFAULT 1,          -- MIGRATION ADDED (Teammate)
+    students INT DEFAULT 0,            -- MIGRATION ADDED (Teammate)
+    modules INT DEFAULT 0,             -- MIGRATION ADDED (Teammate)
+    progress INT DEFAULT 0,            -- MIGRATION ADDED (Teammate)
+    monthly_fee DECIMAL(10,2) DEFAULT 0, -- MIGRATION ADDED (Teammate)
+    schedule_text VARCHAR(255) DEFAULT NULL, -- MIGRATION ADDED (Teammate)
     status VARCHAR(20) DEFAULT 'not_active',
     is_published BOOLEAN DEFAULT FALSE,
     theme_color VARCHAR(20) DEFAULT 'purple', 
     thumbnail_url VARCHAR(300), 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(t_id) REFERENCES teachers(id)
+    FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE promo_codes (
@@ -123,7 +144,7 @@ CREATE TABLE promo_codes (
     status VARCHAR(20) DEFAULT 'active',
     discount_percent DECIMAL(5,3) NOT NULL,
     expire_date DATE NOT NULL,
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE modules (
@@ -131,9 +152,9 @@ CREATE TABLE modules (
     number INT NOT NULL,
     title VARCHAR(100) NOT NULL,
     status VARCHAR(20) DEFAULT 'active',
-    isVisible TINYINT(1) DEFAULT 1,    -- 🌟 FIXED: Required for Hide/Show UI
+    isVisible TINYINT(1) DEFAULT 1,    
     c_id INT NOT NULL,
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE timetables (
@@ -155,12 +176,12 @@ CREATE TABLE timetables (
 CREATE TABLE lessons (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     number DECIMAL(4,2) NOT NULL,
-    title VARCHAR(150) DEFAULT '',     -- 🌟 FIXED: Required by courses.js
-    isVisible TINYINT(1) DEFAULT 1,    -- 🌟 FIXED: Required for Hide/Show UI
+    title VARCHAR(150) DEFAULT '',     
+    isVisible TINYINT(1) DEFAULT 1,    
     type VARCHAR(20) NOT NULL,
     link VARCHAR(300) NOT NULL,
     m_id INT NOT NULL,
-    FOREIGN KEY(m_id) REFERENCES modules(id)
+    FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
 
 CREATE TABLE resources (
@@ -168,23 +189,24 @@ CREATE TABLE resources (
     name VARCHAR(100) NOT NULL,
     link VARCHAR(300) NOT NULL,
     number INT NOT NULL,
-    isVisible TINYINT(1) DEFAULT 1,    -- 🌟 FIXED
+    isVisible TINYINT(1) DEFAULT 1,    
+    type VARCHAR(50) DEFAULT 'pdf',    -- MIGRATION ADDED (Teammate)
     m_id INT NOT NULL,
-    l_id INT,                          -- 🌟 FIXED: Links resources to specific lessons
-    FOREIGN KEY(m_id) REFERENCES modules(id),
+    l_id INT,                          -- MIGRATION ADDED (Teammate)
+    FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE,
     FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
 
--- 🌟 RESTORED MISSING ASSIGNMENT TABLES
 CREATE TABLE assignments (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     m_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
+    attachment_url VARCHAR(300),       -- MIGRATION ADDED (Teammate)
     deadline DATETIME NOT NULL,
     max_marks DECIMAL(5,2) DEFAULT 100.00,
-    publish_at DATETIME DEFAULT NULL,
-    notification_sent BOOLEAN DEFAULT FALSE,
+    publish_at DATETIME DEFAULT NULL,  -- MIGRATION ADDED (Teammate)
+    notification_sent BOOLEAN DEFAULT FALSE, -- MIGRATION ADDED (Teammate)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
@@ -215,7 +237,9 @@ CREATE TABLE quizes (
     time_limit TIME NOT NULL,
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     m_id INT NOT NULL,
-    FOREIGN KEY(m_id) REFERENCES modules(id)
+    publish_at DATETIME DEFAULT NULL,        -- MIGRATION ADDED (Teammate)
+    notification_sent BOOLEAN DEFAULT FALSE, -- MIGRATION ADDED (Teammate)
+    FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
 
 CREATE TABLE question_bank (
@@ -225,8 +249,8 @@ CREATE TABLE question_bank (
     question VARCHAR(1000) NOT NULL,
     c_id INT NOT NULL,
     t_id INT NOT NULL,
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id),
-    FOREIGN KEY(t_id) REFERENCES teachers(id)
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE,
+    FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE answers (
@@ -277,8 +301,8 @@ CREATE TABLE payments (
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP, 
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id),
-    FOREIGN KEY(s_id) REFERENCES students(id)
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
 CREATE TABLE notifications (
@@ -290,6 +314,16 @@ CREATE TABLE notifications (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- From Teammate: Certificates Table
+CREATE TABLE certificates (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    link VARCHAR(200) NOT NULL,
+    s_id INT NOT NULL,
+    c_id INT NOT NULL,
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE reviews (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
@@ -298,8 +332,8 @@ CREATE TABLE reviews (
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(s_id) REFERENCES students(id),
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id)
+    FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 -- ==========================================
@@ -342,7 +376,6 @@ CREATE TABLE teacher_subjects (
     FOREIGN KEY (sub_id) REFERENCES subjects(id) ON DELETE CASCADE
 );
 
--- 🌟 RESTORED MISSING ESCALATIONS TABLE
 CREATE TABLE admin_escalations (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     sub_admin_id INT NOT NULL,
@@ -355,7 +388,7 @@ CREATE TABLE admin_escalations (
 );
 
 -- ==========================================
--- 🌟 RESTORED: COMMUNICATION & CHAT SYSTEM
+-- LEVEL 8: COMMUNICATION & CHAT SYSTEM
 -- ==========================================
 
 CREATE TABLE conversations (
@@ -379,16 +412,21 @@ CREATE TABLE messages (
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE password_resets (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    otp VARCHAR(10) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+-- ==========================================
+-- LEVEL 9: AUTOMATED CLEANUP EVENTS
+-- ==========================================
+
+DELIMITER $$
+CREATE EVENT IF NOT EXISTS purge_old_messages
+ON SCHEDULE EVERY 1 DAY
+DO
+  BEGIN
+    DELETE FROM messages WHERE created_at < NOW() - INTERVAL 7 DAY;
+  END$$
+DELIMITER ;
 
 -- ==========================================
--- 🌟 DATABASE INDEXES (FOR SPEED & PERFORMANCE)
+-- LEVEL 10: DATABASE INDEXES
 -- ==========================================
 CREATE INDEX idx_user_email ON users(email);
 CREATE INDEX idx_teacher_verification ON teachers(verification_status);
