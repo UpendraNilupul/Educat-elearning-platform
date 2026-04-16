@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    PlayCircle, CheckCircle, XCircle, ArrowLeft, Eye
+    PlayCircle, CheckCircle, XCircle, ArrowLeft, Eye, Users
 } from 'lucide-react';
 import api from '../api';
 

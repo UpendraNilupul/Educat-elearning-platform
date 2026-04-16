@@ -17,12 +17,14 @@ const Admin_Team = ({ userName, onLogout }) => {
         name: '', email: '', password: '', phoneNumber: '', 
         address: '', dob: '', gender: ''
     });
+    
+    // 🌟 ADDED: State to track form validation errors
+    const [errors, setErrors] = useState({});
 
     // 🌟 SECURITY CHECK: Ask the backend if we are a Super Admin
     useEffect(() => {
         const verifyAccess = async () => {
             try {
-                // 🌟 THE FIX: Use api.get() and response.data
                 const response = await api.get('/status');
                 const data = response.data;
                 
@@ -40,26 +42,71 @@ const Admin_Team = ({ userName, onLogout }) => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        // Clear the specific error when the user starts typing again
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: null });
+        }
+    };
+
+    // 🌟 ADDED: Custom validation logic
+    const validateForm = () => {
+        let newErrors = {};
+        
+        if (!formData.name.trim()) newErrors.name = "Full name is required.";
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) newErrors.email = "Please enter a valid email address.";
+        
+        if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters long.";
+        
+        const phoneRegex = /^\d{10}$/;
+        if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be exactly 10 digits.";
+        
+        if (!formData.dob) {
+            newErrors.dob = "Date of birth is required.";
+        } else {
+            // Check if they are at least 18 years old
+            const birthDate = new Date(formData.dob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            if (age < 18) newErrors.dob = "Sub-Admins must be at least 18 years old.";
+        }
+
+        if (!formData.gender) newErrors.gender = "Please select a gender.";
+        if (!formData.address.trim()) newErrors.address = "Home address is required.";
+
+        setErrors(newErrors);
+        // Returns true if there are NO errors
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleCreateSubAdmin = async (e) => {
         e.preventDefault();
+        
+        // Run validation before allowing submission
+        if (!validateForm()) {
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            // 🌟 THE FIX: Use api.post() - Pass formData directly, no stringify/headers needed!
             const response = await api.post('/admin/create-sub-admin', formData);
             const result = response.data;
 
             if (result.success) {
                 alert("🎉 Sub-Admin created successfully!");
                 setFormData({ name: '', email: '', password: '', phoneNumber: '', address: '', dob: '', gender: '' });
+                setErrors({});
                 navigate('/admin'); // Send them back to dashboard after success
             } else {
                 alert(result.message);
             }
         } catch (error) {
-            // 🌟 THE FIX: Better Axios error handling
             alert(error.response?.data?.message || "Failed to connect to the server.");
         } finally {
             setIsSubmitting(false);
@@ -119,7 +166,7 @@ const Admin_Team = ({ userName, onLogout }) => {
                     </div>
                 </div>
 
-                <form onSubmit={handleCreateSubAdmin} className="p-8">
+                <form onSubmit={handleCreateSubAdmin} className="p-8" noValidate>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         
                         {/* Name & Email */}
@@ -127,16 +174,32 @@ const Admin_Team = ({ userName, onLogout }) => {
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
                             <div className="relative">
                                 <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="text" name="name" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium" placeholder="Jane Doe" value={formData.name} onChange={handleChange} />
+                                <input 
+                                    type="text" 
+                                    name="name" 
+                                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.name ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                    placeholder="Jane Doe" 
+                                    value={formData.name} 
+                                    onChange={handleChange} 
+                                />
                             </div>
+                            {errors.name && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.name}</p>}
                         </div>
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="email" name="email" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium" placeholder="admin@ziron.com" value={formData.email} onChange={handleChange} />
+                                <input 
+                                    type="email" 
+                                    name="email" 
+                                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.email ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                    placeholder="admin@ziron.com" 
+                                    value={formData.email} 
+                                    onChange={handleChange} 
+                                />
                             </div>
+                            {errors.email && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.email}</p>}
                         </div>
 
                         {/* Password & Phone */}
@@ -144,34 +207,62 @@ const Admin_Team = ({ userName, onLogout }) => {
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Temporary Password</label>
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="password" name="password" required minLength="6" className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium" placeholder="••••••••" value={formData.password} onChange={handleChange} />
+                                <input 
+                                    type="password" 
+                                    name="password" 
+                                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.password ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                    placeholder="••••••••" 
+                                    value={formData.password} 
+                                    onChange={handleChange} 
+                                />
                             </div>
+                            {errors.password && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.password}</p>}
                         </div>
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
                             <div className="relative">
                                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="text" name="phoneNumber" required minLength="10" maxLength="10" className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium" placeholder="07xxxxxxxx" value={formData.phoneNumber} onChange={handleChange} />
+                                <input 
+                                    type="text" 
+                                    name="phoneNumber" 
+                                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.phoneNumber ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                    placeholder="07xxxxxxxx" 
+                                    value={formData.phoneNumber} 
+                                    onChange={handleChange} 
+                                />
                             </div>
+                            {errors.phoneNumber && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.phoneNumber}</p>}
                         </div>
 
-                        {/* DOB & Gender */}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input type="date" name="dob" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium text-gray-700" value={formData.dob} onChange={handleChange} />
+                                <input 
+                                    type="date" 
+                                    name="dob" 
+                                    className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium text-gray-700 transition-colors ${errors.dob ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                    value={formData.dob} 
+                                    onChange={handleChange} 
+                                />
                             </div>
+                            {errors.dob && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.dob}</p>}
                         </div>
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
-                            <select name="gender" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium text-gray-700 cursor-pointer" value={formData.gender} onChange={handleChange}>
+                            <select 
+                                name="gender" 
+                                className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium text-gray-700 cursor-pointer transition-colors ${errors.gender ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                value={formData.gender} 
+                                onChange={handleChange}
+                            >
                                 <option value="">Select Gender...</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
                             </select>
+                            {errors.gender && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.gender}</p>}
                         </div>
                     </div>
 
@@ -180,8 +271,16 @@ const Admin_Team = ({ userName, onLogout }) => {
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Home Address</label>
                         <div className="relative">
                             <MapPin className="absolute left-4 top-4 text-gray-400" size={18} />
-                            <textarea name="address" required rows="2" className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 focus:bg-white font-medium resize-none" placeholder="123 Main St, City" value={formData.address} onChange={handleChange}></textarea>
+                            <textarea 
+                                name="address" 
+                                rows="2" 
+                                className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium resize-none transition-colors ${errors.address ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
+                                placeholder="123 Main St, City" 
+                                value={formData.address} 
+                                onChange={handleChange}
+                            ></textarea>
                         </div>
+                        {errors.address && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.address}</p>}
                     </div>
 
                     <div className="flex justify-end pt-6 border-t border-gray-100">
