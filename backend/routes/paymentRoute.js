@@ -6,12 +6,13 @@ import util from 'util';
 const query = util.promisify(db.query).bind(db);
 const router = express.Router();
 
+// ==========================================
 // 1. ROUTE TO GENERATE HASH
+// ==========================================
 router.post('/payment/generate-hash', (req, res) => {
     const { order_id, amount, currency } = req.body;
 
     const merchant_id = '1234834'; 
-    // 🌟 METHANA THIYENA SECRET EKA
     const merchantSecret = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
 
     const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
@@ -24,13 +25,14 @@ router.post('/payment/generate-hash', (req, res) => {
     res.status(200).json({ hash: hash });
 });
 
-// 2. ROUTE FOR PAYHERE WEBHOOK
+// ==========================================
+// 2. ROUTE FOR PAYHERE WEBHOOK (Notify URL)
+// ==========================================
 router.post('/payment/notify', async (req, res) => {
     console.log("🚨 PAYHERE EKEN MESSAGE EKAK AAWA!");
     
     const { merchant_id, order_id, payhere_amount, payhere_currency, status_code, md5sig } = req.body || {};
 
-    // 🌟 UDATH EKKA MATCH WENNA METHANATATH E SECRET EKAMA DAMMA
     const merchantSecret = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
     const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
     const amountFormatted = parseFloat(payhere_amount).toFixed(2);
@@ -49,15 +51,27 @@ router.post('/payment/notify', async (req, res) => {
                 if (studentData.length > 0) {
                     const actualStudentId = studentData[0].id;
 
+                    // 1. Save Payment
                     await query(`
                         INSERT INTO payments (invoice_link, amount, status, c_id, s_id) 
                         VALUES (?, ?, 'completed', ?, ?)
                     `, [order_id, payhere_amount, classId, actualStudentId]);
+                    console.log("✅ Payment Saved to DB Successfully!");
 
-                    console.log("✅ Payment Saved to DB Successfully! Class Unlocked.");
+                    // 🌟 2. Enroll Student to the Class
+                    try {
+                        await query(`
+                            INSERT IGNORE INTO enrollments (s_id, c_id) 
+                            VALUES (?, ?)
+                        `, [actualStudentId, classId]);
+                        console.log("🎓 Student successfully enrolled in the class via Webhook!");
+                    } catch (e) {
+                        console.error("⚠️ Enrollment warning:", e);
+                    }
+
                     res.status(200).send("OK"); 
                 } else {
-                    console.error("❌ ERROR: Me user_id ekata galapena Student kenek database eke naha:", userId);
+                    console.error("❌ ERROR: Student not found in DB:", userId);
                     res.status(500).send("Student Not Found");
                 }
             } catch (error) {
@@ -71,6 +85,64 @@ router.post('/payment/notify', async (req, res) => {
     } else {
         console.log("❌ Hash mismatch! Fake request detected.");
         res.status(400).send("Hash mismatch");
+    }
+});
+
+// ==========================================
+// 3. MANUAL UNLOCK ROUTE (Frontend Trigger)
+// ==========================================
+router.post('/payment/manual-success', async (req, res) => {
+    console.log("\n========================================");
+    console.log("🛠️ MANUAL SUCCESS ROUTE HIT!");
+    console.log("📦 Frontend Data:", req.body);
+    console.log("========================================\n");
+
+    const { order_id, amount, classId, userId } = req.body;
+    
+    // Fallback: Frontend එකෙන් classId ආවේ නැත්නම් order_id එකෙන් කඩාගන්නවා
+    const finalClassId = classId || order_id.split('_')[0];
+    
+    try {
+        console.log(`🔍 Finding student (userId: ${userId})...`);
+        const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        
+        if (studentData.length > 0) {
+            const actualStudentId = studentData[0].id;
+            console.log(`✅ Student found! (DB id: ${actualStudentId})`);
+            
+            const existing = await query('SELECT id FROM payments WHERE invoice_link = ?', [order_id]);
+            
+            if (existing.length === 0) {
+                // 1. Save Payment
+                await query(`
+                    INSERT INTO payments (invoice_link, amount, status, c_id, s_id) 
+                    VALUES (?, ?, 'completed', ?, ?)
+                `, [order_id, amount, finalClassId, actualStudentId]);
+                console.log(`💾 Payment saved for Class ID: ${finalClassId}`);
+                
+                // 🌟 2. Enroll Student to the Class
+                try {
+                    await query(`
+                        INSERT IGNORE INTO enrollments (s_id, c_id) 
+                        VALUES (?, ?)
+                    `, [actualStudentId, finalClassId]);
+                    console.log("🎓 SUCCESS: Student officially enrolled in the class!");
+                } catch (enrollError) {
+                    console.error("⚠️ Enrollment save warning:", enrollError);
+                }
+
+            } else {
+                console.log("⚠️ WARNING: Payment already saved previously.");
+            }
+            res.status(200).send("OK");
+        } else {
+            console.log(`❌ ERROR: Student not found! (userId: ${userId})`);
+            res.status(404).send("Student not found");
+        }
+    } catch (error) {
+        console.log("\n❌❌ DATABASE ERROR EKAK AWA! ❌❌");
+        console.error(error);
+        res.status(500).send("Error");
     }
 });
 

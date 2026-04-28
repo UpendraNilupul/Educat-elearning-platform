@@ -49,23 +49,23 @@ router.get('/student/classes', async (req, res) => {
             for (let mod of modules) {
                 
                 const videos = await query(`
-                    SELECT id, title, link, duration, DATE_FORMAT(upload_date, '%M %d') as formatted_date
-                    FROM lessons 
-                    WHERE m_id = ? AND type LIKE '%video%'
-                    ORDER BY number ASC
-                `, [mod.id]);
-
+            SELECT id,number,type, title,link,m_id
+            FROM lessons 
+            WHERE m_id = ? AND type LIKE '%video%'
+            ORDER BY number ASC
+        `, [mod.id]);
                 const tutes = await query(`
-                    SELECT id, name, link, resource_type, file_size 
+                    SELECT id, name, link
                     FROM resources 
                     WHERE m_id = ?
                     ORDER BY number ASC
                 `, [mod.id]);
-
                 const payments = await query(`
-                    SELECT id FROM payments 
-                    WHERE c_id = ? AND s_id = ? AND m_id = ? AND status = 'completed'
-                `, [cls.id, studentId, mod.id]);
+            SELECT id FROM payments
+            WHERE c_id = ? AND s_id = ? AND status = 'completed'
+        `, [cls.id, studentId]);
+
+                
 
                 const isPaid = payments.length > 0; 
 
