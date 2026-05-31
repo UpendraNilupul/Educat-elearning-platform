@@ -1428,7 +1428,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                   value={assignmentData.title}
                   onChange={e => setAssignmentData({...assignmentData, title: e.target.value})}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all"
-                  placeholder="e.g. Weekly Quiz 1"
+                  placeholder="e.g. Weekly assignment 1"
                   required
                 />
               </div>
