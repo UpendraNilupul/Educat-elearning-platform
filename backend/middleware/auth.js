@@ -15,7 +15,10 @@ export const requireRole = (allowedRoles) => {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
         
-        if (!allowedRoles.includes(req.session.userRole)) {
+        const userRole = String(req.session.userRole || '').toLowerCase().trim();
+        const hasRole = allowedRoles.map(role => String(role || '').toLowerCase().trim()).includes(userRole);
+        
+        if (!hasRole) {
             return res.status(403).json({ success: false, message: 'Forbidden. You do not have permission to perform this action.' });
         }
         next();

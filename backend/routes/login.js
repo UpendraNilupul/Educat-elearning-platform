@@ -50,15 +50,17 @@ router.post('/login', async (req, res) => {
         // 3. Log the activity & Save Session (Normal Login)
         await query('INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', [user.id, 'login']);
 
+        const normalizedRole = String(user.role_name || '').toLowerCase().trim();
+
         req.session.userId = user.id;
-        req.session.userRole = user.role_name; 
+        req.session.userRole = normalizedRole; 
         req.session.userName = user.name;
         req.session.adminLevel = user.admin_level || null;
         
         res.status(200).json({ 
             message: 'Logged in successfully!', 
             userId: user.id, 
-            userRole: user.role_name, 
+            userRole: normalizedRole, 
             adminLevel: user.admin_level || null,
             userName: user.name,
             userPicture: user.picture,
