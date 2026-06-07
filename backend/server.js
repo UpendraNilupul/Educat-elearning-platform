@@ -1,165 +1,149 @@
-import 'dotenv/config';
 import express from 'express';
-import http from 'http'; // 🌟 NEW: Import Node's native HTTP module
-import { Server } from 'socket.io'; // 🌟 NEW: Import Socket.io
-import path from 'path';
-import cors from 'cors';
-import session from 'express-session';
-import { fileURLToPath } from 'url';
-
-import db from './db.js';
+import crypto from 'crypto';
+import db from '../db.js'; 
 import util from 'util';
+
 const query = util.promisify(db.query).bind(db);
+const router = express.Router();
 
-// Route Imports
-import loginRoutes from './routes/login.js';
-import registerRoutes from './routes/register.js';
-import teacherRoutes from './routes/teachers.js';
-import adminRoutes from './routes/admin.js';
-import forgotPasswordRoutes from './routes/forgotPassword.js';
-import verifyRoutes from './routes/verify.js';
-import courseRoutes from './routes/courses.js';
-import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-import studentProfileRoutes from './routes/StudentProfileEdit.js';
-import classRoutes from './routes/class.js';
-import assignmentRoutes from './routes/assignments.js';
-import quizRoutes from './routes/quizzes.js';
-import initAssignmentScheduler from './jobs/assignmentScheduler.js';
-
-//chat
-import studentChatRoutes from './routes/studentChat.js';
-import teacherChatRoutes from './routes/teacherChat.js';
-import adminChatRoutes from './routes/adminChat.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-const PORT = 3000;
+// 🔴 ඔයාගේ ඇත්ත Merchant ID සහ Secret එක (Live දාද්දි මේවා .env එකට දාන්න)
+const MERCHANT_ID = '1234834'; 
+const MERCHANT_SECRET = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
 
 // ==========================================
-// 🌟 NEW: SERVER & SOCKET INITIALIZATION
+// 1. ROUTE TO GENERATE HASH
 // ==========================================
-const server = http.createServer(app); 
+router.post('/payment/generate-hash', (req, res) => {
+    const { order_id, amount, currency } = req.body;
 
-const io = new Server(server, {
-    cors: {
-        origin: ['http://localhost:5173', 'http://localhost:5174'], // Matching your React ports
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
+    const amountFormatted = parseFloat(amount).toFixed(2);
+
+    const hash = crypto.createHash('md5').update(
+        MERCHANT_ID + order_id + amountFormatted + currency + hashedSecret
+    ).digest('hex').toUpperCase();
+
+    res.status(200).json({ hash: hash });
 });
-
-// Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'dist')));
-
-// 🌟 THE FIX: Extract session config so Socket.io can share it
-const sessionMiddleware = session({
-    secret: process.env.SESSION_SECRET || 'a_very_long_random_secret_string',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production', // True in production (HTTPS)
-        sameSite: 'lax', 
-        maxAge: 1000 * 60 * 60 * 24 
-    }
-});
-
-app.use(sessionMiddleware);
-io.engine.use(sessionMiddleware); // 🌟 THE FIX: Bind Express session to WebSockets
-
-// FOOTPRINT TRACKER
-app.use('/api', async (req, res, next) => {
-    if (req.session && req.session.userId) {
-        try {
-            await query('UPDATE users SET last_active = NOW() WHERE id = ?', [req.session.userId]);
-        } catch (error) {
-            console.error("Failed to update last_active:", error);
-        }
-    }
-    next();
-});
-
-// Heartbeat
-app.post('/api/heartbeat', (req, res) => {
-    res.status(200).json({ message: 'Heartbeat received' });
-});
-
-// ROUTE MOUNTING
-app.use('/api', loginRoutes);
-app.use('/api', registerRoutes);
-app.use('/api', teacherRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/forgot-password', forgotPasswordRoutes);
-app.use('/api', courseRoutes);
-app.use('/api/teacher', teacherProfileRoutes);
-app.use('/api', verifyRoutes);
-app.use('/api', classRoutes);
-app.use('/api/student', studentProfileRoutes);
-//chat
-app.use('/api', studentChatRoutes);
-app.use('/api', teacherChatRoutes);
-app.use('/api', adminChatRoutes);
-app.use('/api', assignmentRoutes);
-app.use('/api', quizRoutes);
-
-// SERVE UPLOADS
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ==========================================
-// 🌟 SECURED: SOCKET.IO CHAT LOGIC
+// 2. ROUTE FOR PAYHERE WEBHOOK (Notify URL)
 // ==========================================
-io.on("connection", (socket) => {
-    const session = socket.request.session;
-    console.log(`🟢 User Connected to Chat: ${socket.id}`);
+router.post('/payment/notify', async (req, res) => {
+    console.log("🚨 PAYHERE EKEN MESSAGE EKAK AAWA!");
+    
+    const { merchant_id, order_id, payhere_amount, payhere_currency, status_code, md5sig } = req.body || {};
 
-    // Join a specific conversation room
-    socket.on("join_room", async (conversationId) => {
-        // 🌟 THE FIX: Verify Authentication & Authorization
-        if (!session || !session.userId) return;
+    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
+    const amountFormatted = parseFloat(payhere_amount).toFixed(2);
+    
+    const localMd5sig = crypto.createHash('md5').update(
+        merchant_id + order_id + amountFormatted + payhere_currency + status_code + hashedSecret
+    ).digest('hex').toUpperCase();
 
-        try {
-            const check = await query(
-                'SELECT id FROM conversations WHERE id = ? AND (participant1_id = ? OR participant2_id = ?)', 
-                [conversationId, session.userId, session.userId]
-            );
-            
-            if (check.length > 0) {
-                socket.join(conversationId);
-                console.log(`🔒 User ${session.userId} securely joined chat ${conversationId}`);
-            } else {
-                console.warn(`⚠️ User ${session.userId} attempted to hack into unauthorized chat ${conversationId}`);
+    if (localMd5sig === md5sig) {
+        if (status_code === '2' || status_code === 2) {
+            const [classId, moduleId, userId, timestamp] = order_id.split('_');
+
+            try {
+                const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+                
+                if (studentData.length > 0) {
+                    const actualStudentId = studentData[0].id;
+
+                    // 1. Save Payment
+                    await query(`
+                        INSERT INTO payments (invoice_link, amount, status, c_id, s_id) 
+                        VALUES (?, ?, 'completed', ?, ?)
+                    `, [order_id, payhere_amount, classId, actualStudentId]);
+                    console.log("✅ Payment Saved to DB Successfully!");
+
+                    // 🌟 2. Enroll Student to the Class
+                    try {
+                        await query(`
+                            INSERT IGNORE INTO enrollments (s_id, c_id) 
+                            VALUES (?, ?)
+                        `, [actualStudentId, classId]);
+                        console.log("🎓 Student successfully enrolled in the class via Webhook!");
+                    } catch (e) {
+                        console.error("⚠️ Enrollment warning:", e);
+                    }
+
+                    res.status(200).send("OK"); 
+                } else {
+                    console.error("❌ ERROR: Student not found in DB:", userId);
+                    res.status(500).send("Student Not Found");
+                }
+            } catch (error) {
+                console.error("❌ DB Error during payment save:", error);
+                res.status(500).send("DB Error");
             }
-        } catch (err) {
-            console.error(err);
+        } else {
+            console.log("⚠️ Payment not successful. Status:", status_code);
+            res.status(200).send("Ignored"); 
         }
-    });
-
-    // Handle sending/receiving messages
-    socket.on("send_message", (data) => {
-        socket.to(data.room).emit("receive_message", data.message);
-    });
-
-    // Handle joining a global notification room for the user
-    socket.on("join_notification_room", (userId) => {
-        const roomName = `user_${userId}`;
-        socket.join(roomName);
-        console.log(`User ${socket.id} joined notification room: ${roomName}`);
-    });
-
-    socket.on("disconnect", () => {
-        console.log(`🔴 User Disconnected: ${socket.id}`);
-    });
+    } else {
+        console.log("❌ Hash mismatch! Fake request detected.");
+        res.status(400).send("Hash mismatch");
+    }
 });
 
-// Fallback for SPA routing
-app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+// ==========================================
+// 3. MANUAL UNLOCK ROUTE (Frontend Trigger)
+// ==========================================
+router.post('/payment/manual-success', async (req, res) => {
+    console.log("\n========================================");
+    console.log("🛠️ MANUAL SUCCESS ROUTE HIT!");
+    console.log("📦 Frontend Data:", req.body);
+    console.log("========================================\n");
+
+    const { order_id, amount, classId, userId } = req.body;
+    
+    // Fallback: Frontend එකෙන් classId ආවේ නැත්නම් order_id එකෙන් කඩාගන්නවා
+    const finalClassId = classId || order_id.split('_')[0];
+    
+    try {
+        console.log(`🔍 Finding student (userId: ${userId})...`);
+        const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        
+        if (studentData.length > 0) {
+            const actualStudentId = studentData[0].id;
+            console.log(`✅ Student found! (DB id: ${actualStudentId})`);
+            
+            const existing = await query('SELECT id FROM payments WHERE invoice_link = ?', [order_id]);
+            
+            if (existing.length === 0) {
+                // 1. Save Payment
+                await query(`
+                    INSERT INTO payments (invoice_link, amount, status, c_id, s_id) 
+                    VALUES (?, ?, 'completed', ?, ?)
+                `, [order_id, amount, finalClassId, actualStudentId]);
+                console.log(`💾 Payment saved for Class ID: ${finalClassId}`);
+                
+                // 🌟 2. Enroll Student to the Class
+                try {
+                    await query(`
+                        INSERT IGNORE INTO enrollments (s_id, c_id) 
+                        VALUES (?, ?)
+                    `, [actualStudentId, finalClassId]);
+                    console.log("🎓 SUCCESS: Student officially enrolled in the class!");
+                } catch (enrollError) {
+                    console.error("⚠️ Enrollment save warning:", enrollError);
+                }
+
+            } else {
+                console.log("⚠️ WARNING: Payment already saved previously.");
+            }
+            res.status(200).send("OK");
+        } else {
+            console.log(`❌ ERROR: Student not found! (userId: ${userId})`);
+            res.status(404).send("Student not found");
+        }
+    } catch (error) {
+        console.log("\n❌❌ DATABASE ERROR EKAK AWA! ❌❌");
+        console.error(error);
+        res.status(500).send("Error");
+    }
 });
 
-server.listen(PORT, () => {
-    console.log(`🌱 Server running on http://localhost:${PORT}`);
-    // Start background jobs
-    initAssignmentScheduler(io);
-});
+export default router;
