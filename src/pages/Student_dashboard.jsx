@@ -83,13 +83,9 @@ const Student = ({ userName, onLogout }) => {
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Calendar', icon: Calendar },
-        { name: 'Courses', icon: BookOpen },
+        { id: 'courses', name: 'Courses', label: 'Classes', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
         { name: 'Assessments', icon: FileText },
-        { name: 'Certification', icon: Award },
-        { name: 'Project', icon: Briefcase },
-        { name: 'Messages', icon: MessageSquare }, 
-        { name: 'Download', icon: Download },
     ];
 
     return (
@@ -118,7 +114,7 @@ const Student = ({ userName, onLogout }) => {
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm">{item.label || item.name}</span>
                         </button>
                     ))}
                 </nav>
