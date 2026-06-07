@@ -4,6 +4,7 @@ import {
     ArrowLeft, BookOpen, CreditCard, ShieldAlert, 
     Mail, CheckCircle, Clock, XCircle, Gift
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_StudentProfile = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -20,8 +21,8 @@ const Admin_StudentProfile = ({ userName, onLogout }) => {
 
     const fetchStudentData = async () => {
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/student-profile/${id}`, { credentials: 'include' });
-            const result = await response.json();
+            const response = await api.get(`/admin/student-profile/${id}`);
+            const result = response.data;
             if (result.success) setData(result);
             else navigate('/admin/students');
         } catch (error) {
@@ -36,13 +37,8 @@ const Admin_StudentProfile = ({ userName, onLogout }) => {
         if (!window.confirm(`Are you sure you want to ${newStatus} this student?`)) return;
 
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/student-status/${data.profile.user_id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            const response = await api.put(`/admin/student-status/${data.profile.user_id}`);
+            const result = response.data;
             if (result.success) {
                 setData(prev => ({ ...prev, profile: { ...prev.profile, status: newStatus } }));
             }
@@ -54,17 +50,8 @@ const Admin_StudentProfile = ({ userName, onLogout }) => {
     const handleSendMessage = async () => {
         if (!messageText.trim()) return;
         try {
-            const response = await fetch('http://localhost:3000/api/admin/student-notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    userId: data.profile.user_id, 
-                    title: "Message from Administration", 
-                    message: messageText 
-                }),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            const response = await api.post('/admin/student-notify');
+            const result = response.data;
             if (result.success) {
                 alert("Message sent!");
                 setMessageText('');

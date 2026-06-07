@@ -1,8 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
+import http from 'http'; 
+import { Server } from 'socket.io'; 
 import path from 'path';
 import cors from 'cors';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import { fileURLToPath } from 'url';
 
 import db from './db.js';
@@ -16,30 +19,59 @@ import teacherRoutes from './routes/teachers.js';
 import adminRoutes from './routes/admin.js';
 import forgotPasswordRoutes from './routes/forgotPassword.js';
 import verifyRoutes from './routes/verify.js';
-
-
-// 🌟 THE NEW TEAMMATE ROUTES
 import courseRoutes from './routes/courses.js';
 import teacherProfileRoutes from './routes/TeacherProfileEdit.js';
-import studentProfileRoutes from './routes/StudentProfileEdit.js'; // 🌟 ADD THIS LINE!
-
+import studentProfileRoutes from './routes/StudentProfileEdit.js';
 import classRoutes from './routes/class.js';
+import assignmentRoutes from './routes/assignments.js';
+import quizRoutes from './routes/quizzes.js';
+import paymentRoute from './routes/paymentRoute.js'; 
+import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
+// Chat Routes
+import studentChatRoutes from './routes/studentChat.js';
+import teacherChatRoutes from './routes/teacherChat.js';
+import adminChatRoutes from './routes/adminChat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3000;
 
+// ==========================================
+// 🌟 SERVER & SOCKET INITIALIZATION
+// ==========================================
+const server = http.createServer(app); 
+
+const io = new Server(server, {
+    cors: {
+        origin: ['http://localhost:5173', 'http://localhost:5174'], 
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true
+    }
+});
+
+// Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); 
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-app.use(session({
-    secret: 'a_very_long_random_secret_string',
+// Express Session Configuration
+const sessionMiddleware = session({
+    secret: process.env.SESSION_SECRET || 'a_very_long_random_secret_string',
     resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 }
-}));
+    saveUninitialized: false, 
+    cookie: { 
+        httpOnly: true, 
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'lax', 
+        maxAge: 1000 * 60 * 60 * 24 
+    }
+});
+
+app.use(sessionMiddleware);
+io.engine.use(sessionMiddleware); 
 
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
@@ -58,32 +90,82 @@ app.post('/api/heartbeat', (req, res) => {
     res.status(200).json({ message: 'Heartbeat received' });
 });
 
-// 🌟 ROUTE MOUNTING
+// ROUTE MOUNTING
 app.use('/api', loginRoutes);
 app.use('/api', registerRoutes);
 app.use('/api', teacherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
-
-// Mount the new routes
 app.use('/api', courseRoutes);
 app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
-app.use('/api', courseRoutes);
-app.use('/api/teacher', teacherProfileRoutes);
-app.use('/api', verifyRoutes);
 app.use('/api/student', studentProfileRoutes);
+app.use('/api', paymentRoute); 
 
+// Chat Routes
+app.use('/api', studentChatRoutes);
+app.use('/api', teacherChatRoutes);
+app.use('/api', adminChatRoutes);
+app.use('/api', assignmentRoutes);
+app.use('/api', quizRoutes);
 
-// 🌟 THE FIX: Give permission to serve the uploaded profile pictures!
-
+// SERVE UPLOADS
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// ==========================================
+// 🌟 SECURED: SOCKET.IO CHAT LOGIC
+// ==========================================
+io.on("connection", (socket) => {
+    const session = socket.request.session;
+    console.log(`🟢 User Connected to Chat: ${socket.id}`);
+
+    // Join a specific conversation room
+    socket.on("join_room", async (conversationId) => {
+        // Verify Authentication & Authorization
+        if (!session || !session.userId) return;
+
+        try {
+            const check = await query(
+                'SELECT id FROM conversations WHERE id = ? AND (participant1_id = ? OR participant2_id = ?)', 
+                [conversationId, session.userId, session.userId]
+            );
+            
+            if (check.length > 0) {
+                socket.join(conversationId);
+                console.log(`🔒 User ${session.userId} securely joined chat ${conversationId}`);
+            } else {
+                console.warn(`⚠️ User ${session.userId} attempted to hack into unauthorized chat ${conversationId}`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    // Handle sending/receiving messages
+    socket.on("send_message", (data) => {
+        socket.to(data.room).emit("receive_message", data.message);
+    });
+
+    // Handle joining a global notification room for the user
+    socket.on("join_notification_room", (userId) => {
+        const roomName = `user_${userId}`;
+        socket.join(roomName);
+        console.log(`User ${socket.id} joined notification room: ${roomName}`);
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`🔴 User Disconnected: ${socket.id}`);
+    });
+});
+
+// Fallback for SPA routing
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
+    // Start background jobs
+    initAssignmentScheduler(io);
 });

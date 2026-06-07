@@ -4,6 +4,7 @@ import {
     Settings, LogOut, Bell, UserCheck, PlayCircle, ShieldAlert, Send, X, MessageSquare
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const SubAdmin_dashboard = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -19,9 +20,9 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // The backend firewall automatically masks revenue here!
-                const response = await fetch(`http://localhost:3000/api/admin/dashboard-stats`, { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Use api.get() instead of fetch
+                const response = await api.get(`/admin/dashboard-stats`);
+                const data = response.data; // Axios parses JSON automatically
                 if (data.success) setStats(data);
             } catch (error) {
                 console.error("Failed to fetch sub-admin stats:", error);
@@ -36,13 +37,10 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const response = await fetch('http://localhost:3000/api/admin/escalate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(escalationData),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            // 🌟 THE FIX: Use api.post() and pass the object directly
+            const response = await api.post('/admin/escalate', escalationData);
+            const result = response.data;
+            
             if (result.success) {
                 alert("Issue successfully escalated to the Super Admin.");
                 setIsEscalateModalOpen(false);
@@ -51,7 +49,8 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to submit escalation.");
+            // 🌟 THE FIX: Better error handling with Axios
+            alert(error.response?.data?.message || "Failed to submit escalation.");
         } finally {
             setIsSubmitting(false);
         }

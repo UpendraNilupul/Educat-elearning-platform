@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, IdCard, ShieldAlert } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const TeacherReview = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -15,10 +16,9 @@ const TeacherReview = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchTeacherDetails = async () => {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/teacher-details/${id}`, {
-                    credentials: 'include'
-                });
-                const result = await response.json();
+                // 🌟 THE FIX: Use api.get()
+                const response = await api.get(`/admin/teacher-details/${id}`);
+                const result = response.data;
                 
                 if (result.success) {
                     setTeacher(result.data);
@@ -47,14 +47,13 @@ const TeacherReview = ({ userName, onLogout }) => {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/verify-teacher/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus, message: feedback }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.put() and pass the payload directly
+            const response = await api.put(`/admin/verify-teacher/${id}`, { 
+                status: newStatus, 
+                message: feedback 
             });
 
-            const result = await response.json();
+            const result = response.data;
             if (result.success) {
                 alert(`Success! Application ${newStatus}.`);
                 navigate('/admin/teachers'); // Send them back to the directory
@@ -62,7 +61,8 @@ const TeacherReview = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to submit review.");
+            // 🌟 THE FIX: Better Axios error handling
+            alert(error.response?.data?.message || "Failed to submit review.");
         } finally {
             setIsSubmitting(false);
         }
@@ -74,6 +74,9 @@ const TeacherReview = ({ userName, onLogout }) => {
     // 🌟 LOGIC: If the main account is suspended, that overrides everything else.
     const isSuspended = teacher.status === 'suspended';
     const isApproved = teacher.verification_status === 'approved';
+
+    // 🌟 THE FIX: Dynamic Base URL for documents and images
+    const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
 
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -100,7 +103,7 @@ const TeacherReview = ({ userName, onLogout }) => {
                         <div className="flex items-center space-x-6 mb-8">
                             <div className={`w-24 h-24 rounded-2xl flex items-center justify-center font-black text-4xl shrink-0 overflow-hidden ${isSuspended ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'}`}>
                                 {teacher.picture ? (
-                                    <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className={`w-full h-full object-cover ${isSuspended ? 'grayscale' : ''}`} />
+                                    <img src={`${baseURL}/uploads/${teacher.picture}`} alt="Avatar" className={`w-full h-full object-cover ${isSuspended ? 'grayscale' : ''}`} />
                                 ) : teacher.name.charAt(0)}
                             </div>
                             <div>
@@ -157,7 +160,7 @@ const TeacherReview = ({ userName, onLogout }) => {
                             
                             {/* Document 1: CV */}
                             <a 
-                                href={teacher.resume_link ? (teacher.resume_link.startsWith('http') ? teacher.resume_link : `http://localhost:3000/uploads/verification/${teacher.resume_link}`) : '#'} 
+                                href={teacher.resume_link ? (teacher.resume_link.startsWith('http') ? teacher.resume_link : `${baseURL}/uploads/verification/${teacher.resume_link}`) : '#'} 
                                 target="_blank" rel="noreferrer"
                                 className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all
                                     ${teacher.resume_link ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}
@@ -169,7 +172,7 @@ const TeacherReview = ({ userName, onLogout }) => {
 
                             {/* Document 2: NIC */}
                             <a 
-                                href={teacher.nic_path ? (teacher.nic_path.startsWith('http') ? teacher.nic_path : `http://localhost:3000/uploads/verification/${teacher.nic_path}`) : '#'} 
+                                href={teacher.nic_path ? (teacher.nic_path.startsWith('http') ? teacher.nic_path : `${baseURL}/uploads/verification/${teacher.nic_path}`) : '#'} 
                                 target="_blank" rel="noreferrer"
                                 className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all
                                     ${teacher.nic_path ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}

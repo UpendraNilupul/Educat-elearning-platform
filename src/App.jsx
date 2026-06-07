@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster, toast } from 'react-hot-toast';
+import { io } from 'socket.io-client';
 
 // Component Imports
 import Header from './components/Header';
@@ -25,10 +27,11 @@ import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
-import VerifyTeacher from './pages/verifyTeacher';
+import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
 import Admin_Settings from './pages/Admin_Settings';
+import AssignmentSubmissions from './pages/AssignmentSubmissions';
 import Admin_Team from './pages/Admin_Team';
 import Admin_SystemLogs from './pages/Admin_SystemLogs';
 import CoursesPage from './pages/Course';
@@ -66,6 +69,7 @@ function App() {
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
   const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
+  const [userPicture, setUserPicture] = useState(localStorage.getItem('userPicture') || '');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -78,6 +82,10 @@ function App() {
         setUserRole(safeRole);
         setUserName(data.userName);
         if (data.adminLevel) setAdminLevel(data.adminLevel);
+        if (data.userPicture) {
+          setUserPicture(data.userPicture);
+          localStorage.setItem('userPicture', data.userPicture);
+        }
       })
       .catch(err => console.log("User is likely not logged in yet."))
       .finally(() => {
@@ -99,22 +107,46 @@ function App() {
     return () => clearInterval(heartbeatInterval);
   }, [userRole]);
 
-  // 🌟 Bulletproof Logout Logic
+  // Global Socket Connection for Real-Time Notifications
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (userId && userRole) {
+      const socket = io('http://localhost:3000');
+
+      socket.emit('join_notification_room', userId);
+
+      socket.on('new_notification', (data) => {
+        toast.success(
+          <div>
+            <strong>{data.title}</strong>
+            <p className="text-sm text-gray-600 mt-1">{data.description}</p>
+          </div>,
+          { duration: 6000 }
+        );
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [userRole]);
+
+  // Logout Logic
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:3000/api/logout', {
         method: 'POST',
         credentials: 'include'
       });
-      
-      // 1. Wipe everything from the browser's memory
-      localStorage.clear(); 
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userPicture');
+      localStorage.removeItem('adminLevel');
+      localStorage.removeItem('verificationStatus');
       setUserRole(null);
       setUserName('');
-
-      // 2. Force the browser to reload at the homepage (Stops the routing loop!)
-      window.location.href = '/'; 
-
+      setUserPicture('');
+      setAdminLevel('super');
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -123,25 +155,26 @@ function App() {
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-  
+
   const verificationStatus = localStorage.getItem('verificationStatus');
 
   return (
     <Router>
       <div className="min-h-screen bg-white">
+        <Toaster position="top-right" />
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-          
-          <Route 
-            path="/login" 
-            element={<Login setUserRole={setUserRole} setUserName={setUserName} setAdminLevel={setAdminLevel} userName={userName} />} 
+
+          <Route
+            path="/login"
+            element={<Login setUserRole={setUserRole} setUserName={setUserName} setUserPicture={setUserPicture} setAdminLevel={setAdminLevel} userName={userName} />}
           />
 
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-          
+
           <Route
             path="/teachers"
             element={
@@ -152,9 +185,9 @@ function App() {
           />
 
           {/* Verification Route */}
-          <Route 
-            path="/verify-teacher/:id" 
-            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
+          <Route
+            path="/verify-teacher/:id"
+            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />}
           />
 
           {/* Protected Route: Admin Traffic Cop */}
@@ -236,21 +269,12 @@ function App() {
             element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Escalations userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
-          {/* Proper 3-way logic for the Teacher Route */}
-          <Route
-            path="/teacher"
-            element={
-              userRole === 'teacher' ? (
-                verificationStatus === 'approved' ? (
-                  <TeacherDashboard userName={userName} onLogout={handleLogout} />
-                ) : (
-                  <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
-                )
-              ) : (
-                <Navigate to="/" />
-              )
-            }
-          />
+          {/* Teacher */}
+          <Route path="/teacher" element={
+            (userRole === 'teacher' && verificationStatus === 'approved')
+              ? <TeacherDashboard userName={userName} userPicture={userPicture} onLogout={handleLogout} />
+              : <Navigate to={`/verify-teacher/${localStorage.getItem('userId')}`} />
+          } />
 
           {/* Protected Route: Student */}
           <Route
@@ -265,33 +289,26 @@ function App() {
           />
 
           {/* Teacher Profile Edit */}
-          <Route
-            path="/teacher-profile-edit/:id?"
-            element={
-              userRole === 'teacher' ? (
-                <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} />
-              ) : (
-                <Navigate to="/" />
-              )} 
-          />
-              
-          <Route
-            path="/courses"
-            element={
-              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                <CoursesPage />
-              </MainLayout>
-            }
-          />
-          
-          <Route
-            path="/assessments"
-            element={
-              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
-                <AssessmentsPage />
-              </MainLayout>
-            }
-          />
+          <Route path="/teacher-profile-edit/:id?" element={
+            (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher')
+              ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} setUserPicture={setUserPicture} />
+              : <Navigate to="/" />
+          } />
+
+          {/* Courses */}
+          <Route path="/courses" element={
+            <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+              <CoursesPage />
+            </MainLayout>
+          } />
+
+          {/* Assessments */}
+          <Route path="/assessments" element={
+            <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+              <AssessmentsPage />
+            </MainLayout>
+          } />
+
         </Routes>
       </div>
     </Router>

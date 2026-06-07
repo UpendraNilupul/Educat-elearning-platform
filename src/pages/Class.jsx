@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    PlayCircle, 
-    Video, 
-    FileText, 
-    Download, 
-    Lock, 
-    Clock, 
-    ChevronDown, 
+import {
+    PlayCircle,
+    Video,
+    FileText,
+    Download,
+    Lock,
+    Clock,
+    ChevronDown,
     ChevronUp,
     Calendar,
     CreditCard,
     AlertCircle,
     CheckCircle,
     ArrowLeft,
-    Sparkles
+    Sparkles,
+    ClipboardList
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const TuitionClass = () => {
     // View state
-    const [selectedClassId, setSelectedClassId] = useState(null); 
-    const [checkoutClass, setCheckoutClass] = useState(null);     
-    
+    const [selectedClassId, setSelectedClassId] = useState(null);
+    const [checkoutClass, setCheckoutClass] = useState(null);
+
     // Gatekeeper state for the "Make a payment" dropdown
     const [expandedPaymentClassId, setExpandedPaymentClassId] = useState(null);
 
@@ -33,46 +35,22 @@ const TuitionClass = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // 🌟 MOCK DATA FOR SUGGESTED CLASSES
-    const mockSuggestedClasses = [
-        {
-            id: 'sug-1',
-            subject: 'Advanced React Patterns',
-            grade: 'Professional',
-            monthlyFee: 3500,
-            teacher: { name: 'Kasun Perera', image: 'https://ui-avatars.com/api/?name=Kasun+Perera&background=random&color=fff' },
-            months: [{ id: 'm-sug-1', name: 'April', isPaid: false }]
-        },
-        {
-            id: 'sug-2',
-            subject: 'Laravel API Masterclass',
-            grade: 'Professional',
-            monthlyFee: 4000,
-            teacher: { name: 'Nuwan Bandara', image: 'https://ui-avatars.com/api/?name=Nuwan+Bandara&background=random&color=fff' },
-            months: [{ id: 'm-sug-2', name: 'April', isPaid: false }]
-        },
-        {
-            id: 'sug-3',
-            subject: 'Network Security Basics',
-            grade: 'Advanced',
-            monthlyFee: 2500,
-            teacher: { name: 'Dr. Silva', image: 'https://ui-avatars.com/api/?name=Dr+Silva&background=random&color=fff' },
-            months: [{ id: 'm-sug-3', name: 'April', isPaid: false }]
-        }
-    ];
+    const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
+    const [activeAssignment, setActiveAssignment] = useState(null);
+    const [submissionFile, setSubmissionFile] = useState(null);
+
+    const [suggestedClasses, setSuggestedClasses] = useState([]);
 
     useEffect(() => {
         const fetchClasses = async () => {
             try {
                 const userId = localStorage.getItem('userId');
-                const response = await fetch(`http://localhost:3000/api/student/classes?userId=${userId}`, {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    setEnrolledClasses(data);
-                }
+                // 🌟 THE FIX: Use api.get() and response.data
+                const response = await api.get(`/student/classes?userId=${userId}`);
+                setEnrolledClasses(response.data);
+
+                const suggestedRes = await api.get('/suggested-classes');
+                setSuggestedClasses(suggestedRes.data);
             } catch (error) {
                 console.error("Error fetching classes:", error);
             } finally {
@@ -85,8 +63,8 @@ const TuitionClass = () => {
 
     // 🌟 GATEKEEPER LOGIC
     const handleEnterPortal = (cls) => {
-        const currentMonth = cls.months[0]; 
-        
+        const currentMonth = cls.months[0];
+
         if (currentMonth && currentMonth.isPaid) {
             setSelectedClassId(cls.id);
             setActiveMonth(currentMonth.id);
@@ -106,21 +84,99 @@ const TuitionClass = () => {
         setIsProcessing(true);
         try {
             const userId = localStorage.getItem('userId');
-            const response = await fetch('http://localhost:3000/api/student/pay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ userId, classId, moduleId, amount })
+            const order_id = `${classId}_${moduleId || 'm'}_${userId}_${Date.now()}`;
+
+            // 1. Get Hash from Backend
+            const hashRes = await api.post('/payment/generate-hash', {
+                order_id: order_id,
+                amount: amount,
+                currency: 'LKR'
             });
 
-            if (response.ok) {
-                alert("Payment Successful! Your class is now unlocked.");
-                window.location.reload(); 
-            } else {
-                alert("Payment failed. Please try again.");
-            }
+            const hash = hashRes.data.hash;
+
+            // 2. Setup PayHere object
+            const payment = {
+                sandbox: true,
+                merchant_id: '1234834',
+                return_url: window.location.href,
+                cancel_url: window.location.href,
+                notify_url: 'https://webhook.site/placeholder', // Handled by server webhook
+                order_id: order_id,
+                items: 'Educat Class Fee',
+                amount: amount,
+                currency: 'LKR',
+                hash: hash,
+                first_name: 'Student',
+                last_name: '',
+                email: 'student@educat.lk',
+                phone: '0770000000',
+                address: 'Sri Lanka',
+                city: 'Colombo',
+                country: 'Sri Lanka',
+            };
+
+            // 3. Define Callbacks
+            window.payhere.onCompleted = function onCompleted(orderId) {
+                console.log("Payment completed. OrderID:" + orderId);
+                // Call manual-success just in case webhook doesn't reach localhost
+                api.post('/payment/manual-success', {
+                    order_id: orderId,
+                    amount: amount,
+                    classId: classId,
+                    userId: userId
+                }).then(() => {
+                    alert("Payment Successful! Your class is now unlocked.");
+                    window.location.reload();
+                }).catch(err => {
+                    console.error("Manual success failed", err);
+                    window.location.reload();
+                });
+            };
+
+            window.payhere.onDismissed = function onDismissed() {
+                console.log("Payment dismissed");
+                setIsProcessing(false);
+            };
+
+            window.payhere.onError = function onError(error) {
+                console.log("Error:" + error);
+                alert("Payment Error: " + error);
+                setIsProcessing(false);
+            };
+
+            // 4. Start Payment
+            window.payhere.startPayment(payment);
+
         } catch (error) {
             console.error("Payment error:", error);
+            alert("Could not initialize payment. Please try again.");
+            setIsProcessing(false);
+        }
+    };
+
+    const handleAssignmentSubmit = async (e) => {
+        e.preventDefault();
+        if (!submissionFile || !activeAssignment) return;
+
+        setIsProcessing(true);
+        try {
+            const userId = localStorage.getItem('userId');
+            const formData = new FormData();
+            formData.append('submission', submissionFile);
+            formData.append('userId', userId);
+            formData.append('type', 'submission');
+
+            // 🌟 THE FIX: Use api.post() and pass formData directly. Axios sets the multipart headers automatically!
+            await api.post(`/assignments/${activeAssignment.id}/submit`, formData);
+
+            alert("Assignment submitted successfully!");
+            setIsSubmissionModalOpen(false);
+            setSubmissionFile(null);
+            window.location.reload(); // Refresh to show submission status
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.error || "Submission failed.");
         } finally {
             setIsProcessing(false);
         }
@@ -137,7 +193,7 @@ const TuitionClass = () => {
     // Filter classes into Paid and Unpaid
     const paidClasses = enrolledClasses.filter(cls => cls.months[0]?.isPaid);
     const unpaidClasses = enrolledClasses.filter(cls => !cls.months[0]?.isPaid);
-    
+
     const currentClass = enrolledClasses.find(c => c.id === selectedClassId);
     const currentMonthData = currentClass?.months.find(m => m.id === activeMonth) || currentClass?.months[0];
 
@@ -177,7 +233,7 @@ const TuitionClass = () => {
                                                 {cls.months[0]?.name}
                                             </span>
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => handleEnterPortal(cls)}
                                             className="w-full mt-auto py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md"
                                         >
@@ -197,7 +253,7 @@ const TuitionClass = () => {
                         <h2 className="text-xl font-bold text-gray-900">Suggested Classes for You</h2>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {mockSuggestedClasses.map((cls) => (
+                        {suggestedClasses.map((cls) => (
                             <div key={cls.id} className="bg-white rounded-2xl border border-orange-100 shadow-sm hover:shadow-lg transition-all flex flex-col overflow-hidden relative group">
                                 <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
                                 <div className="p-6 border-b border-gray-50 flex items-center gap-4 bg-gradient-to-r from-orange-50/50 to-white">
@@ -211,14 +267,13 @@ const TuitionClass = () => {
                                     <div className="flex items-center justify-between mb-4">
                                         <h2 className="text-xl font-black text-gray-900 group-hover:text-orange-600 transition-colors">{cls.subject}</h2>
                                     </div>
-                                    
-                                    <button 
+
+                                    <button
                                         onClick={() => handleEnterPortal(cls)}
-                                        className={`w-full mt-auto py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
-                                            expandedPaymentClassId === cls.id 
-                                                ? 'bg-gray-100 text-gray-500' 
+                                        className={`w-full mt-auto py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${expandedPaymentClassId === cls.id
+                                                ? 'bg-gray-100 text-gray-500'
                                                 : 'bg-gray-900 text-white hover:bg-orange-600'
-                                        }`}
+                                            }`}
                                     >
                                         Enter Portal
                                     </button>
@@ -229,7 +284,7 @@ const TuitionClass = () => {
                                                 <Lock className="w-4 h-4" />
                                                 <p className="text-[11px] font-bold">Enroll and pay to unlock this class.</p>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => setCheckoutClass(cls)}
                                                 className="w-full py-3 bg-purple-600 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-purple-700 transition-all shadow-md"
                                             >
@@ -268,14 +323,13 @@ const TuitionClass = () => {
                                                 {cls.months[0]?.name} Locked
                                             </span>
                                         </div>
-                                        
-                                        <button 
+
+                                        <button
                                             onClick={() => handleEnterPortal(cls)}
-                                            className={`w-full mt-auto py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
-                                                expandedPaymentClassId === cls.id 
-                                                    ? 'bg-gray-100 text-gray-500' 
+                                            className={`w-full mt-auto py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${expandedPaymentClassId === cls.id
+                                                    ? 'bg-gray-100 text-gray-500'
                                                     : 'bg-gray-900 text-white hover:bg-brand-purple'
-                                            }`}
+                                                }`}
                                         >
                                             Enter Portal
                                         </button>
@@ -286,7 +340,7 @@ const TuitionClass = () => {
                                                     <Lock className="w-4 h-4" />
                                                     <p className="text-xs font-bold">Please pay to unlock this month.</p>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={() => setCheckoutClass(cls)}
                                                     className="w-full py-3 bg-purple-600 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-purple-700 transition-all shadow-md"
                                                 >
@@ -312,15 +366,14 @@ const TuitionClass = () => {
         const currentMonth = checkoutClass.months[0];
         return (
             <div className="p-8 max-w-[800px] mx-auto animate-in slide-in-from-bottom-4 duration-300">
-                {/* 🌟 WENAS KARAPU LASSANA BACK BUTTON EKA */}
-                <button 
+                <button
                     onClick={() => {
                         setCheckoutClass(null);
-                        setExpandedPaymentClassId(null); 
+                        setExpandedPaymentClassId(null);
                     }}
                     className="group mb-8 flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-100 px-5 py-2.5 rounded-xl shadow-sm hover:bg-purple-600 hover:text-white transition-all duration-300 w-fit"
                 >
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" /> 
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
                     Back to Lessons
                 </button>
 
@@ -347,7 +400,7 @@ const TuitionClass = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => handlePayment(checkoutClass.id, currentMonth.id, checkoutClass.monthlyFee)}
                             disabled={isProcessing}
                             className="w-full max-w-sm py-4 bg-purple-600 text-white rounded-xl text-lg font-bold flex items-center justify-center gap-2 hover:bg-purple-700 transition-all shadow-xl disabled:opacity-50 hover:-translate-y-1"
@@ -366,12 +419,11 @@ const TuitionClass = () => {
     // ==========================================
     return (
         <div className="p-8 max-w-[1400px] mx-auto animate-in slide-in-from-right-4 duration-300">
-            {/* 🌟 WENAS KARAPU LASSANA BACK BUTTON EKA */}
-            <button 
+            <button
                 onClick={() => setSelectedClassId(null)}
                 className="group mb-8 flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-100 px-5 py-2.5 rounded-xl shadow-sm hover:bg-purple-600 hover:text-white transition-all duration-300 w-fit"
             >
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" /> 
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
                 Back to Lessons
             </button>
 
@@ -381,7 +433,7 @@ const TuitionClass = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3"/> Active Portal
+                                <CheckCircle className="w-3 h-3" /> Active Portal
                             </span>
                             <span className="text-xs font-bold text-brand-purple bg-purple-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
                                 {currentClass.grade}
@@ -396,16 +448,16 @@ const TuitionClass = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                        {['Recordings', 'Live Class', 'Tutes'].map((tab) => (
+                        {['Recordings', 'Live Class', 'Assignments', 'Tutes'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-                                    activeTab === tab ? 'bg-purple-50 text-brand-purple' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
+                                className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-purple-50 text-brand-purple' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                    }`}
                             >
                                 {tab === 'Recordings' && <PlayCircle className="w-4 h-4" />}
                                 {tab === 'Live Class' && <Video className="w-4 h-4" />}
+                                {tab === 'Assignments' && <ClipboardList className="w-4 h-4" />}
                                 {tab === 'Tutes' && <FileText className="w-4 h-4" />}
                                 {tab}
                             </button>
@@ -419,7 +471,7 @@ const TuitionClass = () => {
                                     <>
                                         <div className="bg-gray-900 w-full h-64 md:h-80 relative group flex items-center justify-center rounded-b-2xl border-b-4 border-gray-800">
                                             <div className="absolute inset-0 bg-gradient-to-tr from-brand-purple/20 to-transparent opacity-50 rounded-b-2xl"></div>
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     const video = currentMonthData.videos?.find(v => v.id === activeVideo);
                                                     if (video && video.link) window.open(video.link, '_blank');
@@ -454,6 +506,84 @@ const TuitionClass = () => {
                             </div>
                         )}
 
+                        {activeTab === 'Assignments' && (
+                            <div className="p-8">
+                                <h2 className="text-xl font-bold text-gray-900 mb-6">Assignments</h2>
+                                {(currentMonthData?.assignments || []).length === 0 ? (
+                                    <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                        <p className="text-gray-500">No assignments for this module.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {currentMonthData.assignments.map(assign => (
+                                            <div key={assign.id} className="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:border-purple-200 transition-all flex flex-col">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <h3 className="text-lg font-bold text-gray-900">{assign.title}</h3>
+                                                    {assign.submission ? (
+                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full uppercase flex items-center gap-1">
+                                                            <CheckCircle size={10} /> {assign.submission.status}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-full uppercase flex items-center gap-1">
+                                                            <Clock size={10} /> Pending
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{assign.description}</p>
+
+                                                {/* Teacher Attachments */}
+                                                {(assign.attachments || []).length > 0 && (
+                                                    <div className="mb-4 space-y-2">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Attachments</p>
+                                                        {assign.attachments.map(att => (
+                                                            <a
+                                                                key={att.id}
+                                                                href={att.file_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-100 hover:border-purple-200 transition-colors group"
+                                                            >
+                                                                <Download size={12} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-medium text-gray-600 truncate">
+                                                                    {att.file_url.split('/').pop()}
+                                                                </span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-auto space-y-4">
+                                                    <div className="flex justify-between text-[11px] font-bold text-gray-400">
+                                                        <span>Due: {new Date(assign.deadline).toLocaleDateString()}</span>
+                                                        <span>{assign.max_marks} Marks</span>
+                                                    </div>
+
+                                                    {assign.submission?.status === 'graded' ? (
+                                                        <div className="bg-purple-100 p-4 rounded-xl border border-purple-200">
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-xs font-bold text-purple-700">Grade</span>
+                                                                <span className="text-lg font-black text-purple-900">{assign.submission.grade}/{assign.max_marks}</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-purple-600 italic">"{assign.submission.feedback}"</p>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => { setActiveAssignment(assign); setIsSubmissionModalOpen(true); }}
+                                                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${assign.submission ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-brand-purple text-white hover:bg-purple-700 shadow-md'
+                                                                }`}
+                                                        >
+                                                            {assign.submission ? 'Resubmit Assignment' : 'Submit Assignment'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {activeTab === 'Tutes' && currentMonthData && (
                             <div className="p-6">
                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Class Tutes</h2>
@@ -467,7 +597,7 @@ const TuitionClass = () => {
                                                 </div>
                                                 <button className="p-2.5 text-brand-purple bg-purple-100 hover:bg-brand-purple hover:text-white transition-all rounded-lg"><Download className="w-5 h-5" /></button>
                                             </div>
-                                ))}
+                                        ))}
                                     </div>
                                 ) : (
                                     <div className="p-6 bg-red-50 border border-red-100 rounded-xl flex items-center gap-4">
@@ -510,6 +640,45 @@ const TuitionClass = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Submission Modal */}
+            {isSubmissionModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-300">
+                        <button onClick={() => setIsSubmissionModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <h2 className="text-2xl font-black text-gray-900 mb-2">Submit Assignment</h2>
+                        <p className="text-gray-500 mb-6 text-sm font-medium">{activeAssignment?.title}</p>
+
+                        <form onSubmit={handleAssignmentSubmit} className="space-y-6">
+                            <div className="border-2 border-dashed border-purple-100 rounded-2xl p-10 text-center bg-purple-50/50 hover:bg-purple-50 transition-colors cursor-pointer group relative">
+                                <input
+                                    type="file"
+                                    onChange={(e) => setSubmissionFile(e.target.files[0])}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    required
+                                />
+                                <div className="flex flex-col items-center">
+                                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-brand-purple group-hover:scale-110 transition-transform">
+                                        <Download size={24} />
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-700">{submissionFile ? submissionFile.name : "Choose or drag file"}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-widest">PDF, DOCX or ZIP preferred</p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isProcessing}
+                                className="w-full py-4 bg-brand-purple text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                            >
+                                {isProcessing ? "Uploading..." : "Click to Submit"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

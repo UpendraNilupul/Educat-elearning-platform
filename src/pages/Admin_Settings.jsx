@@ -4,6 +4,7 @@ import {
     Settings, ArrowLeft, User, Lock, Mail, Phone, 
     MapPin, Calendar, ShieldCheck, Save
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_Settings = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -27,8 +28,8 @@ const Admin_Settings = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/profile/${adminId}`, { credentials: 'include' });
-                const result = await response.json();
+                const response = await api.get(`/admin/profile/${adminId}`);
+                const result = response.data;
                 if (result.success) {
                     setProfileData(result.data);
                 }
@@ -53,19 +54,15 @@ const Admin_Settings = ({ userName, onLogout }) => {
         e.preventDefault();
         setIsSavingProfile(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/profile/${adminId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(profileData),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            // 🌟 THE FIX: Pass the profileData object directly to api.put
+            const response = await api.put(`/admin/profile/${adminId}`, profileData);
+            const result = response.data;
             alert(result.message);
             if (result.success) {
-                localStorage.setItem('userName', profileData.name); // Update local storage name
+                localStorage.setItem('userName', profileData.name); 
             }
         } catch (error) {
-            alert("Failed to update profile.");
+            alert(error.response?.data?.message || "Failed to update profile.");
         } finally {
             setIsSavingProfile(false);
         }
@@ -82,22 +79,18 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
         setIsSavingPassword(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/change-password/${adminId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    currentPassword: passwordData.currentPassword,
-                    newPassword: passwordData.newPassword
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Pass the raw object directly! No { body: JSON.stringify(...) } needed.
+            const response = await api.put(`/admin/change-password/${adminId}`, {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
             });
-            const result = await response.json();
+            const result = response.data;
             alert(result.message);
             if (result.success) {
                 setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             }
         } catch (error) {
-            alert("Failed to update password.");
+            alert(error.response?.data?.message || "Failed to update password.");
         } finally {
             setIsSavingPassword(false);
         }
