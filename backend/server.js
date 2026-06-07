@@ -141,6 +141,13 @@ io.on("connection", (socket) => {
         socket.to(data.room).emit("receive_message", data.message);
     });
 
+    // Handle joining a global notification room for the user
+    socket.on("join_notification_room", (userId) => {
+        const roomName = `user_${userId}`;
+        socket.join(roomName);
+        console.log(`User ${socket.id} joined notification room: ${roomName}`);
+    });
+
     socket.on("disconnect", () => {
         console.log(`🔴 User Disconnected: ${socket.id}`);
     });
@@ -154,5 +161,5 @@ app.use((req, res) => {
 server.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
     // Start background jobs
-    initAssignmentScheduler();
+    initAssignmentScheduler(io);
 });

@@ -8,7 +8,7 @@ const query = util.promisify(db.query).bind(db);
  * Background job to check for assignments and quizzes that need to be published.
  * Runs every minute.
  */
-const initAssignmentScheduler = () => {
+const initAssignmentScheduler = (io) => {
     console.log('⏰ Content Scheduler (Assignments & Quizzes) initialized.');
 
     cron.schedule('* * * * *', async () => {
@@ -45,6 +45,14 @@ const initAssignmentScheduler = () => {
                             `A new assignment "${assign.title}" has been published in your course "${assign.course_title}".`,
                             student.user_id
                         ]);
+                        
+                        // Emit real-time socket notification
+                        if (io) {
+                            io.to(`user_${student.user_id}`).emit('new_notification', {
+                                title: 'New Assignment Published',
+                                description: `A new assignment "${assign.title}" has been published in your course "${assign.course_title}".`
+                            });
+                        }
                     }
 
                     // Mark notification as sent
@@ -85,6 +93,14 @@ const initAssignmentScheduler = () => {
                             `A new quiz (Quiz #${qz.number}) has been published in your course "${qz.course_title}".`,
                             student.user_id
                         ]);
+                        
+                        // Emit real-time socket notification
+                        if (io) {
+                            io.to(`user_${student.user_id}`).emit('new_notification', {
+                                title: 'New Quiz Published',
+                                description: `A new quiz (Quiz #${qz.number}) has been published in your course "${qz.course_title}".`
+                            });
+                        }
                     }
 
                     // Mark notification as sent

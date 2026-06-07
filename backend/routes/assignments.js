@@ -200,21 +200,30 @@ router.post('/assignments/:aId/submit', requireRole(['student']), submissionUplo
 
         const file_url = req.file.path; // Cloudinary URL
 
+        // Check if late submission
+        const assignmentRes = await query('SELECT deadline FROM assignments WHERE id = ?', [aId]);
+        if (assignmentRes.length === 0) return res.status(404).json({ error: 'Assignment not found' });
+        
+        let submissionStatus = 'submitted';
+        if (new Date() > new Date(assignmentRes[0].deadline)) {
+            submissionStatus = 'late_submitted';
+        }
+
         // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
         
         if (existing.length > 0) {
             await query(
-                'UPDATE assignment_submissions SET file_url = ?, submitted_at = NOW(), status = "submitted" WHERE id = ?',
-                [file_url, existing[0].id]
+                'UPDATE assignment_submissions SET file_url = ?, submitted_at = NOW(), status = ? WHERE id = ?',
+                [file_url, submissionStatus, existing[0].id]
             );
-            res.json({ message: 'Submission updated successfully' });
+            res.json({ message: 'Submission updated successfully', status: submissionStatus });
         } else {
             await query(
-                'INSERT INTO assignment_submissions (a_id, s_id, file_url, status) VALUES (?, ?, ?, "submitted")',
-                [aId, sId, file_url]
+                'INSERT INTO assignment_submissions (a_id, s_id, file_url, status) VALUES (?, ?, ?, ?)',
+                [aId, sId, file_url, submissionStatus]
             );
-            res.status(201).json({ message: 'Assignment submitted successfully' });
+            res.status(201).json({ message: 'Assignment submitted successfully', status: submissionStatus });
         }
     } catch (err) {
         console.error('Error submitting assignment:', err);
