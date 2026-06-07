@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js'; 
+import db from '../db.js';
 import util from 'util';
 
 const query = util.promisify(db.query).bind(db);
@@ -7,13 +7,13 @@ const router = express.Router();
 
 // 1. GET ENROLLED CLASSES
 router.get('/student/classes', async (req, res) => {
-    const userId = req.session?.userId || req.query.userId; 
-    if (!userId) return res.status(200).json([]); 
+    const userId = req.session?.userId || req.query.userId;
+    if (!userId) return res.status(200).json([]);
 
     try {
         const studentRes = await query(`SELECT id FROM students WHERE user_id = ?`, [userId]);
-        if (studentRes.length === 0) return res.status(200).json([]); 
-        
+        if (studentRes.length === 0) return res.status(200).json([]);
+
         const studentId = studentRes[0].id;
 
         const classes = await query(`
@@ -36,7 +36,7 @@ router.get('/student/classes', async (req, res) => {
         const enrolledClasses = [];
 
         for (let cls of classes) {
-            
+
             // 🔴 මෙතන තිබුණු AND status = 'active' කියන එක අයින් කළා
             const modules = await query(`
                 SELECT id, title AS name, title AS topics 
@@ -48,7 +48,7 @@ router.get('/student/classes', async (req, res) => {
             const monthsData = [];
 
             for (let mod of modules) {
-                
+
                 const videos = await query(`
             SELECT id,number,type, title,link,m_id
             FROM lessons 
@@ -66,9 +66,9 @@ router.get('/student/classes', async (req, res) => {
             WHERE c_id = ? AND s_id = ? AND status = 'completed'
         `, [cls.id, studentId]);
 
-                
 
-                const isPaid = payments.length > 0; 
+
+                const isPaid = payments.length > 0;
 
                 monthsData.push({
                     id: mod.id,
@@ -78,7 +78,7 @@ router.get('/student/classes', async (req, res) => {
                     videos: videos.map(v => ({
                         id: v.id,
                         title: v.title || 'Lesson Video',
-                        link: v.link,   
+                        link: v.link,
                         date: v.formatted_date || 'Available Now',
                         duration: v.duration || '--'
                     })),
@@ -114,6 +114,23 @@ router.get('/student/classes', async (req, res) => {
                 });
             }
 
+            if (modules.length === 0) {
+                const payments = await query(`
+                    SELECT id FROM payments
+                    WHERE c_id = ? AND s_id = ? AND status = 'completed'
+                `, [cls.id, studentId]);
+
+                monthsData.push({
+                    id: `m-dummy-${cls.id}`,
+                    name: 'Introduction',
+                    isPaid: payments.length > 0,
+                    topics: 'Course Introduction',
+                    videos: [],
+                    tutes: [],
+                    assignments: []
+                });
+            }
+
             enrolledClasses.push({
                 id: cls.id,
                 grade: cls.grade || 'Grade',
@@ -122,7 +139,7 @@ router.get('/student/classes', async (req, res) => {
                     name: cls.teacher_name,
                     image: cls.teacher_image || `https://ui-avatars.com/api/?name=${cls.teacher_name.replace(/ /g, '+')}&background=4a0b59&color=fff`
                 },
-                monthlyFee: cls.monthly_fee || 2500, 
+                monthlyFee: cls.monthly_fee || 2500,
                 schedule: cls.generated_schedule || cls.schedule_text || 'Schedule TBA',
                 zoomLink: cls.zoomLink || '#',
                 studentsCount: cls.studentsCount,
@@ -141,6 +158,18 @@ router.get('/student/classes', async (req, res) => {
 // 2. GET SUGGESTED CLASSES
 router.get('/suggested-classes', async (req, res) => {
     try {
+        const userId = req.session?.userId || req.query.userId;
+        let excludeQuery = "";
+        let queryParams = [];
+
+        if (userId) {
+            const studentRes = await query(`SELECT id FROM students WHERE user_id = ?`, [userId]);
+            if (studentRes.length > 0) {
+                excludeQuery = `WHERE c.id NOT IN (SELECT c_id FROM enrollments WHERE s_id = ?)`;
+                queryParams.push(studentRes[0].id);
+            }
+        }
+
         const suggested = await query(`
             SELECT 
                 c.id, c.name AS grade, c.title AS subject,
@@ -148,9 +177,10 @@ router.get('/suggested-classes', async (req, res) => {
             FROM classes_courses c
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
+            ${excludeQuery}
             ORDER BY c.id DESC
             LIMIT 10
-        `);
+        `, queryParams);
 
         const formatted = suggested.map(cls => ({
             id: cls.id,
@@ -160,7 +190,8 @@ router.get('/suggested-classes', async (req, res) => {
             teacher: {
                 name: cls.teacher_name,
                 image: cls.teacher_image || `https://ui-avatars.com/api/?name=${cls.teacher_name.replace(/ /g, '+')}`
-            }
+            },
+            months: [{ id: `m-sug-${cls.id}`, name: 'Intro', isPaid: false }]
         }));
 
         res.status(200).json(formatted);
