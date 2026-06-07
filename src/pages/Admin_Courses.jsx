@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    PlayCircle, CheckCircle, XCircle, ArrowLeft, Eye
+    PlayCircle, CheckCircle, XCircle, ArrowLeft, Eye, Users
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_Courses = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -21,8 +22,9 @@ const Admin_Courses = ({ userName, onLogout }) => {
             setLoading(true);
             try {
                 const queryParams = new URLSearchParams({ search: searchQuery, status: statusFilter }).toString();
-                const response = await fetch(`http://localhost:3000/api/admin/courses-list?${queryParams}`, { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Use api.get()
+                const response = await api.get(`/admin/courses-list?${queryParams}`);
+                const data = response.data; // Axios automatically parses the JSON into .data
                 
                 if (data.success) setCourses(data.data);
             } catch (error) {
@@ -41,13 +43,9 @@ const Admin_Courses = ({ userName, onLogout }) => {
         if (!window.confirm(`Are you sure you want to ${actionText} this course?`)) return;
 
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/course-status/${courseId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            // 🌟 THE FIX: Use api.put() - no need for headers, stringify, or localhost!
+            const response = await api.put(`/admin/course-status/${courseId}`, { status: newStatus });
+            const result = response.data;
             
             if (result.success) {
                 // Instantly update the UI without reloading the page
@@ -57,10 +55,11 @@ const Admin_Courses = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to update status.");
+            // Catch axios errors properly
+            alert(error.response?.data?.message || "Failed to update status.");
         }
     };
-
+    
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen">
             

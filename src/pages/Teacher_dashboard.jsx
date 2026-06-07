@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
 const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) => {
@@ -38,14 +39,14 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     const fetchCourses = async () => {
       try {
         const id = localStorage.getItem('userId');
-        const url = id ? `http://localhost:3000/api/courses?teacherId=${id}` : 'http://localhost:3000/api/courses';
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          setCourses(data.map(course => ({
-            ...course, students: course.students || 0, modules: course.modules || 0, progress: course.progress || 0, chapters: course.chapters || []
-          })));
-        }
+        // 🌟 THE FIX: Use api.get() and let it handle the base URL
+        const endpoint = id ? `/courses?teacherId=${id}` : '/courses';
+        const response = await api.get(endpoint);
+        const data = response.data;
+        
+        setCourses(data.map(course => ({
+          ...course, students: course.students || 0, modules: course.modules || 0, progress: course.progress || 0, chapters: course.chapters || []
+        })));
       } catch (error) {
         console.error("Error fetching courses:", error);
       }

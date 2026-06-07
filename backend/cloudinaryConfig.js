@@ -3,6 +3,14 @@ import pkg from 'multer-storage-cloudinary';
 const { CloudinaryStorage } = pkg;
 import dotenv from 'dotenv';
 
+// Bring back 'require' to load the package
+const require = createRequire(import.meta.url);
+const multerCloudinary = require('multer-storage-cloudinary');
+
+// 🌟 THE BULLETPROOF FIX PT 1: 
+// Safely extract the Storage object regardless of the NPM version or ESM quirks
+const CloudinaryStorage = multerCloudinary.CloudinaryStorage || multerCloudinary.default?.CloudinaryStorage || multerCloudinary.default || multerCloudinary;
+
 dotenv.config();
 
 cloudinary.config({
@@ -18,8 +26,18 @@ if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !pr
   console.log("✅ Cloudinary configured successfully.");
 }
 
+// 🌟 THE BULLETPROOF FIX PT 2: 
+// A helper function that works whether the library wants `new` (v4) or just a function call (v2)
+const createStorage = (options) => {
+  try {
+    return new CloudinaryStorage(options);
+  } catch (err) {
+    return CloudinaryStorage(options);
+  }
+};
+
 // Storage for Profile Pictures
-const profileStorage = new CloudinaryStorage({
+const profileStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'teacher_profiles',
@@ -29,18 +47,17 @@ const profileStorage = new CloudinaryStorage({
 });
 
 // Storage for Verification Docs (NIC, Resume)
-const verificationStorage = new CloudinaryStorage({
+const verificationStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'teacher_verification',
-    // Allowed formats for documents
     allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
     resource_type: 'auto', // Important for PDFs
   },
 });
 
 // Storage for Assignment Attachments
-const assignmentStorage = new CloudinaryStorage({
+const assignmentStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'course_assignments',
@@ -49,7 +66,7 @@ const assignmentStorage = new CloudinaryStorage({
 });
 
 // Storage for Student Submissions
-const submissionStorage = new CloudinaryStorage({
+const submissionStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'student_submissions',

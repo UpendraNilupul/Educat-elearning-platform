@@ -16,6 +16,7 @@ import {
     Sparkles,
     ClipboardList
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const TuitionClass = () => {
     // View state
@@ -70,14 +71,9 @@ const TuitionClass = () => {
         const fetchClasses = async () => {
             try {
                 const userId = localStorage.getItem('userId');
-                const response = await fetch(`http://localhost:3000/api/student/classes?userId=${userId}`, {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    setEnrolledClasses(data);
-                }
+                // 🌟 THE FIX: Use api.get() and response.data
+                const response = await api.get(`/student/classes?userId=${userId}`);
+                setEnrolledClasses(response.data);
             } catch (error) {
                 console.error("Error fetching classes:", error);
             } finally {
@@ -111,21 +107,14 @@ const TuitionClass = () => {
         setIsProcessing(true);
         try {
             const userId = localStorage.getItem('userId');
-            const response = await fetch('http://localhost:3000/api/student/pay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ userId, classId, moduleId, amount })
-            });
+            // 🌟 THE FIX: Use api.post()
+            await api.post('/student/pay', { userId, classId, moduleId, amount });
 
-            if (response.ok) {
-                alert("Payment Successful! Your class is now unlocked.");
-                window.location.reload(); 
-            } else {
-                alert("Payment failed. Please try again.");
-            }
+            alert("Payment Successful! Your class is now unlocked.");
+            window.location.reload(); 
         } catch (error) {
             console.error("Payment error:", error);
+            alert(error.response?.data?.message || "Payment failed. Please try again.");
         } finally {
             setIsProcessing(false);
         }
@@ -143,21 +132,16 @@ const TuitionClass = () => {
             formData.append('userId', userId);
             formData.append('type', 'submission');
 
-            const response = await fetch(`http://localhost:3000/api/assignments/${activeAssignment.id}/submit`, {
-                method: 'POST',
-                body: formData
-            });
+            // 🌟 THE FIX: Use api.post() and pass formData directly. Axios sets the multipart headers automatically!
+            await api.post(`/assignments/${activeAssignment.id}/submit`, formData);
 
-            if (response.ok) {
-                alert("Assignment submitted successfully!");
-                setIsSubmissionModalOpen(false);
-                setSubmissionFile(null);
-                window.location.reload(); // Refresh to show submission status
-            } else {
-                alert("Submission failed.");
-            }
+            alert("Assignment submitted successfully!");
+            setIsSubmissionModalOpen(false);
+            setSubmissionFile(null);
+            window.location.reload(); // Refresh to show submission status
         } catch (err) {
             console.error(err);
+            alert(err.response?.data?.error || "Submission failed.");
         } finally {
             setIsProcessing(false);
         }
@@ -349,7 +333,6 @@ const TuitionClass = () => {
         const currentMonth = checkoutClass.months[0];
         return (
             <div className="p-8 max-w-[800px] mx-auto animate-in slide-in-from-bottom-4 duration-300">
-                {/* 🌟 WENAS KARAPU LASSANA BACK BUTTON EKA */}
                 <button 
                     onClick={() => {
                         setCheckoutClass(null);
@@ -403,7 +386,6 @@ const TuitionClass = () => {
     // ==========================================
     return (
         <div className="p-8 max-w-[1400px] mx-auto animate-in slide-in-from-right-4 duration-300">
-            {/* 🌟 WENAS KARAPU LASSANA BACK BUTTON EKA */}
             <button 
                 onClick={() => setSelectedClassId(null)}
                 className="group mb-8 flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-100 px-5 py-2.5 rounded-xl shadow-sm hover:bg-purple-600 hover:text-white transition-all duration-300 w-fit"
@@ -584,7 +566,7 @@ const TuitionClass = () => {
                                                 </div>
                                                 <button className="p-2.5 text-brand-purple bg-purple-100 hover:bg-brand-purple hover:text-white transition-all rounded-lg"><Download className="w-5 h-5" /></button>
                                             </div>
-                                ))}
+                                        ))}
                                     </div>
                                 ) : (
                                     <div className="p-6 bg-red-50 border border-red-100 rounded-xl flex items-center gap-4">

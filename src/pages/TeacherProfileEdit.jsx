@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
   const params = useParams();
@@ -33,7 +33,8 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
       return;
     }
 
-    axios.get(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, { withCredentials: true })
+    // 🌟 THE FIX: Use api.get()
+    api.get(`/teacher/${resolvedTeacherId}`)
       .then(res => {
         setFormData(prev => ({
           ...prev,
@@ -46,10 +47,12 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
           bio: res.data.bio || '',
           '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
         }));
-        // Handle dynamic image paths (Cloudinary full URL or local legacy path)
+        
+        // 🌟 COMBINED FIX: Handle Cloudinary full URLs AND dynamic base URLs for local files
         if (res.data.picture) {
           const pic = res.data.picture;
-          setPreview(pic.startsWith('http') ? pic : `http://localhost:3000/uploads/profiles/${pic}`);
+          const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+          setPreview(pic.startsWith('http') ? pic : `${baseURL}/uploads/profiles/${pic}`);
         }
       })
       .catch(err => {
@@ -83,7 +86,8 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
     }
 
     try {
-      const res = await axios.put(`http://localhost:3000/api/teacher/${resolvedTeacherId}`, data, { withCredentials: true });
+      // 🌟 THE FIX: Use api.put() - Axios automatically handles the FormData headers!
+      const res = await api.put(`/teacher/${resolvedTeacherId}`, data);
       setMessage({ type: 'success', text: res.data.message });
       
       // Keep the frontend dashboard and header in sync with the new database Name and Picture!

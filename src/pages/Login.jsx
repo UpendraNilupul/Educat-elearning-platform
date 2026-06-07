@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the unified API instance
 import '../styles/login.css';
 
 // 🌟 ADDED setUserName AND setUserPicture HERE
-const Login = ({ setUserRole, setUserName, setUserPicture ,setAdminLevel }) => {
+const Login = ({ setUserRole, setUserName, setUserPicture, setAdminLevel }) => {
     // Standard Login States
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,56 +24,44 @@ const Login = ({ setUserRole, setUserName, setUserPicture ,setAdminLevel }) => {
         e.preventDefault();
 
         try {
-            const response = await fetch('http://localhost:3000/api/login', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
+            // 🌟 THE FIX: Use api.post
+            const response = await api.post('/login', { email, password });
+            const data = response.data; // Axios handles the JSON parsing
 
-            const data = await response.json();
+            // 🌟 THE FIX: Force the role to be completely lowercase and remove spaces
+            const safeRole = String(data.userRole || '').toLowerCase().trim();
 
-            if (response.ok) {
-                // 🌟 THE FIX: Force the role to be completely lowercase and remove spaces
-                const safeRole = String(data.userRole || '').toLowerCase().trim();
+            // Save data using safeRole
+            localStorage.setItem('adminLevel', data.adminLevel || 'super');
+            localStorage.setItem('userId', data.userId);
+            localStorage.setItem('userRole', safeRole);
+            localStorage.setItem('verificationStatus', data.verificationStatus || '');
+            localStorage.setItem('userPicture', data.userPicture || ''); // 🌟 MERGED from Dev
 
-                // Save data using safeRole
-                localStorage.setItem('adminLevel', data.adminLevel || 'super');
-                localStorage.setItem('userId', data.userId);
-                localStorage.setItem('userRole', safeRole);
-                localStorage.setItem('userPicture', data.userPicture || '');
-                localStorage.setItem('verificationStatus', data.verificationStatus || '');
+            if (setUserRole) setUserRole(safeRole);
+            if (setUserName) setUserName(data.userName);
+            if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
+            if (setUserPicture) setUserPicture(data.userPicture || ''); // 🌟 MERGED from Dev
 
-                if (setUserRole) setUserRole(safeRole);
-                if (setUserName) setUserName(data.userName);
-                if (setAdminLevel) setAdminLevel(data.adminLevel || 'super');
-                if (setUserPicture) setUserPicture(data.userPicture || '');
-
-                // 🔥 Redirect logic using safeRole
-                if (safeRole === 'admin') {
-                    navigate('/admin');
-
-                } else if (safeRole === 'teacher') {
-                    if (data.verificationStatus !== 'approved') {
-                        navigate(`/verify-teacher/${data.userId}`);
-                    } else {
-                        navigate('/teacher');
-                    }
-
-                } else if (safeRole === 'student') {
-                    navigate('/student');
-
+            // 🔥 Redirect logic using safeRole
+            if (safeRole === 'admin') {
+                navigate('/admin');
+            } else if (safeRole === 'teacher') {
+                if (data.verificationStatus !== 'approved') {
+                    navigate(`/verify-teacher/${data.userId}`);
                 } else {
-                    navigate('/');
+                    navigate('/teacher');
                 }
-
+            } else if (safeRole === 'student') {
+                navigate('/student');
             } else {
-                alert(data.message);
+                navigate('/');
             }
 
         } catch (error) {
             console.error('Error during login:', error);
-            alert('Something went wrong connecting to the server.');
+            // 🌟 THE FIX: Grab the exact error message from your backend
+            alert(error.response?.data?.message || 'Something went wrong connecting to the server.');
         }
     };
 
@@ -80,55 +69,41 @@ const Login = ({ setUserRole, setUserName, setUserPicture ,setAdminLevel }) => {
     const handleSendOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:3000/api/forgot-password/send-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert('OTP sent to your email and phone!');
-                setForgotStep(2);
-            } else {
-                alert(data.message);
-            }
-        } catch (err) { alert('Error sending OTP'); }
+            // 🌟 THE FIX: Use api.post
+            await api.post('/forgot-password/send-otp', { email });
+            
+            alert('OTP sent to your email and phone!');
+            setForgotStep(2);
+        } catch (err) { 
+            alert(err.response?.data?.message || 'Error sending OTP'); 
+        }
     };
 
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:3000/api/forgot-password/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, otp })
-            });
-            if (res.ok) setForgotStep(3);
-            else {
-                const data = await res.json();
-                alert(data.message);
-            }
-        } catch (err) { alert('Error verifying OTP'); }
+            // 🌟 THE FIX: Use api.post
+            await api.post('/forgot-password/verify-otp', { email, otp });
+            
+            setForgotStep(3); // Move to password reset step on success
+        } catch (err) { 
+            alert(err.response?.data?.message || 'Error verifying OTP'); 
+        }
     };
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch('http://localhost:3000/api/forgot-password/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, otp, newPassword })
-            });
-            if (res.ok) {
-                alert('Password reset successful! You can now log in.');
-                setIsForgotPassword(false); // Go back to login screen
-                setForgotStep(1);
-                setPassword('');
-            } else {
-                const data = await res.json();
-                alert(data.message);
-            }
-        } catch (err) { alert('Error resetting password'); }
+            // 🌟 THE FIX: Use api.post
+            await api.post('/forgot-password/reset-password', { email, otp, newPassword });
+            
+            alert('Password reset successful! You can now log in.');
+            setIsForgotPassword(false); // Go back to login screen
+            setForgotStep(1);
+            setPassword('');
+        } catch (err) { 
+            alert(err.response?.data?.message || 'Error resetting password'); 
+        }
     };
 
     return (
