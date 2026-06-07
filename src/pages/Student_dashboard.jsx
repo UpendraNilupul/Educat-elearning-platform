@@ -6,13 +6,13 @@ import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
-import DashboardHeader from '../components/DashboardHeader'; 
+import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
-    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase, 
-    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight, 
+    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
+    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
     Edit2, Search, SearchX, Loader2, MessageSquare
 } from 'lucide-react';
 
@@ -21,6 +21,7 @@ const Student = ({ userName, onLogout }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
+    const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
 
     // Search-related state (ඔයාගේ යාලුවා හදපු ටික)
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
@@ -66,7 +67,19 @@ const Student = ({ userName, onLogout }) => {
                 console.error("Error fetching basic dashboard info:", error);
             }
         };
+
+        const fetchAssessmentsCount = async () => {
+            try {
+                const response = await api.get(`/student/my-assessments`);
+                const pendingCount = response.data.filter(a => a.status === 'pending').length;
+                setPendingAssessmentsCount(pendingCount);
+            } catch (error) {
+                console.error("Error fetching assessments count:", error);
+            }
+        };
+
         fetchBasicInfo();
+        fetchAssessmentsCount();
     }, []);
 
     const ads = ['/add1.png', '/add2.png', '/add3.png', '/add4.png'];
@@ -85,10 +98,10 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Calendar', icon: Calendar },
         { name: 'Courses', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
-        { name: 'Assessments', icon: FileText },
+        { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
         { name: 'Certification', icon: Award },
         { name: 'Project', icon: Briefcase },
-        { name: 'Messages', icon: MessageSquare }, 
+        { name: 'Messages', icon: MessageSquare },
         { name: 'Download', icon: Download },
     ];
 
@@ -118,7 +131,10 @@ const Student = ({ userName, onLogout }) => {
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm flex-1 text-left">{item.name}</span>
+                            {item.hasBadge && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)] animate-pulse" />
+                            )}
                         </button>
                     ))}
                 </nav>
@@ -155,7 +171,7 @@ const Student = ({ userName, onLogout }) => {
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
                     <DashboardHeader userName={userName} />
-                    
+
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
