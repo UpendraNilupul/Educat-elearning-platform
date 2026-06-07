@@ -4,6 +4,7 @@ import {
     ArrowLeft, Users, DollarSign, Star, BookOpen, 
     Calendar, Clock, ShieldAlert, Mail, X, Send, ShieldCheck
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -21,10 +22,9 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
-                const response = await fetch(`http://localhost:3000/api/admin/teacher-analytics/${id}`, {
-                    credentials: 'include'
-                });
-                const result = await response.json();
+                // 🌟 THE FIX: Use api.get() and .data
+                const response = await api.get(`/admin/teacher-analytics/${id}`);
+                const result = response.data; 
                 
                 if (result.success) {
                     setData(result);
@@ -42,46 +42,38 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
         fetchAnalytics();
     }, [id, navigate]);
 
-    // 🌟 FIX 1: The Suspend/Reactivate Toggle
     const handleToggleStatus = async () => {
         const newStatus = data.profile.status === 'active' ? 'suspended' : 'active';
         if (!window.confirm(`Are you sure you want to ${newStatus} this teacher's account?`)) return;
 
         try {
-            // We can safely reuse the student-status endpoint because it directly targets the main `users` table!
-            const response = await fetch(`http://localhost:3000/api/admin/student-status/${data.profile.user_id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.put() - no stringify or headers needed
+            const response = await api.put(`/admin/student-status/${data.profile.user_id}`, { 
+                status: newStatus 
             });
-            const result = await response.json();
+            const result = response.data;
+            
             if (result.success) {
                 setData(prev => ({ ...prev, profile: { ...prev.profile, status: newStatus } }));
             }
         } catch (error) {
-            alert("Failed to update status.");
+            alert(error.response?.data?.message || "Failed to update status.");
         }
     };
 
-    // 🌟 FIX 2: Send Chat Message
     const handleSendMessage = async () => {
         if (!chatMessage.trim()) return;
         setIsSending(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderId: adminId,
-                    receiverId: data.profile.user_id,
-                    message: chatMessage
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.post()
+            const response = await api.post('/admin/send-message', {
+                senderId: adminId,
+                receiverId: data.profile.user_id,
+                message: chatMessage
             });
 
-            const result = await response.json();
+            const result = response.data;
             if (result.success) {
                 setChatMessage('');
                 setIsChatOpen(false);
@@ -90,7 +82,7 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to send message.");
+            alert(error.response?.data?.message || "Failed to send message.");
         } finally {
             setIsSending(false);
         }

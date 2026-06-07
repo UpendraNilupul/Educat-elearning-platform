@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const VerifyTeacher = () => {
   const { id: userId } = useParams();
@@ -12,9 +12,10 @@ const VerifyTeacher = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 🌟 THE FIX: Use Promise.all with api.get to fetch both concurrently without hardcoded URLs
         const [notifRes, statusRes] = await Promise.all([
-          axios.get(`http://localhost:3000/api/notifications/${userId}`),
-          axios.get(`http://localhost:3000/api/teacher-status/${userId}`)
+          api.get(`/notifications/${userId}`),
+          api.get(`/teacher-status/${userId}`)
         ]);
 
         if (notifRes.data.success) {
@@ -59,16 +60,20 @@ const VerifyTeacher = () => {
     }
 
     try {
-      const response = await axios.post(`http://localhost:3000/api/upload-docs/${userId}`, formData);
+      // 🌟 COMBINED FIX: Use api.post (from HEAD) + logging (from Dev)
+      const response = await api.post(`/upload-docs/${userId}`, formData);
       console.log("Upload Success:", response.data);
+      
       alert(submittedDocs ? "Documents updated successfully!" : "Submission successful! Please wait for admin approval.");
       navigate('/login');
     } catch (err) {
       console.error("Upload Detailed Error:", err);
-      const errorMsg = err.response?.data?.error || err.message || "Unknown error";
+      // 🌟 COMBINED FIX: Better error extraction
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Upload failed. Please try again.";
       alert("Upload failed: " + errorMsg);
     } finally {
-      setIsSubmitting(false);
+      // 🌟 COMBINED FIX: Ensure button re-enables (from Dev)
+      setIsSubmitting(false); 
     }
   };
 

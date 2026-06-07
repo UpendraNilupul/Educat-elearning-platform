@@ -4,6 +4,7 @@ import {
     Ticket, Plus, ArrowLeft, CheckCircle, 
     XCircle, Clock, X, Percent
 } from 'lucide-react';
+import api from '../api';
 
 const Admin_PromoCodes = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -26,12 +27,12 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
         setLoading(true);
         try {
             const [promoRes, courseRes] = await Promise.all([
-                fetch('http://localhost:3000/api/admin/promo-codes', { credentials: 'include' }),
-                fetch('http://localhost:3000/api/admin/all-courses', { credentials: 'include' })
+                api.get('/admin/promo-codes'),
+                api.get('/admin/all-courses')
             ]);
             
-            const promoData = await promoRes.json();
-            const courseData = await courseRes.json();
+            const promoData = promoRes.data;
+            const courseData = courseRes.data;
 
             if (promoData.success) setPromos(promoData.data);
             if (courseData.success) setCourses(courseData.data);
@@ -45,13 +46,8 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
     const handleCreatePromo = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('http://localhost:3000/api/admin/promo-codes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            const response = await api.post('/admin/promo-codes', formData);
+            const result = response.data;
             
             if (result.success) {
                 alert(result.message);
@@ -62,23 +58,19 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to connect to server.");
+            alert(error.response?.data?.message || "Failed to connect to server.");
         }
     };
 
     const handleToggleStatus = async (id, currentStatus) => {
         const newStatus = currentStatus === 'active' ? 'expired' : 'active';
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/promo-codes/${id}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-                credentials: 'include'
-            });
-            const result = await response.json();
+            // 🌟 THE FIX: Pass the object directly! No stringify or headers.
+            const response = await api.put(`/admin/promo-codes/${id}/status`, { status: newStatus });
+            const result = response.data;
             if (result.success) fetchData();
         } catch (error) {
-            alert("Failed to update status.");
+             alert(error.response?.data?.message || "Failed to update status.");
         }
     };
 

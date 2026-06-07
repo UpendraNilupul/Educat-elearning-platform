@@ -85,7 +85,7 @@ router.get('/quizzes/:id', async (req, res) => {
 
         // Fetch options for each question
         for (let q of questions) {
-            const options = await query('SELECT id, answer, correct FROM answers WHERE q_id = ?', [q.id]);
+            const options = await query('SELECT id, answer FROM answers WHERE q_id = ?', [q.id]);
             q.options = options;
         }
 

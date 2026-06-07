@@ -1,17 +1,37 @@
 import express from 'express';
 import db from '../db.js';
 import multer from 'multer';
+import path from 'path'; // Required for the file filter
 import { assignmentStorage, submissionStorage } from '../cloudinaryConfig.js';
 import util from 'util';
+import { requireAuth, requireRole } from '../middleware/auth.js'; // 🌟 Auth Gatekeepers
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-const assignmentUpload = multer({ storage: assignmentStorage });
-const submissionUpload = multer({ storage: submissionStorage });
+// 🌟 COMBINED FIX: Strict File Filter to prevent RCE vulnerabilities
+const fileFilter = (req, file, cb) => {
+    const filetypes = /pdf|doc|docx|zip|rar|jpeg|jpg|png/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb(new Error('SECURITY BLOCKED: Only PDFs, Word Docs, ZIPs, and Images are allowed!'));
+    }
+};
+
+const limits = { fileSize: 15 * 1024 * 1024 }; // Limit files to 15MB
+
+// 🌟 COMBINED FIX: Use Cloudinary storage with our security limits
+const assignmentUpload = multer({ storage: assignmentStorage, fileFilter, limits });
+const submissionUpload = multer({ storage: submissionStorage, fileFilter, limits });
+
 
 // --- TEACHER: CREATE ASSIGNMENT ---
-router.post('/modules/:mId/assignments', assignmentUpload.array('attachments'), async (req, res) => {
+// 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
+router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assignmentUpload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
     
@@ -110,15 +130,14 @@ router.delete('/attachments/:id', async (req, res) => {
 });
 
 // --- TEACHER & STUDENT: GET ASSIGNMENTS FOR MODULE ---
-router.get('/modules/:mId/assignments', async (req, res) => {
+router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
     const { mId } = req.params;
-    const userId = req.query.userId; // Optional: to check submission status if student
+    const userId = req.session.userId; 
 
     try {
         const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mId]);
         
-        // If userId is provided, check if the student has already submitted for these assignments
-        if (userId) {
+        if (req.session.userRole === 'student') {
             const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
             if (studentRes.length > 0) {
                 const sId = studentRes[0].id;
@@ -129,13 +148,12 @@ router.get('/modules/:mId/assignments', async (req, res) => {
                     );
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
                     
-                    // Fetch all attachments for this assignment
+                    // 🌟 COMBINED FIX: Map attachments correctly with IDs for the frontend
                     const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
                     assign.attachments = attachments;
                 }
             }
         } else {
-            // Even for teachers, fetch attachments
             for (let assign of assignments) {
                 const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
                 assign.attachments = attachments; // Array of objects {id, file_url}
@@ -150,7 +168,7 @@ router.get('/modules/:mId/assignments', async (req, res) => {
 });
 
 // --- GET SINGLE ASSIGNMENT DETAILS ---
-router.get('/assignments/:id', async (req, res) => {
+router.get('/assignments/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     try {
         const assignments = await query('SELECT * FROM assignments WHERE id = ?', [id]);
@@ -168,9 +186,10 @@ router.get('/assignments/:id', async (req, res) => {
 });
 
 // --- STUDENT: SUBMIT ASSIGNMENT ---
-router.post('/assignments/:aId/submit', submissionUpload.single('submission'), async (req, res) => {
+// 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
+router.post('/assignments/:aId/submit', requireRole(['student']), submissionUpload.single('submission'), async (req, res) => {
     const { aId } = req.params;
-    const { userId } = req.body;
+    const userId = req.session.userId; 
 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -181,21 +200,30 @@ router.post('/assignments/:aId/submit', submissionUpload.single('submission'), a
 
         const file_url = req.file.path; // Cloudinary URL
 
+        // Check if late submission
+        const assignmentRes = await query('SELECT deadline FROM assignments WHERE id = ?', [aId]);
+        if (assignmentRes.length === 0) return res.status(404).json({ error: 'Assignment not found' });
+        
+        let submissionStatus = 'submitted';
+        if (new Date() > new Date(assignmentRes[0].deadline)) {
+            submissionStatus = 'late_submitted';
+        }
+
         // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
         
         if (existing.length > 0) {
             await query(
-                'UPDATE assignment_submissions SET file_url = ?, submitted_at = NOW(), status = "submitted" WHERE id = ?',
-                [file_url, existing[0].id]
+                'UPDATE assignment_submissions SET file_url = ?, submitted_at = NOW(), status = ? WHERE id = ?',
+                [file_url, submissionStatus, existing[0].id]
             );
-            res.json({ message: 'Submission updated successfully' });
+            res.json({ message: 'Submission updated successfully', status: submissionStatus });
         } else {
             await query(
-                'INSERT INTO assignment_submissions (a_id, s_id, file_url, status) VALUES (?, ?, ?, "submitted")',
-                [aId, sId, file_url]
+                'INSERT INTO assignment_submissions (a_id, s_id, file_url, status) VALUES (?, ?, ?, ?)',
+                [aId, sId, file_url, submissionStatus]
             );
-            res.status(201).json({ message: 'Assignment submitted successfully' });
+            res.status(201).json({ message: 'Assignment submitted successfully', status: submissionStatus });
         }
     } catch (err) {
         console.error('Error submitting assignment:', err);
@@ -204,7 +232,7 @@ router.post('/assignments/:aId/submit', submissionUpload.single('submission'), a
 });
 
 // --- TEACHER: VIEW SUBMISSIONS FOR ASSIGNMENT ---
-router.get('/assignments/:aId/submissions', async (req, res) => {
+router.get('/assignments/:aId/submissions', requireRole(['teacher', 'admin']), async (req, res) => {
     const { aId } = req.params;
 
     try {
@@ -224,7 +252,7 @@ router.get('/assignments/:aId/submissions', async (req, res) => {
 });
 
 // --- TEACHER: GRADE SUBMISSION ---
-router.put('/submissions/:id/grade', async (req, res) => {
+router.put('/submissions/:id/grade', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
     const { grade, feedback } = req.body;
 
