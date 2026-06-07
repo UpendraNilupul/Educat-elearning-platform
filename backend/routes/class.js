@@ -37,10 +37,11 @@ router.get('/student/classes', async (req, res) => {
 
         for (let cls of classes) {
             
+            // 🔴 මෙතන තිබුණු AND status = 'active' කියන එක අයින් කළා
             const modules = await query(`
                 SELECT id, title AS name, title AS topics 
                 FROM modules 
-                WHERE c_id = ? AND status = 'active'
+                WHERE c_id = ? 
                 ORDER BY number ASC
             `, [cls.id]);
 
