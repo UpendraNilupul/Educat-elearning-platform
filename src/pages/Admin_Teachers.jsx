@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, FileText, CheckCircle, Clock, X, Send ,Download
+    Mail, Eye, FileText, CheckCircle, Clock, X, Send, Download
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const Admin_Teachers = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -31,8 +32,9 @@ const Admin_Teachers = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchSubjects = async () => {
             try {
-                const res = await fetch('http://localhost:3000/api/admin/subjects');
-                const data = await res.json();
+                // 🌟 THE FIX: Use api.get()
+                const response = await api.get('/admin/subjects');
+                const data = response.data;
                 if (data.success) setSubjectsList(data.data);
             } catch (error) {
                 console.error("Failed to load subjects");
@@ -46,8 +48,9 @@ const Admin_Teachers = ({ userName, onLogout }) => {
             setLoading(true);
             try {
                 const queryParams = new URLSearchParams({ search: searchQuery, status: statusFilter, subject: subjectFilter }).toString();
-                const response = await fetch(`http://localhost:3000/api/admin/teachers-list?${queryParams}`, { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Use api.get() - no credentials or localhost needed
+                const response = await api.get(`/admin/teachers-list?${queryParams}`);
+                const data = response.data;
                 if (data.success) setTeachers(data.data);
             } catch (error) {
                 console.error("Failed to load teachers list");
@@ -67,18 +70,14 @@ const Admin_Teachers = ({ userName, onLogout }) => {
         setIsSending(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/admin/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderId: adminId,
-                    receiverId: chatUser.id,
-                    message: chatMessage
-                }),
-                credentials: 'include'
+            // 🌟 THE FIX: Use api.post()
+            const response = await api.post('/admin/send-message', {
+                senderId: adminId,
+                receiverId: chatUser.id,
+                message: chatMessage
             });
 
-            const result = await response.json();
+            const result = response.data;
             if (result.success) {
                 setChatMessage('');
                 setIsChatOpen(false);
@@ -87,13 +86,13 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to send message.");
+            alert(error.response?.data?.message || "Failed to send message.");
         } finally {
             setIsSending(false);
         }
     };
 
-    // 🌟 NEW: Trigger CSV Download
+    // 🌟 Trigger CSV Download (Keep this as a full URL for window.open)
     const handleExportCSV = () => {
         window.open('http://localhost:3000/api/admin/export/teachers', '_blank');
     };
@@ -136,7 +135,7 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                     </select>
                 </div>
 
-                {/* 🌟 NEW: The Export Button */}
+                {/* 🌟 Export Button */}
                 <div className="pl-4 border-l border-gray-100">
                     <button 
                         onClick={handleExportCSV}
@@ -175,7 +174,6 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                                     {teacher.picture ? <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className="w-full h-full rounded-full object-cover" /> : teacher.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    {/* 🌟 FIX: Displays [CODE] Name */}
                                                     <p className="text-sm font-bold text-gray-900">
                                                         <span className="text-[#4a0b59] mr-1">[{teacher.user_code || 'N/A'}]</span>
                                                         {teacher.name}

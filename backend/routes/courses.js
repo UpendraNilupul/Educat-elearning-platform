@@ -4,6 +4,7 @@ import util from 'util';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
@@ -80,7 +81,7 @@ router.get('/courses', async (req, res) => {
 });
 
 // POST a new course
-router.post('/courses', async (req, res) => {
+router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
     const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
@@ -98,7 +99,7 @@ router.post('/courses', async (req, res) => {
 });
 
 // PUT (update) a course
-router.put('/courses/:id', async (req, res) => {
+router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
     const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
     
@@ -123,7 +124,7 @@ router.put('/courses/:id', async (req, res) => {
 });
 
 // DELETE a course
-router.delete('/courses/:id', async (req, res) => {
+router.delete('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
     
     try {
@@ -146,7 +147,7 @@ router.delete('/courses/:id', async (req, res) => {
 });
 
 // --- MODULES / CHAPTERS ---
-router.put('/courses/:c_id/modules/reorder', async (req, res) => {
+router.put('/courses/:c_id/modules/reorder', requireRole(['teacher', 'admin']), async (req, res) => {
     const { moduleIds } = req.body;
     try {
         if (moduleIds && moduleIds.length > 0) {
@@ -161,7 +162,7 @@ router.put('/courses/:c_id/modules/reorder', async (req, res) => {
     }
 });
 
-router.post('/modules', async (req, res) => {
+router.delete('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, c_id, isVisible } = req.body;
     try {
         const result = await query('INSERT INTO modules (title, c_id, number, isVisible) VALUES (?, ?, ?, ?)', [title, c_id, 1, isVisible ? 1 : 0]);
@@ -172,7 +173,7 @@ router.post('/modules', async (req, res) => {
     }
 });
 
-router.put('/modules/:id', async (req, res) => {
+router.put('/modules/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, isVisible } = req.body;
     try {
         let updateQuery = 'UPDATE modules SET ';
@@ -192,7 +193,7 @@ router.put('/modules/:id', async (req, res) => {
     }
 });
 
-router.delete('/modules/:id', async (req, res) => {
+router.delete('/modules/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     try {
         await query('DELETE FROM resources WHERE m_id = ?', [req.params.id]);
         await query('DELETE FROM lessons WHERE m_id = ?', [req.params.id]);
@@ -204,7 +205,7 @@ router.delete('/modules/:id', async (req, res) => {
     }
 });
 
-router.post('/modules/:m_id/lessons', async (req, res) => {
+router.post('/modules/:m_id/lessons', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title } = req.body;
     try {
         const result = await query('INSERT INTO lessons (title, number, type, link, m_id) VALUES (?, ?, ?, ?, ?)', [title, 1, 'standard', '', req.params.m_id]);
@@ -215,7 +216,7 @@ router.post('/modules/:m_id/lessons', async (req, res) => {
     }
 });
 
-router.put('/lessons/:id', async (req, res) => {
+router.put('/lessons/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, isVisible } = req.body;
     try {
         let updateQuery = 'UPDATE lessons SET ';
@@ -235,7 +236,7 @@ router.put('/lessons/:id', async (req, res) => {
     }
 });
 
-router.delete('/lessons/:id', async (req, res) => {
+router.delete('/lessions/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     try {
         await query('DELETE FROM resources WHERE l_id = ?', [req.params.id]);
         await query('DELETE FROM lessons WHERE id = ?', [req.params.id]);
@@ -247,7 +248,7 @@ router.delete('/lessons/:id', async (req, res) => {
 });
 
 // --- RESOURCES ---
-router.post('/lessons/:l_id/resources', upload.single('file'), async (req, res) => {
+router.post('/lessons/:l_id/resources', upload.single('file'), requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, type } = req.body;
     let url = req.body.url || '';
     
@@ -266,7 +267,7 @@ router.post('/lessons/:l_id/resources', upload.single('file'), async (req, res) 
     }
 });
 
-router.put('/resources/:id', async (req, res) => {
+router.put('/resources/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, url, isVisible } = req.body;
     try {
         let updateQuery = 'UPDATE resources SET ';
@@ -287,7 +288,7 @@ router.put('/resources/:id', async (req, res) => {
     }
 });
 
-router.delete('/resources/:id', async (req, res) => {
+router.delete('/resources/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     try {
         await query('DELETE FROM resources WHERE id = ?', [req.params.id]);
         res.status(200).json({ message: 'Deleted successfully' });
@@ -297,7 +298,7 @@ router.delete('/resources/:id', async (req, res) => {
     }
 });
 
-router.put('/modules/:m_id/lessons/reorder', async (req, res) => {
+router.put('/modules/:m_id/lessons/reorder', requireRole(['teacher', 'admin']), async (req, res) => {
     const { lessonIds } = req.body;
     try {
         if (lessonIds && lessonIds.length > 0) {
@@ -312,7 +313,7 @@ router.put('/modules/:m_id/lessons/reorder', async (req, res) => {
     }
 });
 
-router.put('/lessons/:l_id/resources/reorder', async (req, res) => {
+router.put('/lessons/:l_id/resources/reorder', requireRole(['teacher', 'admin']), async (req, res) => {
     const { resourceIds } = req.body;
     try {
         if (resourceIds && resourceIds.length > 0) {
@@ -369,8 +370,17 @@ router.get('/courses/search', async (req, res) => {
     }
 });
 
-router.get('/courses/student/:userId', async (req, res) => {
-    const userId = req.params.userId;
+// Make sure to import your middleware at the top of courses.js if you haven't already:
+// import { requireAuth } from '../middleware/auth.js';
+
+router.get('/courses/student/:userId', requireAuth, async (req, res) => {
+    const userId = parseInt(req.params.userId);
+
+    // 🌟 THE FIX: Security Check (IDOR Prevention)
+    // Ensure the person requesting this data is the actual student (or an admin)
+    if (req.session.userId !== userId && req.session.userRole !== 'admin') {
+        return res.status(403).json({ message: "Unauthorized to view these courses." });
+    }
 
     try {
         // Find the student ID based on the user ID
@@ -433,6 +443,51 @@ router.get('/courses/student/:userId', async (req, res) => {
     } catch (err) {
         console.error("Course fetch error:", err);
         res.status(500).json({ error: "Failed to fetch courses" });
+    }
+});
+
+router.get('/student/my-assessments', requireAuth, async (req, res) => {
+    // We get the ID directly from the secure session cookie! No spoofing possible.
+    const userId = req.session.userId; 
+
+    try {
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        if (studentRes.length === 0) return res.status(404).json({ message: "Student not found" });
+        const studentId = studentRes[0].id;
+
+        // 1. Fetch ALL Assignments in one query (checks submission status)
+        const assignments = await query(`
+            SELECT 
+                a.id, a.title, a.deadline, a.publish_at, a.max_marks,
+                c.title as subject, c.id as courseId, 'Assignment' as type,
+                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+            FROM assignments a
+            JOIN modules m ON a.m_id = m.id
+            JOIN classes_courses c ON m.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
+            WHERE e.s_id = ? AND e.status = 'In Progress'
+        `, [studentId, studentId]);
+
+        // 2. Fetch ALL Quizzes in one query (checks submission status)
+        const quizzes = await query(`
+            SELECT 
+                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit,
+                c.title as subject, c.id as courseId, 'Quiz' as type,
+                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+            FROM quizes q
+            JOIN modules m ON q.m_id = m.id
+            JOIN classes_courses c ON m.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
+            WHERE e.s_id = ? AND e.status = 'In Progress'
+        `, [studentId, studentId]);
+
+        // Combine and send back as one clean array
+        res.json([...assignments, ...quizzes]);
+    } catch (err) {
+        console.error("Assessments fetch error:", err);
+        res.status(500).json({ error: "Failed to fetch assessments" });
     }
 });
 

@@ -1,16 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { 
-  ClipboardList, 
-  BookOpen, 
-  Clock, 
-  ChevronRight, 
-  ChevronLeft, 
-  X, 
-  CheckCircle2, 
-  Trophy,
-  AlertCircle
+    ClipboardList, BookOpen, Clock, ChevronRight, 
+    ChevronLeft, X, CheckCircle2, Trophy, AlertCircle
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Using your configured Axios instance!
 
 const AssessmentsPage = () => {
     const [activeTab, setActiveTab] = useState('pending');
@@ -20,7 +13,7 @@ const AssessmentsPage = () => {
     // Quiz Player State
     const [activeQuiz, setActiveQuiz] = useState(null);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-    const [studentAnswers, setStudentAnswers] = useState({}); // { qId: optionId }
+    const [studentAnswers, setStudentAnswers] = useState({}); 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [quizResult, setQuizResult] = useState(null);
 
@@ -30,49 +23,13 @@ const AssessmentsPage = () => {
         fetchAssessments();
     }, [userId]);
 
+    // 🌟 THE FIX: Switched from generic axios to api.get
     const fetchAssessments = async () => {
         try {
             setLoading(true);
-            // 1. Get student's enrolled courses
-            const coursesResp = await axios.get(`http://localhost:3000/api/courses/student/${userId}`);
-            const courses = coursesResp.data;
-
-            let allPending = [];
-            let allCompleted = [];
-
-            // 2. For each course, fetch assignments and quizzes
-            for (const course of courses) {
-                // Get course details (includes modules)
-                const courseDetails = await axios.get(`http://localhost:3000/api/courses?teacherId=${course.instructorId}`); // This is a bit inefficient but works for now
-                // Actually course already has ID
-                // Let's assume we have an endpoint for course modules/assessments
-                
-                // Let's use the course ID directly to fetch modules and then their assessments
-                const resp = await axios.get(`http://localhost:3000/api/courses`);
-                const fullCourse = resp.data.find(c => c.id === course.id);
-                
-                if (fullCourse && fullCourse.chapters) {
-                    for (const module of fullCourse.chapters) {
-                        // Add assignments
-                        (module.assignments || []).forEach(a => {
-                            // Check if student has already submitted (This should be done server-side ideally)
-                            const isCompleted = false; // Placeholder logic
-                            const item = { ...a, type: 'Assignment', subject: course.title, courseId: course.id };
-                            if (isCompleted) allCompleted.push(item);
-                            else allPending.push(item);
-                        });
-
-                        // Fetch quizzes for this module
-                        const qzResp = await axios.get(`http://localhost:3000/api/modules/${module.id}/quizzes`);
-                        qzResp.data.forEach(q => {
-                            const item = { ...q, type: 'Quiz', title: `Quiz #${q.number}`, subject: course.title, courseId: course.id };
-                            allPending.push(item); // For simplicity, all in pending if not tracked yet
-                        });
-                    }
-                }
-            }
-
-            setAssessments([...allPending, ...allCompleted]);
+            // api instance automatically handles baseURL and withCredentials!
+            const response = await api.get(`/student/my-assessments`); 
+            setAssessments(response.data);
         } catch (err) {
             console.error("Failed to fetch assessments:", err);
         } finally {
@@ -82,7 +39,8 @@ const AssessmentsPage = () => {
 
     const handleStartQuiz = async (quiz) => {
         try {
-            const resp = await axios.get(`http://localhost:3000/api/quizzes/${quiz.id}`);
+            // 🌟 THE FIX: Switched to api.get
+            const resp = await api.get(`/quizzes/${quiz.id}`);
             setActiveQuiz(resp.data);
             setCurrentQuestionIdx(0);
             setStudentAnswers({});
@@ -109,13 +67,14 @@ const AssessmentsPage = () => {
                 aId: parseInt(aId)
             }));
 
-            const resp = await axios.post(`http://localhost:3000/api/quizzes/${activeQuiz.id}/submit`, {
+            // 🌟 THE FIX: Switched to api.post
+            const resp = await api.post(`/quizzes/${activeQuiz.id}/submit`, {
                 userId,
                 answers: answersArray
             });
 
             setQuizResult(resp.data);
-            fetchAssessments(); // Refresh list
+            fetchAssessments(); // Refresh list to move it to 'completed' tab
         } catch (err) {
             alert("Failed to submit quiz.");
         } finally {
@@ -155,9 +114,9 @@ const AssessmentsPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {assessments.filter(a => {
-                    const isPending = activeTab === 'pending';
+                    const matchesTab = a.status === activeTab;
                     const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
-                    return isPending && isPublished;
+                    return matchesTab && isPublished;
                 }).map((item) => (
                     <div key={`${item.type}-${item.id}`} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                         <div>
@@ -165,9 +124,13 @@ const AssessmentsPage = () => {
                                 <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${item.type === 'Quiz' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                                     {item.type}
                                 </span>
-                                <span className="text-[10px] text-gray-400 font-medium">{item.subject}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                    {item.status}
+                                </span>
                             </div>
                             <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                            <p className="text-xs text-gray-500 font-medium mt-1">{item.subject}</p>
+                            
                             <div className="mt-4 space-y-2 text-sm text-gray-500">
                                 {item.deadline && (
                                     <div className="flex items-center gap-2">
@@ -183,12 +146,18 @@ const AssessmentsPage = () => {
                                 )}
                             </div>
                         </div>
-                        <button 
-                            onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : alert("Please upload assignment from course page.")}
-                            className="w-full bg-purple-600 text-white py-2.5 rounded-xl mt-6 font-bold hover:bg-purple-700 transition shadow-sm"
-                        >
-                            {item.type === 'Quiz' ? 'Start Quiz' : 'Start Assignment'}
-                        </button>
+                        {item.status === 'pending' ? (
+                            <button 
+                                onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : alert("Please upload assignment from the specific course lesson page.")}
+                                className="w-full bg-purple-600 text-white py-2.5 rounded-xl mt-6 font-bold hover:bg-purple-700 transition shadow-sm"
+                            >
+                                {item.type === 'Quiz' ? 'Start Quiz' : 'Submit Assignment'}
+                            </button>
+                        ) : (
+                            <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed">
+                                <CheckCircle2 size={18} className="inline mr-2" /> Done
+                            </button>
+                        )}
                     </div>
                 ))}
             </div>

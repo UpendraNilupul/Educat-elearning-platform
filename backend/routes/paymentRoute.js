@@ -6,20 +6,20 @@ import util from 'util';
 const query = util.promisify(db.query).bind(db);
 const router = express.Router();
 
+const MERCHANT_ID = '1234834'; 
+const MERCHANT_SECRET = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
+
 // ==========================================
 // 1. ROUTE TO GENERATE HASH
 // ==========================================
 router.post('/payment/generate-hash', (req, res) => {
     const { order_id, amount, currency } = req.body;
 
-    const merchant_id = '1234834'; 
-    const merchantSecret = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
-
-    const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
     const amountFormatted = parseFloat(amount).toFixed(2);
 
     const hash = crypto.createHash('md5').update(
-        merchant_id + order_id + amountFormatted + currency + hashedSecret
+        MERCHANT_ID + order_id + amountFormatted + currency + hashedSecret
     ).digest('hex').toUpperCase();
 
     res.status(200).json({ hash: hash });
@@ -33,8 +33,7 @@ router.post('/payment/notify', async (req, res) => {
     
     const { merchant_id, order_id, payhere_amount, payhere_currency, status_code, md5sig } = req.body || {};
 
-    const merchantSecret = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
-    const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+    const hashedSecret = crypto.createHash('md5').update(MERCHANT_SECRET).digest('hex').toUpperCase();
     const amountFormatted = parseFloat(payhere_amount).toFixed(2);
     
     const localMd5sig = crypto.createHash('md5').update(
@@ -99,7 +98,7 @@ router.post('/payment/manual-success', async (req, res) => {
 
     const { order_id, amount, classId, userId } = req.body;
     
-    // Fallback: Frontend එකෙන් classId ආවේ නැත්නම් order_id එකෙන් කඩාගන්නවා
+    
     const finalClassId = classId || order_id.split('_')[0];
     
     try {

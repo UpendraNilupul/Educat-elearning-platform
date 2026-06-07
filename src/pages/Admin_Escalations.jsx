@@ -4,6 +4,8 @@ import {
     ShieldAlert, ArrowLeft, CheckCircle, Clock, 
     User, BookOpen, AlertTriangle
 } from 'lucide-react';
+import api from '../api';
+
 
 const Admin_Escalations = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -16,8 +18,9 @@ const Admin_Escalations = ({ userName, onLogout }) => {
 
     const fetchEscalations = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/admin/escalations', { credentials: 'include' });
-            const data = await response.json();
+            // Cleaned up: No need for credentials: 'include' anymore
+            const response = await api.get('/admin/escalations');
+            const data = response.data;
             if (data.success) {
                 setEscalations(data.data);
             }
@@ -32,11 +35,9 @@ const Admin_Escalations = ({ userName, onLogout }) => {
         if (!window.confirm("Mark this issue as resolved?")) return;
 
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/resolve-escalation/${id}`, {
-                method: 'PUT',
-                credentials: 'include'
-            });
-            const result = await response.json();
+            // 🌟 THE FIX: Use api.put() directly!
+            const response = await api.put(`/admin/resolve-escalation/${id}`);
+            const result = response.data;
             
             if (result.success) {
                 // Update UI instantly
@@ -47,10 +48,10 @@ const Admin_Escalations = ({ userName, onLogout }) => {
                 alert(result.message);
             }
         } catch (error) {
-            alert("Failed to resolve issue.");
+            // Axios errors are stored in error.response.data
+            alert(error.response?.data?.message || "Failed to resolve issue.");
         }
     };
-
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-bold">Loading Inbox...</div>;
 
     const pendingCount = escalations.filter(e => e.status === 'pending').length;

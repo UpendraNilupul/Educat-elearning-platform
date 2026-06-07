@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
     Activity, ArrowLeft, Search, Clock, ShieldCheck, ShieldAlert
 } from 'lucide-react';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 const Admin_SystemLogs = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -13,8 +14,10 @@ const Admin_SystemLogs = ({ userName, onLogout }) => {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/admin/system-logs', { credentials: 'include' });
-                const data = await response.json();
+                // 🌟 THE FIX: Replace fetch with api.get
+                const response = await api.get('/admin/system-logs');
+                const data = response.data; // 🌟 THE FIX: Automatically parse JSON via Axios
+                
                 if (data.success) {
                     setLogs(data.data);
                 } else {
@@ -22,6 +25,10 @@ const Admin_SystemLogs = ({ userName, onLogout }) => {
                 }
             } catch (error) {
                 console.error("Failed to load logs:", error);
+                // Also boot them out if the server strictly rejects them with a 403 Forbidden
+                if (error.response && error.response.status === 403) {
+                    navigate('/admin');
+                }
             } finally {
                 setLoading(false);
             }

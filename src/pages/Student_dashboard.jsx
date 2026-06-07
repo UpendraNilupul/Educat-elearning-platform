@@ -8,6 +8,7 @@ import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
 import DashboardHeader from '../components/DashboardHeader'; 
 import StudentChat from './Student_Chat';
+import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
     LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase, 
@@ -27,17 +28,15 @@ const Student = ({ userName, onLogout }) => {
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
 
-
-
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
         setIsSearching(true);
         setHasSearched(true);
         try {
             const params = new URLSearchParams(filters);
-            const response = await fetch(`http://localhost:3000/api/courses/search?${params.toString()}`);
-            const data = await response.json();
-            setSearchResults(data);
+            // 🌟 THE FIX: Use api.get()
+            const response = await api.get(`/courses/search?${params.toString()}`);
+            setSearchResults(response.data);
         } catch (error) {
             console.error('Error during course search:', error);
         } finally {
@@ -49,14 +48,16 @@ const Student = ({ userName, onLogout }) => {
         const fetchBasicInfo = async () => {
             const userId = localStorage.getItem('userId') || '2';
             try {
-                const response = await fetch(`http://localhost:3000/api/student/basic-info/${userId}`, {
-                    credentials: 'include'
-                });
-                const result = await response.json();
+                // 🌟 THE FIX: Use api.get()
+                const response = await api.get(`/student/basic-info/${userId}`);
+                const result = response.data;
+
                 if (result.success) {
                     let picUrl = result.picture;
                     if (picUrl && !picUrl.startsWith('http')) {
-                        picUrl = `http://localhost:3000/uploads/${picUrl}`;
+                        // 🌟 THE FIX: Dynamically set the image base URL for local vs production
+                        const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+                        picUrl = `${baseURL}/uploads/${picUrl}`;
                     }
                     setProfileData({ name: result.name, picture: picUrl });
                     if (result.name) setFirstName(result.name.split(' ')[0]);
