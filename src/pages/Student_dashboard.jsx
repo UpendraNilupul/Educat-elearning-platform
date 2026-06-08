@@ -96,13 +96,9 @@ const Student = ({ userName, onLogout }) => {
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Calendar', icon: Calendar },
-        { name: 'Courses', icon: BookOpen },
+        { id: 'courses', name: 'Courses', label: 'Classes', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
-        { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
-        { name: 'Certification', icon: Award },
-        { name: 'Project', icon: Briefcase },
-        { name: 'Messages', icon: MessageSquare },
-        { name: 'Download', icon: Download },
+        { name: 'Assessments', icon: FileText },
     ];
 
     return (
@@ -131,10 +127,7 @@ const Student = ({ userName, onLogout }) => {
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className="text-sm flex-1 text-left">{item.name}</span>
-                            {item.hasBadge && (
-                                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)] animate-pulse" />
-                            )}
+                            <span className="text-sm">{item.label || item.name}</span>
                         </button>
                     ))}
                 </nav>
