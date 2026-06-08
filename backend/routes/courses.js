@@ -173,6 +173,21 @@ router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
     }
 });
 
+router.put('/teacher/modules/:id/visibility', async (req, res) => {
+    // isVisible කියන්නේ true (පේනවා) ද false (හැංගිලා) ද කියන එක
+    const { isVisible } = req.body; 
+    
+    try {
+        await query(
+            'UPDATE modules SET isVisible = ? WHERE id = ?', 
+            [isVisible ? 1 : 0, req.params.id]
+        );
+        res.json({ success: true, message: "Visibility updated!" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update" });
+    }
+});
+
 router.put('/modules/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, isVisible } = req.body;
     try {
