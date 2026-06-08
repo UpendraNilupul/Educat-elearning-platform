@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
+import VirtualClassroom from "./Teacher_liveClass";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -346,6 +347,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         )}
 
         {activeTab === "Messages" && <TeacherChat />}
+
+        {activeTab === "Virtual Classroom" && <VirtualClassroom />}
       </main>
     </div>
   );
