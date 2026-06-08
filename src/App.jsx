@@ -38,6 +38,7 @@ import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
 import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
+import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -287,11 +288,29 @@ function App() {
               )
             }
           />
+          
+          <Route
+            path="/student/assignment/:id"
+            element={
+              userRole === 'student' ? (
+                <AssignmentSubmissionPage />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
 
           {/* Teacher Profile Edit */}
           <Route path="/teacher-profile-edit/:id?" element={
             (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher')
               ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} setUserPicture={setUserPicture} />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Assignment Submissions & Grade */}
+          <Route path="/teacher/assignments/:id/submissions" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <AssignmentSubmissions />
               : <Navigate to="/" />
           } />
 
