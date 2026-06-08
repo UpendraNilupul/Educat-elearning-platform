@@ -9,17 +9,27 @@ import {
     Sparkles,
     ChevronDown,
     ChevronUp,
+    ChevronRight,
     FileText,
     ClipboardList,
     BookOpen,
-    Link as LinkIcon
+    Link as LinkIcon,
+    X
 } from 'lucide-react';
 import api from '../api';
+
+const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+};
 
 const TuitionClass = () => {
     // View state
     const [selectedClassId, setSelectedClassId] = useState(null);
     const [checkoutClass, setCheckoutClass] = useState(null);
+    const [playingVideoUrl, setPlayingVideoUrl] = useState(null);
 
     // Gatekeeper state for the "Make a payment" dropdown
     const [expandedPaymentClassId, setExpandedPaymentClassId] = useState(null);
@@ -462,19 +472,35 @@ const TuitionClass = () => {
                                                     {expandedLessons.includes(lesson.id) && (
                                                         <div className="flex flex-col gap-2 pl-6 relative mb-4">
                                                             <div className="absolute left-[11px] top-0 bottom-4 w-px bg-gray-200"></div>
-                                                            {lesson.resources?.map(resource => (
-                                                                <div key={resource.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 transition-colors shadow-sm relative z-10 ml-2">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                                                            {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                            {lesson.resources?.map(resource => {
+                                                                const embedUrl = resource.type === 'link' ? getYouTubeEmbedUrl(resource.link) : null;
+                                                                
+                                                                if (embedUrl) {
+                                                                    return (
+                                                                        <button key={resource.id} onClick={() => setPlayingVideoUrl(embedUrl)} className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 text-left cursor-pointer group">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                                                                    <PlayCircle className="w-4 h-4 text-red-500" />
+                                                                                </div>
+                                                                                <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
+                                                                            </div>
+                                                                            <ChevronRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                        </button>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <a key={resource.id} href={resource.link} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 cursor-pointer group text-left">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                                                                {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                                            </div>
+                                                                            <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
                                                                         </div>
-                                                                        <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
-                                                                    </div>
-                                                                    <a href={resource.link} target="_blank" rel="noreferrer" className="px-4 py-1.5 bg-purple-100 text-purple-700 text-sm font-bold rounded-lg hover:bg-purple-200 transition-colors">
-                                                                        {resource.type === 'link' ? 'Watch' : 'Open'}
+                                                                        <ChevronRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                                     </a>
-                                                                </div>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
@@ -516,9 +542,32 @@ const TuitionClass = () => {
                         </div>
                     ))}
                 </div>
-            </div>
-    );
 
+            {playingVideoUrl && (
+                <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 lg:p-12 animate-in fade-in duration-200">
+                    <div className="w-full max-w-5xl relative flex flex-col items-end">
+                        <button 
+                            onClick={() => setPlayingVideoUrl(null)} 
+                            className="mb-4 text-white hover:text-gray-300 flex items-center gap-2 font-bold"
+                        >
+                            <X size={24} /> Close Video
+                        </button>
+                        <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src={playingVideoUrl}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
 };
 
