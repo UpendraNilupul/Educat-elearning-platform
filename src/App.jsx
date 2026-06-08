@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster, toast } from 'react-hot-toast';
+import { io } from 'socket.io-client';
 
 // Component Imports
 import Header from './components/Header';
@@ -105,6 +107,30 @@ function App() {
     return () => clearInterval(heartbeatInterval);
   }, [userRole]);
 
+  // Global Socket Connection for Real-Time Notifications
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (userId && userRole) {
+      const socket = io('http://localhost:3000');
+
+      socket.emit('join_notification_room', userId);
+
+      socket.on('new_notification', (data) => {
+        toast.success(
+          <div>
+            <strong>{data.title}</strong>
+            <p className="text-sm text-gray-600 mt-1">{data.description}</p>
+          </div>,
+          { duration: 6000 }
+        );
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [userRole]);
+
   // Logout Logic
   const handleLogout = async () => {
     try {
@@ -129,25 +155,26 @@ function App() {
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-  
+
   const verificationStatus = localStorage.getItem('verificationStatus');
 
   return (
     <Router>
       <div className="min-h-screen bg-white">
+        <Toaster position="top-right" />
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
-          
-          <Route 
-            path="/login" 
-            element={<Login setUserRole={setUserRole} setUserName={setUserName} setUserPicture={setUserPicture} setAdminLevel={setAdminLevel} userName={userName} />} 
+
+          <Route
+            path="/login"
+            element={<Login setUserRole={setUserRole} setUserName={setUserName} setUserPicture={setUserPicture} setAdminLevel={setAdminLevel} userName={userName} />}
           />
 
           <Route
             path="/register"
             element={<Register setUserRole={setUserRole} setUserName={setUserName} />}
           />
-          
+
           <Route
             path="/teachers"
             element={
@@ -158,9 +185,9 @@ function App() {
           />
 
           {/* Verification Route */}
-          <Route 
-            path="/verify-teacher/:id" 
-            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />} 
+          <Route
+            path="/verify-teacher/:id"
+            element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />}
           />
 
           {/* Protected Route: Admin Traffic Cop */}
@@ -178,7 +205,7 @@ function App() {
               )
             }
           />
-          
+
           <Route
             path="/admin/teachers"
             element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}

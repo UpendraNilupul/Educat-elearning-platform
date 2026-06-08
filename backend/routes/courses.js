@@ -162,7 +162,7 @@ router.put('/courses/:c_id/modules/reorder', requireRole(['teacher', 'admin']), 
     }
 });
 
-router.delete('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
+router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, c_id, isVisible } = req.body;
     try {
         const result = await query('INSERT INTO modules (title, c_id, number, isVisible) VALUES (?, ?, ?, ?)', [title, c_id, 1, isVisible ? 1 : 0]);
