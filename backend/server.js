@@ -1,10 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
-import http from 'http'; // 🌟 NEW: Import Node's native HTTP module
-import { Server } from 'socket.io'; // 🌟 NEW: Import Socket.io
+import http from 'http'; 
+import { Server } from 'socket.io'; 
 import path from 'path';
 import cors from 'cors';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import { fileURLToPath } from 'url';
 
 import db from './db.js';
@@ -24,9 +25,10 @@ import studentProfileRoutes from './routes/StudentProfileEdit.js';
 import classRoutes from './routes/class.js';
 import assignmentRoutes from './routes/assignments.js';
 import quizRoutes from './routes/quizzes.js';
+import paymentRoute from './routes/paymentRoute.js'; 
 import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
-//chat
+// Chat Routes
 import studentChatRoutes from './routes/studentChat.js';
 import teacherChatRoutes from './routes/teacherChat.js';
 import adminChatRoutes from './routes/adminChat.js';
@@ -36,14 +38,14 @@ const app = express();
 const PORT = 3000;
 
 // ==========================================
-// 🌟 NEW: SERVER & SOCKET INITIALIZATION
+// 🌟 SERVER & SOCKET INITIALIZATION
 // ==========================================
 const server = http.createServer(app); 
 
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'http://localhost:5174'], // Matching your React ports
-        methods: ["GET", "POST"],
+        origin: ['http://localhost:5173', 'http://localhost:5174'], 
+        methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
     }
 });
@@ -51,23 +53,25 @@ const io = new Server(server, {
 // Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); 
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-// 🌟 THE FIX: Extract session config so Socket.io can share it
+// Express Session Configuration
 const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || 'a_very_long_random_secret_string',
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: false, 
     cookie: { 
         httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production', // True in production (HTTPS)
+        secure: process.env.NODE_ENV === 'production', 
         sameSite: 'lax', 
         maxAge: 1000 * 60 * 60 * 24 
     }
 });
 
 app.use(sessionMiddleware);
-io.engine.use(sessionMiddleware); // 🌟 THE FIX: Bind Express session to WebSockets
+io.engine.use(sessionMiddleware); 
 
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
@@ -97,7 +101,9 @@ app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
-//chat
+app.use('/api', paymentRoute); 
+
+// Chat Routes
 app.use('/api', studentChatRoutes);
 app.use('/api', teacherChatRoutes);
 app.use('/api', adminChatRoutes);
@@ -116,7 +122,7 @@ io.on("connection", (socket) => {
 
     // Join a specific conversation room
     socket.on("join_room", async (conversationId) => {
-        // 🌟 THE FIX: Verify Authentication & Authorization
+        // Verify Authentication & Authorization
         if (!session || !session.userId) return;
 
         try {
@@ -141,6 +147,13 @@ io.on("connection", (socket) => {
         socket.to(data.room).emit("receive_message", data.message);
     });
 
+    // Handle joining a global notification room for the user
+    socket.on("join_notification_room", (userId) => {
+        const roomName = `user_${userId}`;
+        socket.join(roomName);
+        console.log(`User ${socket.id} joined notification room: ${roomName}`);
+    });
+
     socket.on("disconnect", () => {
         console.log(`🔴 User Disconnected: ${socket.id}`);
     });
@@ -154,5 +167,5 @@ app.use((req, res) => {
 server.listen(PORT, () => {
     console.log(`🌱 Server running on http://localhost:${PORT}`);
     // Start background jobs
-    initAssignmentScheduler();
+    initAssignmentScheduler(io);
 });

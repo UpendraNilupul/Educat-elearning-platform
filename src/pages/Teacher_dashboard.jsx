@@ -28,6 +28,11 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
   ];
 
   const [courses, setCourses] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalStudents: 0,
+    totalReviews: 0,
+    upcomingClasses: []
+  });
 
   // Fetch Courses
   useEffect(() => {
@@ -49,18 +54,33 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     fetchCourses();
   }, []);
 
+  // Fetch Dashboard Stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const id = localStorage.getItem('userId');
+        if (!id) return;
+        const response = await fetch(`http://localhost:3000/api/teachers/${id}/dashboard-stats`);
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardStats(data);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+    fetchStats();
+  }, []);
 
 
-  const classes = [
-    { title: "React Live Session", course: "Full Stack Web Development", date: "Oct 25", time: "10:00 AM" },
-    { title: "Figma Design Workshop", course: "UI/UX Design", date: "Oct 27", time: "2:00 PM" },
-  ];
+
+  // The hardcoded classes array is removed. We use dashboardStats.upcomingClasses instead.
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans relative overflow-hidden">
-      
+
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-40 shadow-sm">
         <h2 className="text-xl font-extrabold text-[#4a0b59] tracking-wide">Educat</h2>
@@ -100,11 +120,10 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 setActiveTab(item.name);
                 setIsSidebarOpen(false);
               }}
-              className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                activeTab === item.name
+              className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === item.name
                   ? "bg-[#4a0b59] text-white font-semibold shadow-md"
                   : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
-              }`}
+                }`}
             >
               <item.icon className="w-5 h-5" />
               {item.name}
@@ -144,7 +163,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 mt-16 lg:mt-0">
-        
+
         {activeTab === "Assessments" && (
           <div className="animate-in fade-in duration-500">
             <div className="mb-8">
@@ -180,23 +199,23 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-6">
-                       <div className="bg-purple-50 p-3 rounded-xl border border-purple-100/50">
-                          <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Assignments</p>
-                          <div className="flex items-center gap-2">
-                            <FileText size={16} className="text-purple-600" />
-                            <span className="text-lg font-black text-purple-900">{assignCount}</span>
-                          </div>
-                       </div>
-                       <div className="bg-blue-50 p-3 rounded-xl border border-blue-100/50">
-                          <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Quizzes</p>
-                          <div className="flex items-center gap-2">
-                            <Award size={16} className="text-blue-600" />
-                            <span className="text-lg font-black text-blue-900">{quizCount}</span>
-                          </div>
-                       </div>
+                      <div className="bg-purple-50 p-3 rounded-xl border border-purple-100/50">
+                        <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">Assignments</p>
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-purple-600" />
+                          <span className="text-lg font-black text-purple-900">{assignCount}</span>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-xl border border-blue-100/50">
+                        <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Quizzes</p>
+                        <div className="flex items-center gap-2">
+                          <Award size={16} className="text-blue-600" />
+                          <span className="text-lg font-black text-blue-900">{quizCount}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <button 
+                    <button
                       onClick={() => {
                         setSelectedCourse(course);
                         setActiveTab("Course Management");
@@ -216,23 +235,23 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 });
                 return hasAssessment;
               }).length === 0 && (
-                <div className="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-center px-6">
-                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <FileText className="text-gray-300 w-8 h-8" />
+                  <div className="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-center px-6">
+                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                      <FileText className="text-gray-300 w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">No Assessments Found</h3>
+                    <p className="text-xs text-gray-500 max-w-xs">You haven't created any assignments or quizzes yet. Go to Course Management to get started.</p>
+                    <button
+                      onClick={() => {
+                        setSelectedCourse(null);
+                        setActiveTab("Course Management");
+                      }}
+                      className="mt-6 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md"
+                    >
+                      Go to Course Management
+                    </button>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">No Assessments Found</h3>
-                  <p className="text-xs text-gray-500 max-w-xs">You haven't created any assignments or quizzes yet. Go to Course Management to get started.</p>
-                  <button 
-                    onClick={() => {
-                      setSelectedCourse(null);
-                      setActiveTab("Course Management");
-                    }}
-                    className="mt-6 px-6 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md"
-                  >
-                    Go to Course Management
-                  </button>
-                </div>
-              )}
+                )}
             </div>
           </div>
         )}
@@ -262,7 +281,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 <div className="p-3 bg-blue-50 rounded-xl"><Users className="text-blue-600 w-6 h-6" /></div>
                 <div>
                   <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Students</p>
-                  <h3 className="text-2xl lg:text-3xl font-bold">320</h3>
+                  <h3 className="text-2xl lg:text-3xl font-bold">{dashboardStats.totalStudents}</h3>
                 </div>
               </div>
 
@@ -270,7 +289,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 <div className="p-3 bg-orange-50 rounded-xl"><FileText className="text-orange-500 w-6 h-6" /></div>
                 <div>
                   <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Reviews</p>
-                  <h3 className="text-2xl lg:text-3xl font-bold">8</h3>
+                  <h3 className="text-2xl lg:text-3xl font-bold">{dashboardStats.totalReviews}</h3>
                 </div>
               </div>
             </div>
@@ -282,21 +301,27 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                   <button className="text-sm text-purple-600 font-semibold hover:underline">View All</button>
                 </div>
                 <div className="space-y-4">
-                  {classes.map((cls, index) => (
-                    <div key={index} className="bg-white p-5 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300 group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
-                          <Video className="w-6 h-6 text-purple-400" />
+                  {dashboardStats.upcomingClasses.length > 0 ? (
+                    dashboardStats.upcomingClasses.map((cls, index) => (
+                      <div key={index} className="bg-white p-5 rounded-2xl shadow-md flex justify-between items-center hover:shadow-lg transition-shadow duration-300 group">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+                            <Video className="w-6 h-6 text-purple-400" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-800">{cls.title}</h3>
+                            <p className="text-xs text-gray-500">{cls.course}</p>
+                            <p className="text-xs text-purple-600 mt-1 font-medium">{cls.date} • {cls.time}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">{cls.title}</h3>
-                          <p className="text-xs text-gray-500">{cls.course}</p>
-                          <p className="text-xs text-purple-600 mt-1 font-medium">{cls.date} • {cls.time}</p>
-                        </div>
+                        <Calendar className="text-gray-300 w-5 h-5" />
                       </div>
-                      <Calendar className="text-gray-300 w-5 h-5" />
+                    ))
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      <p className="text-sm text-gray-500">No upcoming classes scheduled.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
@@ -314,16 +339,16 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             </div>
           </div>
         )}
-        
+
         {activeTab === "Course Management" && (
-          <TeachersCourse 
-            courses={courses} 
-            setCourses={setCourses} 
-            selectedCourse={selectedCourse} 
-            setSelectedCourse={setSelectedCourse} 
+          <TeachersCourse
+            courses={courses}
+            setCourses={setCourses}
+            selectedCourse={selectedCourse}
+            setSelectedCourse={setSelectedCourse}
           />
         )}
-        
+
         {activeTab === "Messages" && <TeacherChat />}
       </main>
     </div>

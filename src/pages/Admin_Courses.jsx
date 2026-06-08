@@ -156,7 +156,7 @@ const Admin_Courses = ({ userName, onLogout }) => {
                                         {/* Students */}
                                         <td className="p-4 text-center">
                                             <span className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-sm font-bold">
-                                                <Users size={14} className="mr-1.5" />
+                                                <users size={14} className="mr-1.5" />
                                                 {course.total_students}
                                             </span>
                                         </td>
