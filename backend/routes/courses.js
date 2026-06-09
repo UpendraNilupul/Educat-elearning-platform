@@ -86,7 +86,7 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
-        
+
         const result = await query(
             'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, students || 0, 0, progress || 0, actualTeacherId]
@@ -102,15 +102,15 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
     const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
-    
+
     const updateQuery = `
         UPDATE classes_courses 
         SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?
         WHERE id = ?
     `;
-    
+
     const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, id];
-    
+
     try {
         const result = await query(updateQuery, values);
         if (result.affectedRows === 0) {
@@ -126,7 +126,7 @@ router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) =
 // DELETE a course
 router.delete('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
-    
+
     try {
         const mods = await query('SELECT id FROM modules WHERE c_id = ?', [id]);
         for (let mod of mods) {
@@ -134,7 +134,7 @@ router.delete('/courses/:id', requireRole(['teacher', 'admin']), async (req, res
             await query('DELETE FROM lessons WHERE m_id = ?', [mod.id]);
         }
         await query('DELETE FROM modules WHERE c_id = ?', [id]);
-        
+
         const result = await query('DELETE FROM classes_courses WHERE id = ?', [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
@@ -173,6 +173,21 @@ router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
     }
 });
 
+router.put('/teacher/modules/:id/visibility', async (req, res) => {
+    // isVisible කියන්නේ true (පේනවා) ද false (හැංගිලා) ද කියන එක
+    const { isVisible } = req.body; 
+    
+    try {
+        await query(
+            'UPDATE modules SET isVisible = ? WHERE id = ?', 
+            [isVisible ? 1 : 0, req.params.id]
+        );
+        res.json({ success: true, message: "Visibility updated!" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update" });
+    }
+});
+
 router.put('/modules/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, isVisible } = req.body;
     try {
@@ -181,10 +196,10 @@ router.put('/modules/:id', requireRole(['teacher', 'admin']), async (req, res) =
         if (title !== undefined) { updateQuery += 'title = ?, '; params.push(title); }
         if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
         if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
-        
+
         updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
         params.push(req.params.id);
-        
+
         await query(updateQuery, params);
         res.status(200).json({ id: req.params.id, title, isVisible: isVisible ? true : false });
     } catch (err) {
@@ -224,10 +239,10 @@ router.put('/lessons/:id', requireRole(['teacher', 'admin']), async (req, res) =
         if (title !== undefined) { updateQuery += 'title = ?, '; params.push(title); }
         if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
         if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
-        
+
         updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
         params.push(req.params.id);
-        
+
         await query(updateQuery, params);
         res.status(200).json({ id: req.params.id, title, isVisible: isVisible ? true : false });
     } catch (err) {
@@ -251,7 +266,7 @@ router.delete('/lessions/:id', requireRole(['teacher', 'admin']), async (req, re
 router.post('/lessons/:l_id/resources', upload.single('file'), requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, type } = req.body;
     let url = req.body.url || '';
-    
+
     if (req.file) {
         url = `http://localhost:3000/uploads/resources/${req.file.filename}`;
     }
@@ -276,10 +291,10 @@ router.put('/resources/:id', requireRole(['teacher', 'admin']), async (req, res)
         if (url !== undefined) { updateQuery += 'link = ?, '; params.push(url); }
         if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
         if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
-        
+
         updateQuery = updateQuery.slice(0, -2) + ' WHERE id = ?';
         params.push(req.params.id);
-        
+
         await query(updateQuery, params);
         res.status(200).json({ id: req.params.id, title, url, isVisible: isVisible ? true : false });
     } catch (err) {
@@ -331,7 +346,7 @@ router.put('/lessons/:l_id/resources/reorder', requireRole(['teacher', 'admin'])
 // GET /courses/search - Dynamic Course Search
 router.get('/courses/search', async (req, res) => {
     const { teacher, className, subject } = req.query;
-    
+
     let sql = `
         SELECT 
             c.id, 
@@ -448,7 +463,7 @@ router.get('/courses/student/:userId', requireAuth, async (req, res) => {
 
 router.get('/student/my-assessments', requireAuth, async (req, res) => {
     // We get the ID directly from the secure session cookie! No spoofing possible.
-    const userId = req.session.userId; 
+    const userId = req.session.userId;
 
     try {
         const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
@@ -460,7 +475,8 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 a.id, a.title, a.deadline, a.publish_at, a.max_marks,
                 c.title as subject, c.id as courseId, 'Assignment' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+                IF(sub.id IS NOT NULL, 'completed', 'pending') as status,
+                sub.grade, sub.feedback, sub.status as sub_status, sub.file_url
             FROM assignments a
             JOIN modules m ON a.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id

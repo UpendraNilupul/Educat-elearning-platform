@@ -177,6 +177,19 @@ router.get('/assignments/:id', requireAuth, async (req, res) => {
         const assign = assignments[0];
         const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [id]);
         assign.attachments = attachments;
+
+        // If requested by a student, fetch their submission
+        if (req.session.userRole === 'student') {
+            const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [req.session.userId]);
+            if (studentRes.length > 0) {
+                const sId = studentRes[0].id;
+                const submission = await query(
+                    'SELECT id, file_url, submitted_at, grade, feedback, status FROM assignment_submissions WHERE a_id = ? AND s_id = ?',
+                    [assign.id, sId]
+                );
+                assign.userSubmission = submission.length > 0 ? submission[0] : null;
+            }
+        }
         
         res.json(assign);
     } catch (err) {
