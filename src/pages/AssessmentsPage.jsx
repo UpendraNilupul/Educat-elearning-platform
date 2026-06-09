@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    ClipboardList, BookOpen, Clock, ChevronRight, 
+import {
+    ClipboardList, BookOpen, Clock, ChevronRight,
     ChevronLeft, X, CheckCircle2, Trophy, AlertCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api'; // 🌟 THE FIX: Using your configured Axios instance!
 
 const AssessmentsPage = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('pending');
     const [assessments, setAssessments] = useState([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Quiz Player State
     const [activeQuiz, setActiveQuiz] = useState(null);
     const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-    const [studentAnswers, setStudentAnswers] = useState({}); 
+    const [studentAnswers, setStudentAnswers] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [quizResult, setQuizResult] = useState(null);
 
@@ -28,7 +30,7 @@ const AssessmentsPage = () => {
         try {
             setLoading(true);
             // api instance automatically handles baseURL and withCredentials!
-            const response = await api.get(`/student/my-assessments`); 
+            const response = await api.get(`/student/my-assessments`);
             setAssessments(response.data);
         } catch (err) {
             console.error("Failed to fetch assessments:", err);
@@ -59,7 +61,7 @@ const AssessmentsPage = () => {
 
     const handleSubmitQuiz = async () => {
         if (!activeQuiz) return;
-        
+
         setIsSubmitting(true);
         try {
             const answersArray = Object.entries(studentAnswers).map(([qId, aId]) => ({
@@ -130,7 +132,7 @@ const AssessmentsPage = () => {
                             </div>
                             <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
                             <p className="text-xs text-gray-500 font-medium mt-1">{item.subject}</p>
-                            
+
                             <div className="mt-4 space-y-2 text-sm text-gray-500">
                                 {item.deadline && (
                                     <div className="flex items-center gap-2">
@@ -147,16 +149,48 @@ const AssessmentsPage = () => {
                             </div>
                         </div>
                         {item.status === 'pending' ? (
-                            <button 
-                                onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : alert("Please upload assignment from the specific course lesson page.")}
+                            <button
+                                onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : navigate(`/student/assignment/${item.id}`)}
                                 className="w-full bg-purple-600 text-white py-2.5 rounded-xl mt-6 font-bold hover:bg-purple-700 transition shadow-sm"
                             >
-                                {item.type === 'Quiz' ? 'Start Quiz' : 'Submit Assignment'}
+                                {item.type === 'Quiz' ? 'Start Quiz' : 'Start Assignment'}
                             </button>
                         ) : (
-                            <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed">
-                                <CheckCircle2 size={18} className="inline mr-2" /> Done
-                            </button>
+                            item.type !== 'Quiz' && new Date(item.deadline) > new Date() && item.sub_status !== 'graded' ? (
+                                <button 
+                                    onClick={() => navigate(`/student/assignment/${item.id}`)}
+                                    className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-gray-300 transition shadow-sm"
+                                >
+                                    Resubmit Assignment
+                                </button>
+                            ) : (
+                                <div className="mt-6">
+                                    <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl font-bold cursor-not-allowed">
+                                        <CheckCircle2 size={18} className="inline mr-2" /> Done
+                                    </button>
+                                    
+                                    {/* Display Marks and Feedback if Graded */}
+                                    {item.type === 'Assignment' && item.sub_status === 'graded' && (
+                                        <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Teacher's Grade</span>
+                                                <span className="text-lg font-black text-purple-700">{item.grade} <span className="text-xs text-purple-400">/ {item.max_marks}</span></span>
+                                            </div>
+                                            {item.feedback && (
+                                                <div className="mt-2 pt-2 border-t border-purple-200/50">
+                                                    <p className="text-xs text-purple-800 italic">"{item.feedback}"</p>
+                                                </div>
+                                            )}
+                                            <button 
+                                                onClick={() => navigate(`/student/assignment/${item.id}`)}
+                                                className="w-full mt-3 bg-white text-purple-600 border border-purple-200 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors"
+                                            >
+                                                View Full Details
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )
                         )}
                     </div>
                 ))}
@@ -165,7 +199,7 @@ const AssessmentsPage = () => {
             {/* Quiz Player Overlay */}
             {activeQuiz && (
                 <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center p-8 animate-in slide-in-from-bottom duration-300">
-                    <button 
+                    <button
                         onClick={() => setActiveQuiz(null)}
                         className="absolute top-8 right-8 text-gray-400 hover:text-gray-600"
                     >
@@ -178,8 +212,8 @@ const AssessmentsPage = () => {
                                 <BookOpen className="text-purple-600" /> {activeQuiz.title}
                             </h2>
                             <div className="w-full bg-gray-100 h-2 rounded-full mt-6 overflow-hidden">
-                                <div 
-                                    className="bg-purple-600 h-full transition-all duration-300" 
+                                <div
+                                    className="bg-purple-600 h-full transition-all duration-300"
                                     style={{ width: `${quizProgress}%` }}
                                 />
                             </div>
@@ -207,20 +241,18 @@ const AssessmentsPage = () => {
                                                 <button
                                                     key={opt.id}
                                                     onClick={() => handleAnswerSelect(activeQuiz.questions[currentQuestionIdx].id, opt.id)}
-                                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${
-                                                        studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id 
-                                                        ? 'border-purple-600 bg-purple-50 ring-2 ring-purple-100' 
-                                                        : 'border-gray-200 hover:border-purple-200'
-                                                    }`}
+                                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id
+                                                            ? 'border-purple-600 bg-purple-50 ring-2 ring-purple-100'
+                                                            : 'border-gray-200 hover:border-purple-200'
+                                                        }`}
                                                 >
                                                     <span className={`text-lg font-semibold ${studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id ? 'text-purple-700' : 'text-gray-700'}`}>
                                                         {opt.answer}
                                                     </span>
-                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                                        studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id 
-                                                        ? 'border-purple-600 bg-purple-600' 
-                                                        : 'border-gray-300 group-hover:border-purple-300'
-                                                    }`}>
+                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id
+                                                            ? 'border-purple-600 bg-purple-600'
+                                                            : 'border-gray-300 group-hover:border-purple-300'
+                                                        }`}>
                                                         {studentAnswers[activeQuiz.questions[currentQuestionIdx].id] === opt.id && <div className="w-2 h-2 bg-white rounded-full" />}
                                                     </div>
                                                 </button>
@@ -238,7 +270,7 @@ const AssessmentsPage = () => {
                                 <p className="text-gray-500 mb-8 max-w-sm">
                                     You've successfully submitted the quiz. Your results are calculated instantly.
                                 </p>
-                                
+
                                 <div className="bg-white border-2 border-gray-100 rounded-3xl p-10 shadow-xl mb-12 w-full max-w-sm">
                                     <p className="text-xs font-bold text-gray-400 uppercase mb-2">Your Final Score</p>
                                     <div className="text-7xl font-black text-purple-600">
@@ -249,7 +281,7 @@ const AssessmentsPage = () => {
                                     </div>
                                 </div>
 
-                                <button 
+                                <button
                                     onClick={() => setActiveQuiz(null)}
                                     className="bg-gray-900 text-white px-10 py-4 rounded-2xl font-black hover:bg-gray-800 transition-colors shadow-lg"
                                 >
@@ -260,7 +292,7 @@ const AssessmentsPage = () => {
 
                         {!quizResult && (
                             <footer className="mt-auto py-8 border-t flex justify-between items-center bg-white sticky bottom-0">
-                                <button 
+                                <button
                                     disabled={currentQuestionIdx === 0}
                                     onClick={() => setCurrentQuestionIdx(prev => prev - 1)}
                                     className="flex items-center gap-2 text-gray-500 font-bold hover:text-gray-700 disabled:opacity-30"
@@ -269,7 +301,7 @@ const AssessmentsPage = () => {
                                 </button>
 
                                 {currentQuestionIdx === (activeQuiz.questions?.length || 0) - 1 ? (
-                                    <button 
+                                    <button
                                         onClick={handleSubmitQuiz}
                                         disabled={isSubmitting || !studentAnswers[activeQuiz.questions[currentQuestionIdx]?.id]}
                                         className="bg-green-600 text-white px-10 py-3 rounded-2xl font-black hover:bg-green-700 transition shadow-lg flex items-center gap-2 disabled:bg-gray-300"
@@ -277,7 +309,7 @@ const AssessmentsPage = () => {
                                         {isSubmitting ? 'Submitting...' : 'Submit Quiz'}
                                     </button>
                                 ) : (
-                                    <button 
+                                    <button
                                         onClick={() => setCurrentQuestionIdx(prev => prev + 1)}
                                         disabled={!studentAnswers[activeQuiz.questions[currentQuestionIdx]?.id]}
                                         className="bg-purple-600 text-white px-10 py-3 rounded-2xl font-black hover:bg-purple-700 transition shadow-lg flex items-center gap-2 disabled:bg-gray-300"

@@ -6,13 +6,13 @@ import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
-import DashboardHeader from '../components/DashboardHeader'; 
+import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
-    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase, 
-    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight, 
+    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
+    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
     Edit2, Search, SearchX, Loader2, MessageSquare
 } from 'lucide-react';
 
@@ -21,6 +21,7 @@ const Student = ({ userName, onLogout }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
+    const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
 
     // Search-related state (ඔයාගේ යාලුවා හදපු ටික)
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
@@ -66,7 +67,22 @@ const Student = ({ userName, onLogout }) => {
                 console.error("Error fetching basic dashboard info:", error);
             }
         };
+
+        const fetchAssessmentsCount = async () => {
+            try {
+                const response = await api.get(`/student/my-assessments`);
+                const pendingCount = response.data.filter(a => {
+                    const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
+                    return a.status === 'pending' && isPublished;
+                }).length;
+                setPendingAssessmentsCount(pendingCount);
+            } catch (error) {
+                console.error("Error fetching assessments count:", error);
+            }
+        };
+
         fetchBasicInfo();
+        fetchAssessmentsCount();
     }, []);
 
     const ads = ['/add1.png', '/add2.png', '/add3.png', '/add4.png'];
@@ -85,7 +101,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Calendar', icon: Calendar },
         { id: 'courses', name: 'Courses', label: 'Classes', icon: BookOpen },
         { name: 'Lessons', icon: PlayCircle },
-        { name: 'Assessments', icon: FileText },
+        { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
     ];
 
     return (
@@ -114,7 +130,10 @@ const Student = ({ userName, onLogout }) => {
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className="text-sm">{item.label || item.name}</span>
+                            <span className="text-sm flex-1 text-left">{item.label || item.name}</span>
+                            {item.hasBadge && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                            )}
                         </button>
                     ))}
                 </nav>
@@ -151,7 +170,7 @@ const Student = ({ userName, onLogout }) => {
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
                     <DashboardHeader userName={userName} />
-                    
+
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
