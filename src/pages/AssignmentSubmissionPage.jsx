@@ -5,6 +5,7 @@ import {
     CheckCircle2, FileText, UploadCloud
 } from 'lucide-react';
 import api from '../api';
+import { forceDownload } from '../utils/downloadHelper';
 
 const AssignmentSubmissionPage = () => {
     const { id } = useParams();
@@ -127,12 +128,14 @@ const AssignmentSubmissionPage = () => {
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {assignment.attachments.map(att => (
-                                    <a 
+                                    <button 
                                         key={att.id} 
-                                        href={att.file_url} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="flex items-center justify-between p-4 bg-white border-2 border-gray-100 hover:border-purple-200 hover:bg-purple-50 rounded-xl transition-all group"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const originalName = att.file_url.split('/').pop() || 'Reference_Material';
+                                            forceDownload(att.file_url, originalName);
+                                        }}
+                                        className="flex items-center justify-between p-4 bg-white border-2 border-gray-100 hover:border-purple-200 hover:bg-purple-50 rounded-xl transition-all group w-full text-left"
                                     >
                                         <span className="text-sm font-semibold text-gray-700 truncate mr-4">
                                             {att.file_url.split('/').pop()}
@@ -140,7 +143,7 @@ const AssignmentSubmissionPage = () => {
                                         <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
                                             <Download size={14} />
                                         </div>
-                                    </a>
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -161,14 +164,15 @@ const AssignmentSubmissionPage = () => {
                                     Submitted on {new Date(assignment.userSubmission.submitted_at).toLocaleString()}
                                 </p>
                             </div>
-                            <a 
-                                href={assignment.userSubmission.file_url}
-                                target="_blank"
-                                rel="noreferrer"
+                            <button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    forceDownload(assignment.userSubmission.file_url, `My_Submission_${assignment.title.replace(/\\s+/g, '_')}`);
+                                }}
                                 className="flex items-center gap-2 px-4 py-2 bg-white text-green-700 rounded-lg font-bold shadow-sm border border-green-200 hover:bg-green-100 transition-colors text-sm"
                             >
-                                <Download size={16} /> View Uploaded File
-                            </a>
+                                <Download size={16} /> Download Uploaded File
+                            </button>
                         </div>
 
                         {isGraded && (
