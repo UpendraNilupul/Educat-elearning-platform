@@ -18,6 +18,7 @@ import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
+import Admin_Payouts from './pages/Admin_Payouts';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -220,6 +221,12 @@ function App() {
           <Route
             path="/admin/review-teacher/:id"
             element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          {/* Admin Payouts Route */}
+          <Route
+            path="/admin/payouts"
+            element={userRole === 'admin' ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           <Route
