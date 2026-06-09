@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     PlayCircle,
     Lock,
@@ -26,6 +27,7 @@ const getYouTubeEmbedUrl = (url) => {
 };
 
 const TuitionClass = () => {
+    const navigate = useNavigate();
     // View state
     const [selectedClassId, setSelectedClassId] = useState(null);
     const [checkoutClass, setCheckoutClass] = useState(null);
@@ -508,7 +510,11 @@ const TuitionClass = () => {
 
                                             {/* ASSIGNMENTS */}
                                             {month.assignments?.map(assignment => (
-                                                <div key={assignment.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 transition-colors shadow-sm">
+                                                <div 
+                                                    key={assignment.id} 
+                                                    onClick={() => navigate(`/student/assignment/${assignment.id}`)} 
+                                                    className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all shadow-sm cursor-pointer group mb-2"
+                                                >
                                                     <div className="flex items-center gap-3">
                                                         <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
                                                             <ClipboardList className="w-4 h-4" />
@@ -518,6 +524,7 @@ const TuitionClass = () => {
                                                             {assignment.deadline && <span className="text-[10px] text-gray-500">Due: {new Date(assignment.deadline).toLocaleDateString()}</span>}
                                                         </div>
                                                     </div>
+                                                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" />
                                                 </div>
                                             ))}
 

@@ -99,8 +99,7 @@ const Student = ({ userName, onLogout }) => {
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Calendar', icon: Calendar },
-        { id: 'courses', name: 'Courses', label: 'Classes', icon: BookOpen },
-        { name: 'Lessons', icon: PlayCircle },
+        { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
     ];
 
