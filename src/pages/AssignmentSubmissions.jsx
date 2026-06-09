@@ -11,6 +11,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
+import { forceDownload } from '../utils/downloadHelper';
 
 const AssignmentSubmissions = () => {
     const { id } = useParams(); // assignment id
@@ -130,16 +131,16 @@ const AssignmentSubmissions = () => {
                                     </div>
                                 </div>
                                 <div className="mt-4 flex items-center justify-between border-t border-gray-50 pt-4">
-                                    <a 
-                                        // 🌟 THE FIX: Safely handle Cloudinary URLs or Local Files
-                                        href={sub.file_url?.startsWith('http') ? sub.file_url : `${baseURL}${sub.file_url}`} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const fileUrl = sub.file_url?.startsWith('http') ? sub.file_url : `${baseURL}${sub.file_url}`;
+                                            forceDownload(fileUrl, `Submission_${sub.student_name.replace(/\\s+/g, '_')}`);
+                                        }}
                                         className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:underline"
                                     >
                                         <Download size={16} /> Download Submission
-                                    </a>
+                                    </button>
                                     {sub.grade !== null && (
                                         <div className="bg-purple-50 px-3 py-1 rounded-lg text-sm font-black text-purple-700">
                                             Score: {sub.grade} / {assignment?.max_marks}
