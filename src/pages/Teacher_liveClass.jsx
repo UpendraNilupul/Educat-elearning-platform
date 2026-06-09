@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import api from '../api';
 
 // Time formatting helpers
 const convert24to12 = (time24h) => {
@@ -26,6 +27,50 @@ const convert12to24 = (time12h) => {
   return `${String(hours).padStart(2, '0')}:${minutes}`;
 };
 
+const normalizeLiveClass = (item) => {
+  if (!item) return {};
+  
+  // Safely format date to YYYY-MM-DD
+  let dateStr = '';
+  if (item.scheduled_date) {
+    const d = new Date(item.scheduled_date);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    } else {
+      dateStr = String(item.scheduled_date).substring(0, 10);
+    }
+  }
+
+  // Safely format duration
+  const dur = item.duration_minutes || item.duration || 60;
+  const durationStr = dur >= 60 ? `${dur / 60} hr` : `${dur} min`;
+
+  // Start time: convert 24h format to 12h format for display
+  let timeStr = item.start_time || item.time || '';
+  if (timeStr && !timeStr.includes('AM') && !timeStr.includes('PM')) {
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+      timeStr = `${parts[0]}:${parts[1]}`;
+    }
+    timeStr = convert24to12(timeStr);
+  }
+
+  return {
+    id: item.id,
+    course_id: item.c_id || item.course_id,
+    title: item.title,
+    scheduled_date: dateStr,
+    time: timeStr,
+    duration: durationStr,
+    duration_minutes: dur,
+    link: item.meeting_link || item.link || '',
+    courseName: item.course_title || item.courseName || `Course ${item.c_id || item.course_id}`
+  };
+};
+
 const VirtualClassroom = () => {
   // State for managing the modal visibility
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,33 +79,41 @@ const VirtualClassroom = () => {
   // State for holding the scheduled classes
   const [scheduledClasses, setScheduledClasses] = useState([]);
 
-  // Fetch classes when component mounts
+  const [courses, setCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [courseError, setCourseError] = useState('');
+
   useEffect(() => {
-    // TODO: Replace this mock data with an actual axios.get() to your Express backend
-    // Example: axios.get('/api/virtual-classes/teacher/1').then(res => setScheduledClasses(res.data))
-    
-    const mockData = [
-      {
-        id: 1,
-        title: "Introduction to React Hooks",
-        courseName: "Full-Stack Web Development",
-        date: "2026-06-12",
-        time: "10:00 AM",
-        duration: "60 mins",
-        link: "https://zoom.us/j/123456789"
-      },
-      {
-        id: 2,
-        title: "Database Indexing Strategies",
-        courseName: "Advanced Data Science",
-        date: "2026-06-15",
-        time: "02:30 PM",
-        duration: "90 mins",
-        link: "https://meet.google.com/abc-defg-hij"
+    const loadData = async () => {
+      setLoadingCourses(true);
+      setCourseError('');
+
+      try {
+        const teacherId = localStorage.getItem('userId');
+      const courseEndpoint = teacherId ? `/courses?teacherId=${teacherId}` : '/courses';
+
+      const [coursesRes, liveClassesRes] = await Promise.all([
+          api.get(courseEndpoint),
+          api.get('/teacher/liveclasses')
+        ]);
+
+        setCourses(Array.isArray(coursesRes.data) ? coursesRes.data : []);
+        setScheduledClasses(Array.isArray(liveClassesRes.data) ? liveClassesRes.data.map(normalizeLiveClass) : []);
+      } catch (err) {
+        console.error('Error loading live classes or courses:', err);
+        setCourseError('Unable to load live classes or courses. Please refresh the page.');
+      } finally {
+        setLoadingCourses(false);
       }
-    ];
-    setScheduledClasses(mockData);
+    };
+
+    loadData();
   }, []);
+
+  const findCourseTitle = (courseId, fallback) => {
+    const course = courses.find((item) => String(item.id) === String(courseId));
+    return course ? course.title || course.name : fallback || 'Unknown Course';
+  };
 
   const handleScheduleClick = () => {
     setEditingClass(null);
@@ -72,52 +125,48 @@ const VirtualClassroom = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteClass = (id) => {
-    if (window.confirm("Are you sure you want to delete this scheduled class?")) {
-      setScheduledClasses(prev => prev.filter(c => c.id !== id));
+  const handleDeleteClass = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this scheduled class?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/teacher/liveclasses/${id}`);
+      setScheduledClasses((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting live class:', err);
+      window.alert('Unable to delete this class. Please try again.');
     }
   };
 
-  const handleSaveClass = (formData) => {
-    const courseMap = {
-      '1': 'Full-Stack Web Development',
-      '2': 'Advanced Data Science'
-    };
-    const courseName = courseMap[formData.course_id] || 'Other Course';
-    
-    // Format time to 12-hour format for presentation
-    const timeFormatted = formData.time.includes('AM') || formData.time.includes('PM') 
-      ? formData.time 
-      : convert24to12(formData.time);
-
-    // Format duration
-    const durationFormatted = formData.duration.includes('min') 
-      ? formData.duration 
-      : `${formData.duration} mins`;
-
-    const updatedData = {
-      ...formData,
-      time: timeFormatted,
-      duration: durationFormatted,
-      courseName
+  const handleSaveClass = async (formData) => {
+    const payload = {
+      c_id: formData.course_id,
+      title: formData.title,
+      scheduled_date: formData.date,
+      start_time: formData.time,
+      duration_minutes: Number(formData.duration),
+      meeting_link: formData.link,
+      status: 'scheduled'
     };
 
-    if (editingClass) {
-      // Editing
-      setScheduledClasses(prev =>
-        prev.map(c =>
-          c.id === editingClass.id
-            ? { ...c, ...updatedData }
-            : c
-        )
-      );
-    } else {
-      // Creating new
-      const newClass = {
-        id: Date.now(),
-        ...updatedData
-      };
-      setScheduledClasses(prev => [...prev, newClass]);
+    try {
+      const response = editingClass
+        ? await api.put(`/teacher/liveclasses/${editingClass.id}`, payload)
+        : await api.post('/teacher/liveclasses', payload);
+
+      const normalized = normalizeLiveClass(response.data);
+      normalized.courseName = findCourseTitle(normalized.course_id, normalized.courseName);
+
+      setScheduledClasses((prev) => {
+        if (editingClass) {
+          return prev.map((c) => (c.id === editingClass.id ? normalized : c));
+        }
+        return [normalized, ...prev];
+      });
+    } catch (err) {
+      console.error('Error saving live class:', err);
+      window.alert('Unable to save the class. Please try again.');
     }
   };
 
@@ -140,6 +189,12 @@ const VirtualClassroom = () => {
         </button>
       </div>
 
+      {courseError && (
+        <div className="mb-6 rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3">
+          {courseError}
+        </div>
+      )}
+
       {/* --- UPCOMING CLASSES GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {scheduledClasses.length === 0 ? (
@@ -156,7 +211,7 @@ const VirtualClassroom = () => {
               
               <div className="mt-auto pt-4 space-y-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
-                  <span role="img" aria-label="date">📅</span> {cls.date}
+                  <span role="img" aria-label="date">📅</span> {cls.scheduled_date}
                 </div>
                 <div className="flex items-center gap-2">
                   <span role="img" aria-label="time">⏰</span> {cls.time} ({cls.duration})
@@ -198,6 +253,8 @@ const VirtualClassroom = () => {
           onClose={() => setIsModalOpen(false)} 
           editingClass={editingClass} 
           onSave={handleSaveClass}
+          courses={courses}
+          loadingCourses={loadingCourses}
         />
       )}
     </div>
@@ -206,14 +263,14 @@ const VirtualClassroom = () => {
 
 export default VirtualClassroom;
 
-const ScheduleModal = ({ onClose, editingClass, onSave }) => {
+const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses }) => {
   // State for the form inputs
   const [formData, setFormData] = useState({
-    course_id: editingClass ? (editingClass.course_id || (editingClass.courseName === 'Full-Stack Web Development' ? '1' : '2')) : '',
+    course_id: editingClass ? editingClass.course_id || editingClass.c_id || '' : '',
     title: editingClass ? editingClass.title : '',
-    date: editingClass ? editingClass.date : '',
+    date: editingClass ? editingClass.scheduled_date || editingClass.date || '' : '',
     time: editingClass ? (editingClass.time.includes('AM') || editingClass.time.includes('PM') ? convert12to24(editingClass.time) : editingClass.time) : '',
-    duration: editingClass ? (editingClass.duration.replace(' mins', '').replace(' min', '').trim()) : '60',
+    duration: editingClass ? (editingClass.duration || editingClass.duration_minutes || '60').toString().replace(' mins', '').replace(' min', '').trim() : '60',
     link: editingClass ? editingClass.link : ''
   });
 
@@ -253,9 +310,17 @@ const ScheduleModal = ({ onClose, editingClass, onSave }) => {
               required
             >
               <option value="" disabled>-- Select a course --</option>
-              {/* Replace with dynamic courses from database */}
-              <option value="1">Full-Stack Web Development</option>
-              <option value="2">Advanced Data Science</option>
+              {loadingCourses ? (
+                <option value="" disabled>Loading your courses...</option>
+              ) : courses.length === 0 ? (
+                <option value="" disabled>No courses found</option>
+              ) : (
+                courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title || course.name || `Course ${course.id}`}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

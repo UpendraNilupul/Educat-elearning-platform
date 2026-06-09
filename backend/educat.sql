@@ -412,6 +412,19 @@ CREATE TABLE messages (
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE live_classes (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    duration_minutes INT NOT NULL,
+    meeting_link VARCHAR(300) NOT NULL,
+    status VARCHAR(20) DEFAULT 'scheduled',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 -- ==========================================
 -- LEVEL 9: AUTOMATED CLEANUP EVENTS
 -- ==========================================
