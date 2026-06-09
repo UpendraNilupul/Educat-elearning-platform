@@ -43,7 +43,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         const endpoint = id ? `/courses?teacherId=${id}` : '/courses';
         const response = await api.get(endpoint);
         const data = response.data;
-        
+
         setCourses(data.map(course => ({
           ...course, students: course.students || 0, modules: course.modules || 0, progress: course.progress || 0, chapters: course.chapters || []
         })));
@@ -121,8 +121,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 setIsSidebarOpen(false);
               }}
               className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === item.name
-                  ? "bg-[#4a0b59] text-white font-semibold shadow-md"
-                  : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
+                ? "bg-[#4a0b59] text-white font-semibold shadow-md"
+                : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
                 }`}
             >
               <item.icon className="w-5 h-5" />
