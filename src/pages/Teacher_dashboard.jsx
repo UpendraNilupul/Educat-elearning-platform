@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
+  LayoutDashboard, BookOpen, FileText, Award, Video,
   Users, Calendar, Edit2, Menu, X, MessageSquare, Bell
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
+import VirtualClassroom from "./Teacher_liveClass";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -22,9 +23,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     { name: "Overview", icon: LayoutDashboard },
     { name: "Course Management", icon: BookOpen },
     { name: "Assessments", icon: FileText },
-    { name: "Certification", icon: Award },
-    { name: "Marketing", icon: Megaphone },
-    { name: "Virtual Classroom", icon: Video },
+    { name: "Virtual Classroom", icon: Video }
   ];
 
   const [courses, setCourses] = useState([]);
@@ -109,8 +108,6 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             { name: "Overview", icon: LayoutDashboard },
             { name: "Course Management", icon: BookOpen },
             { name: "Assessments", icon: FileText },
-            { name: "Certification", icon: Award },
-            { name: "Marketing", icon: Megaphone },
             { name: "Virtual Classroom", icon: Video },
             { name: "Messages", icon: MessageSquare },
           ].map((item) => (
@@ -350,6 +347,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         )}
 
         {activeTab === "Messages" && <TeacherChat />}
+
+        {activeTab === "Virtual Classroom" && <VirtualClassroom />}
       </main>
     </div>
   );

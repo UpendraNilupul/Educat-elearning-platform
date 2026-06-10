@@ -73,14 +73,16 @@ router.post('/register', async (req, res) => {
             await query('UPDATE teachers SET user_code = ? WHERE id = ?', [finalUserCode, teacherId]);
         }
 
-        req.session.userId = newUserId;
-        req.session.userRole = role;
-        req.session.userName = name;
+        const normalizedRole = String(role || '').toLowerCase().trim();
 
+        req.session.userId = newUserId;
+        req.session.userRole = normalizedRole;
+        req.session.userName = name;
+ 
         res.status(201).json({ 
             message: 'User registered successfully!',
             userId: newUserId,
-            userRole: role,
+            userRole: normalizedRole,
             userName: name,
             userCode: finalUserCode // Send the code back to the client if needed
         });
