@@ -166,7 +166,8 @@ const VirtualClassroom = () => {
       });
     } catch (err) {
       console.error('Error saving live class:', err);
-      window.alert('Unable to save the class. Please try again.');
+      const errMsg = err.response?.data?.error || 'Unable to save the class. Please try again.';
+      window.alert(errMsg);
     }
   };
 
@@ -264,6 +265,13 @@ const VirtualClassroom = () => {
 export default VirtualClassroom;
 
 const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses }) => {
+  // Get today's local date (YYYY-MM-DD)
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
   // State for the form inputs
   const [formData, setFormData] = useState({
     course_id: editingClass ? editingClass.course_id || editingClass.c_id || '' : '',
@@ -274,12 +282,32 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     link: editingClass ? editingClass.link : ''
   });
 
+  const [dateError, setDateError] = useState(() => {
+    const initialDate = editingClass ? editingClass.scheduled_date || editingClass.date || '' : '';
+    if (initialDate && initialDate < todayStr) {
+      return 'Please select today or a future date.';
+    }
+    return '';
+  });
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (name === 'date') {
+      if (value && value < todayStr) {
+        setDateError('Please select today or a future date.');
+      } else {
+        setDateError('');
+      }
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (formData.date < todayStr) {
+      setDateError('Please select today or a future date.');
+      return;
+    }
     onSave(formData);
     onClose();
   };
@@ -345,11 +373,17 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
               <input 
                 type="date" 
                 name="date"
+                min={todayStr}
                 value={formData.date}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                className={`w-full border rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none ${
+                  dateError ? 'border-red-500 ring-1 ring-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              {dateError && (
+                <p className="text-red-500 text-xs mt-1 font-medium">{dateError}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
@@ -405,7 +439,12 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
             </button>
             <button 
               type="submit"
-              className="bg-purple-700 hover:bg-purple-800 text-white font-medium px-6 py-2 rounded-md transition-colors"
+              disabled={!!dateError}
+              className={`font-medium px-6 py-2 rounded-md transition-colors ${
+                dateError 
+                  ? 'bg-purple-300 text-white cursor-not-allowed' 
+                  : 'bg-purple-700 hover:bg-purple-800 text-white'
+              }`}
             >
               {editingClass ? "Save Changes" : "Save Class"}
             </button>

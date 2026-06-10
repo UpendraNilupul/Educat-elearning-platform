@@ -147,6 +147,17 @@ router.post('/teacher/liveclasses', requireAuth, requireRole(['teacher']), async
             return res.status(403).json({ error: 'Unauthorized: Course does not belong to you' });
         }
 
+        // Validate scheduled_date
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (scheduled_date < todayStr) {
+            return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
+        }
+
         const result = await query(`
             INSERT INTO live_classes (c_id, title, scheduled_date, start_time, duration_minutes, meeting_link, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -196,6 +207,17 @@ router.put('/teacher/liveclasses/:id', requireAuth, requireRole(['teacher']), as
         const courseCheck = await query('SELECT id, title FROM classes_courses WHERE id = ? AND t_id = ?', [c_id, teacherId]);
         if (courseCheck.length === 0) {
             return res.status(403).json({ error: 'Unauthorized: Selected course does not belong to you' });
+        }
+
+        // Validate scheduled_date
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (scheduled_date < todayStr) {
+            return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
         }
 
         await query(`
