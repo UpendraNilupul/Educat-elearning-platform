@@ -82,14 +82,15 @@ router.get('/courses', async (req, res) => {
 
 // POST a new course
 router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId } = req.body;
+    console.log("POST /courses req.body:", req.body);
+    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
         
         const result = await query(
-            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, students || 0, 0, progress || 0, actualTeacherId]
+            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
         );
         res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
@@ -100,23 +101,24 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 
 // PUT (update) a course
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
+    console.log("PUT /courses/:id req.body:", req.body);
     const { id } = req.params;
-    const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
+    const { name, title, type, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
     
     const updateQuery = `
         UPDATE classes_courses 
-        SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?
+        SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
         WHERE id = ?
     `;
     
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, id];
+    const values = [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
     
     try {
         const result = await query(updateQuery, values);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
         }
-        res.status(200).json({ id: parseInt(id), name, title, type, status, is_published, theme_color, thumbnail_url });
+        res.status(200).json({ id: parseInt(id), name, title, type, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
         return res.status(500).json({ message: 'Server error' });
@@ -344,7 +346,7 @@ router.get('/courses/search', async (req, res) => {
         FROM classes_courses c 
         JOIN teachers t ON c.t_id = t.id 
         JOIN users u ON t.user_id = u.id 
-        WHERE c.is_published = TRUE
+        WHERE c.status = 'active'
     `;
     const params = [];
 
@@ -415,7 +417,7 @@ router.get('/courses/student/:userId', requireAuth, async (req, res) => {
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
             LEFT JOIN reviews r ON r.c_id = c.id AND r.s_id = ?
-            WHERE e.s_id = ?
+            WHERE e.s_id = ? AND c.status = 'active'
         `, [studentId, studentId, studentId]);
 
         // Calculate percentage progress
@@ -466,7 +468,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
         `, [studentId, studentId]);
 
         // 2. Fetch ALL Quizzes in one query (checks submission status)
@@ -480,7 +482,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array

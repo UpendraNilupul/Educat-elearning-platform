@@ -18,13 +18,13 @@ router.get('/student/classes', async (req, res) => {
 
         const classes = await query(`
             SELECT 
-                c.id, c.name AS grade, c.title AS subject,
+                c.id, c.name AS grade, c.title AS subject, c.monthly_fee,
                 t.id AS teacher_id, u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN enrollments e ON c.id = e.c_id
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
-            WHERE e.s_id = ? AND e.status = 'In Progress'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
             GROUP BY c.id
         `, [studentId]);
 
@@ -159,20 +159,20 @@ router.get('/student/classes', async (req, res) => {
 router.get('/suggested-classes', async (req, res) => {
     try {
         const userId = req.session?.userId || req.query.userId;
-        let excludeQuery = "";
+        let excludeQuery = "WHERE c.status = 'active'";
         let queryParams = [];
 
         if (userId) {
             const studentRes = await query(`SELECT id FROM students WHERE user_id = ?`, [userId]);
             if (studentRes.length > 0) {
-                excludeQuery = `WHERE c.id NOT IN (SELECT c_id FROM enrollments WHERE s_id = ?)`;
+                excludeQuery = `WHERE c.status = 'active' AND c.id NOT IN (SELECT c_id FROM enrollments WHERE s_id = ?)`;
                 queryParams.push(studentRes[0].id);
             }
         }
 
         const suggested = await query(`
             SELECT 
-                c.id, c.name AS grade, c.title AS subject,
+                c.id, c.name AS grade, c.title AS subject, c.monthly_fee,
                 u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN teachers t ON c.t_id = t.id
@@ -186,7 +186,7 @@ router.get('/suggested-classes', async (req, res) => {
             id: cls.id,
             grade: cls.grade || 'Grade',
             subject: cls.subject,
-            monthlyFee: 2500,
+            monthlyFee: cls.monthly_fee || 2500,
             teacher: {
                 name: cls.teacher_name,
                 image: cls.teacher_image || `https://ui-avatars.com/api/?name=${cls.teacher_name.replace(/ /g, '+')}`

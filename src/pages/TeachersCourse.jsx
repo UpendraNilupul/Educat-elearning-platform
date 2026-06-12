@@ -35,7 +35,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     thumbnail_url: "",
     students: 0, 
     modules: 0, 
-    progress: 0 
+    progress: 0,
+    monthly_fee: 0
   });
 
   const [expandedChapters, setExpandedChapters] = useState([]);
@@ -915,7 +916,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       thumbnail_url: "",
       students: 0, 
       modules: 0, 
-      progress: 0 
+      progress: 0,
+      monthly_fee: 0
     });
     setIsModalOpen(true);
   };
@@ -932,7 +934,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       thumbnail_url: course.thumbnail_url || "",
       students: course.students || 0, 
       modules: course.modules || 0, 
-      progress: course.progress || 0 
+      progress: course.progress || 0,
+      monthly_fee: course.monthly_fee || 0
     });
     setIsModalOpen(true);
   };
@@ -944,10 +947,16 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "number" ? Number(value) : value,
-    }));
+    setFormData((prev) => {
+      const nextData = {
+        ...prev,
+        [name]: type === "number" ? Number(value) : value,
+      };
+      if (name === "status") {
+        nextData.is_published = value === "active";
+      }
+      return nextData;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -1367,6 +1376,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                   <div>
                     <h3 className="font-bold text-xl text-gray-800 line-clamp-2">{course.title}</h3>
                     <p className="text-sm text-gray-500 mt-1">{course.students} Students • {course.modules} Modules</p>
+                    <p className="text-sm font-bold text-purple-600 mt-1">LKR {course.monthly_fee ? parseFloat(course.monthly_fee).toFixed(2) : '0.00'}</p>
                   </div>
                 </div>
 
@@ -1643,48 +1653,32 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Theme Color</label>
-                  <select
-                    name="theme_color"
-                    value={formData.theme_color}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee (LKR)</label>
+                  <input
+                    type="number"
+                    name="monthly_fee"
+                    value={formData.monthly_fee}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                  >
-                    <option value="purple">Purple</option>
-                    <option value="blue">Blue</option>
-                    <option value="green">Green</option>
-                    <option value="orange">Orange</option>
-                    <option value="red">Red</option>
-                  </select>
+                    required
+                    min="0"
+                    step="0.01"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                    placeholder="e.g. 2500"
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="not_active">Not Active</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2 mt-7">
-                  <input
-                    type="checkbox"
-                    id="is_published"
-                    name="is_published"
-                    checked={formData.is_published}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_published: e.target.checked }))}
-                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
-                    Publish Course
-                  </label>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                >
+                  <option value="active">Active</option>
+                  <option value="not_active">Not Active</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4 border-t mt-6">
