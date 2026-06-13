@@ -119,6 +119,30 @@ app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
 app.use('/api', paymentRoute); 
 
+// ==========================================
+// 📊 STATS API ROUTE
+// ==========================================
+app.get('/api/public/stats', async (req, res) => {
+    try {
+        console.log("🚀 Stats API hit una!"); 
+        
+        const studentCount = await query('SELECT COUNT(*) AS count FROM students');
+        console.log("📦 Student Data:", studentCount); 
+
+        const teacherCount = await query('SELECT COUNT(*) AS count FROM teachers');
+        const courseCount = await query('SELECT COUNT(*) AS count FROM classes_courses');
+
+        res.status(200).json({
+            students: studentCount[0]?.count || 0,
+            teachers: teacherCount[0]?.count || 0,
+            courses: courseCount[0]?.count || 0
+        });
+    } catch (error) {
+        console.error("❌ Stats Backend Error:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 // Chat Routes
 app.use('/api', studentChatRoutes);
 app.use('/api', teacherChatRoutes);
@@ -185,3 +209,5 @@ server.listen(PORT, () => {
     // Start background jobs
     initAssignmentScheduler(io);
 });
+
+

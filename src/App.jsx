@@ -19,6 +19,7 @@ import Register from './pages/Register';
 import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
+import Admin_Payouts from './pages/Admin_Payouts';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -39,6 +40,7 @@ import CoursesPage from './pages/Course';
 import AssessmentsPage from './pages/AssessmentsPage';
 import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
+import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -228,6 +230,12 @@ function App() {
             element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
+          {/* Admin Payouts Route */}
+          <Route
+            path="/admin/payouts"
+            element={userRole === 'admin' ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
           <Route
             path="/admin/students"
             element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
@@ -294,11 +302,29 @@ function App() {
               )
             }
           />
+          
+          <Route
+            path="/student/assignment/:id"
+            element={
+              userRole === 'student' ? (
+                <AssignmentSubmissionPage />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
 
           {/* Teacher Profile Edit */}
           <Route path="/teacher-profile-edit/:id?" element={
             (userRole === 'teacher' || localStorage.getItem('userRole') === 'teacher')
               ? <TeacherProfileEdit teacherId={localStorage.getItem('userId')} setUserName={setUserName} setUserPicture={setUserPicture} />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Assignment Submissions & Grade */}
+          <Route path="/teacher/assignments/:id/submissions" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <AssignmentSubmissions />
               : <Navigate to="/" />
           } />
 

@@ -41,7 +41,7 @@ router.get('/student/classes', async (req, res) => {
             const modules = await query(`
                 SELECT id, title AS name, title AS topics 
                 FROM modules 
-                WHERE c_id = ? 
+                WHERE c_id = ? AND isVisible = 1
                 ORDER BY number ASC
             `, [cls.id]);
 
@@ -49,24 +49,17 @@ router.get('/student/classes', async (req, res) => {
 
             for (let mod of modules) {
 
-                const videos = await query(`
-            SELECT id,number,type, title,link,m_id
-            FROM lessons 
-            WHERE m_id = ? AND type LIKE '%video%'
-            ORDER BY number ASC
-        `, [mod.id]);
-                const tutes = await query(`
-                    SELECT id, name, link
-                    FROM resources 
-                    WHERE m_id = ?
-                    ORDER BY number ASC
-                `, [mod.id]);
+                const lessons = await query('SELECT id, title FROM lessons WHERE m_id = ? AND isVisible = 1 ORDER BY number ASC', [mod.id]);
+                
+                for (let lesson of lessons) {
+                    const resources = await query('SELECT id, name, link, type FROM resources WHERE l_id = ? AND isVisible = 1 ORDER BY number ASC', [lesson.id]);
+                    lesson.resources = resources;
+                }
+
                 const payments = await query(`
             SELECT id FROM payments
             WHERE c_id = ? AND s_id = ? AND status = 'completed'
         `, [cls.id, studentId]);
-
-
 
                 const isPaid = payments.length > 0;
 
@@ -75,20 +68,7 @@ router.get('/student/classes', async (req, res) => {
                     name: mod.name,
                     isPaid: isPaid,
                     topics: mod.topics,
-                    videos: videos.map(v => ({
-                        id: v.id,
-                        title: v.title || 'Lesson Video',
-                        link: v.link,
-                        date: v.formatted_date || 'Available Now',
-                        duration: v.duration || '--'
-                    })),
-                    tutes: tutes.map(t => ({
-                        id: t.id,
-                        name: t.name,
-                        type: t.resource_type || 'Material',
-                        size: t.file_size || 'Unknown Size',
-                        link: t.link
-                    })),
+                    lessons: lessons,
                     assignments: await Promise.all((await query(`
                         SELECT a.*, sub.status as submissionStatus, sub.grade as submissionGrade, sub.feedback as submissionFeedback
                         FROM assignments a
@@ -125,8 +105,7 @@ router.get('/student/classes', async (req, res) => {
                     name: 'Introduction',
                     isPaid: payments.length > 0,
                     topics: 'Course Introduction',
-                    videos: [],
-                    tutes: [],
+                    lessons: [],
                     assignments: []
                 });
             }
@@ -200,5 +179,8 @@ router.get('/suggested-classes', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
+
 
 export default router;

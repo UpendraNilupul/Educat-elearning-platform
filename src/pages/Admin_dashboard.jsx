@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone,
+    LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone, DollarSign,
     Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle, ShieldCheck, Activity, MessageSquare, ShieldAlert
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -47,6 +47,7 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
+        { id: 'payouts', label: 'Payouts & Earnings', icon: DollarSign, path: '/admin/payouts' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
         { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'escalations', label: 'Escalation Inbox', icon: ShieldAlert, path: '/admin/escalations' },
@@ -138,7 +139,7 @@ const Admin = ({ userName, onLogout }) => {
                             { title: 'Total Students', value: stats?.kpis.totalStudents || 0, icon: Users, color: 'bg-blue-100 text-blue-600' },
                             { title: 'Verified Teachers', value: stats?.kpis.totalTeachers || 0, icon: UserCheck, color: 'bg-green-100 text-green-600' },
                             { title: 'Active Classes', value: stats?.kpis.activeCourses || 0, icon: BookOpen, color: 'bg-purple-100 text-purple-600' },
-                            { title: 'Monthly Revenue', value: `LKR ${stats?.kpis.monthlyRevenue || 0}`, icon: TrendingUp, color: 'bg-orange-100 text-orange-600' },
+                            { title: 'Monthly Revenue', value: `Rs. ${stats?.kpis.monthlyRevenue || 0}`, icon: TrendingUp, color: 'bg-orange-100 text-orange-600' },
                         ].map((stat, index) => (
                             <div key={index} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex items-center space-x-4">
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stat.color}`}>
@@ -238,7 +239,7 @@ const Admin = ({ userName, onLogout }) => {
                                             <img src={stats.topEarner.picture ? `http://localhost:3000/uploads/${stats.topEarner.picture}` : "https://ui-avatars.com/api/?name=Earner&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                             <div>
                                                 <p className="font-bold text-gray-800">{stats.topEarner.name}</p>
-                                                <p className="text-xs text-gray-500">LKR {stats.topEarner.total_earned} revenue generated</p>
+                                                <p className="text-xs text-gray-500">Rs. {stats.topEarner.total_earned} revenue generated</p>
                                             </div>
                                         </div>
                                     </div>
