@@ -258,7 +258,7 @@ const Student = ({ userName, onLogout }) => {
                                             {searchResults.map((course) => (
                                                 <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group overflow-hidden">
                                                     <div className="flex items-start justify-between mb-4">
-                                                        <div className={`p-2 rounded-xl bg-opacity-10 bg-${course.theme_color || 'purple'}-600 group-hover:scale-110 transition-transform`}>
+                                                        <div className={`p-2 rounded-xl bg-${course.theme_color || 'purple'}-600/10 group-hover:scale-110 transition-transform`}>
                                                             <BookOpen className={`w-5 h-5 text-${course.theme_color || 'purple'}-600`} />
                                                         </div>
                                                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
