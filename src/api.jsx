@@ -8,4 +8,19 @@ const api = axios.create({
     withCredentials: true // 🌟 This automatically sends your secure session cookies with EVERY request!
 });
 
+// Interceptor to inject role and user ID headers from sessionStorage for multi-tab isolation
+api.interceptors.request.use((config) => {
+    const role = sessionStorage.getItem('userRole');
+    const userId = sessionStorage.getItem('userId');
+    if (role) {
+        config.headers['x-user-role'] = role;
+    }
+    if (userId) {
+        config.headers['x-user-id'] = userId;
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+
 export default api;
