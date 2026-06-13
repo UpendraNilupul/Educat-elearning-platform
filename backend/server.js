@@ -73,6 +73,22 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware); 
 
+// Session-swapping middleware for tab-level role isolation on localhost
+app.use((req, res, next) => {
+    if (req.session && req.session.roles) {
+        const reqRole = req.headers['x-user-role'];
+        if (reqRole && req.session.roles[reqRole]) {
+            const roleData = req.session.roles[reqRole];
+            req.session.userId = roleData.userId;
+            req.session.userRole = reqRole;
+            req.session.userName = roleData.userName;
+            req.session.userPicture = roleData.userPicture;
+            req.session.adminLevel = roleData.adminLevel;
+        }
+    }
+    next();
+});
+
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
     if (req.session && req.session.userId) {

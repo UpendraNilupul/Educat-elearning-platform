@@ -58,6 +58,17 @@ router.post('/login', async (req, res) => {
         req.session.userRole = normalizedRole; 
         req.session.userName = user.name;
         req.session.adminLevel = user.admin_level || null;
+        req.session.userPicture = user.picture;
+
+        // Initialize session roles and store role-specific details for tab isolation on localhost
+        req.session.roles = req.session.roles || {};
+        req.session.roles[normalizedRole] = {
+            userId: user.id,
+            userRole: normalizedRole,
+            userName: user.name,
+            adminLevel: user.admin_level || null,
+            userPicture: user.picture
+        };
         
         res.status(200).json({ 
             message: 'Logged in successfully!', 
@@ -69,9 +80,6 @@ router.post('/login', async (req, res) => {
             verificationStatus: user.verification_status || null
         });
 
-        // Save picture to session
-        req.session.userPicture = user.picture;
-
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(500).json({ message: 'Server error during login.' });
@@ -82,13 +90,14 @@ router.get('/status', (req, res) => {
     if (req.session.userRole) {
         res.json({ 
             isLoggedIn: true, 
+            userId: req.session.userId,
             userRole: req.session.userRole,
             adminLevel: req.session.adminLevel || null,
             userName: req.session.userName,
             userPicture: req.session.userPicture
         });
     } else {
-        res.json({ isLoggedIn: false, userRole: null, adminLevel: null, userName: null });
+        res.json({ isLoggedIn: false, userId: null, userRole: null, adminLevel: null, userName: null });
     }
 });
 

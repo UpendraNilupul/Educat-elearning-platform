@@ -950,7 +950,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     setFormData((prev) => {
       const nextData = {
         ...prev,
-        [name]: type === "number" ? Number(value) : value,
+        [name]: type === "number" ? (value === "" ? "" : Number(value)) : value,
       };
       if (name === "status") {
         nextData.is_published = value === "active";
@@ -962,19 +962,24 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        monthly_fee: formData.monthly_fee === "" ? 0 : Number(formData.monthly_fee)
+      };
+
       if (editingCourse) {
         // Edit Course
-        const response = await api.put(`/courses/${editingCourse.id}`, formData);
+        const response = await api.put(`/courses/${editingCourse.id}`, payload);
         const updatedCourse = response.data;
         
         setCourses(courses.map(c => String(c.id) === String(updatedCourse.id) ? { ...c, ...updatedCourse, id: c.id } : c));
       } else {
         // Create Course
-        const payload = {
-          ...formData,
+        const createPayload = {
+          ...payload,
           userId: localStorage.getItem('userId')
         };
-        const response = await api.post('/courses', payload);
+        const response = await api.post('/courses', createPayload);
         const newCourse = response.data;
         
         setCourses([...courses, newCourse]);

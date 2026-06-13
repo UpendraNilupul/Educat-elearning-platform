@@ -18,7 +18,7 @@ router.get('/student/classes', async (req, res) => {
 
         const classes = await query(`
             SELECT 
-                c.id, c.name AS grade, c.title AS subject, c.monthly_fee,
+                c.id, c.title AS grade, c.title AS subject, c.monthly_fee,
                 t.id AS teacher_id, u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN enrollments e ON c.id = e.c_id
@@ -172,7 +172,7 @@ router.get('/suggested-classes', async (req, res) => {
 
         const suggested = await query(`
             SELECT 
-                c.id, c.name AS grade, c.title AS subject, c.monthly_fee,
+                c.id, c.title AS grade, c.title AS subject, c.monthly_fee,
                 u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN teachers t ON c.t_id = t.id

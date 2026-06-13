@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
+import api from './api';
 
 // Component Imports
 import Header from './components/Header';
@@ -66,25 +67,33 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || localStorage.getItem('userRole') || null);
   const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [userPicture, setUserPicture] = useState(localStorage.getItem('userPicture') || '');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/status', {
-      credentials: 'include'
-    })
-      .then(response => response.json())
-      .then(data => {
-        const safeRole = String(data.userRole || '').toLowerCase().trim();
-        setUserRole(safeRole);
-        setUserName(data.userName);
-        if (data.adminLevel) setAdminLevel(data.adminLevel);
-        if (data.userPicture) {
-          setUserPicture(data.userPicture);
-          localStorage.setItem('userPicture', data.userPicture);
+    api.get('/status')
+      .then(response => {
+        const data = response.data;
+        if (data.isLoggedIn) {
+          const safeRole = String(data.userRole || '').toLowerCase().trim();
+          setUserRole(safeRole);
+          setUserName(data.userName);
+          if (data.adminLevel) setAdminLevel(data.adminLevel);
+          if (data.userPicture) {
+            setUserPicture(data.userPicture);
+            localStorage.setItem('userPicture', data.userPicture);
+          }
+          
+          // Populate sessionStorage to maintain tab-level context
+          if (!sessionStorage.getItem('userRole')) {
+            sessionStorage.setItem('userRole', safeRole);
+          }
+          if (data.userId && !sessionStorage.getItem('userId')) {
+            sessionStorage.setItem('userId', data.userId);
+          }
         }
       })
       .catch(err => console.log("User is likely not logged in yet."))
@@ -98,10 +107,7 @@ function App() {
     if (!userRole) return;
 
     const heartbeatInterval = setInterval(() => {
-      fetch('http://localhost:3000/api/heartbeat', {
-        method: 'POST',
-        credentials: 'include'
-      }).catch(err => console.log("Heartbeat skipped"));
+      api.post('/heartbeat').catch(err => console.log("Heartbeat skipped"));
     }, 60000);
 
     return () => clearInterval(heartbeatInterval);
@@ -134,15 +140,16 @@ function App() {
   // Logout Logic
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await api.post('/logout');
       localStorage.removeItem('userId');
       localStorage.removeItem('userRole');
       localStorage.removeItem('userPicture');
       localStorage.removeItem('adminLevel');
       localStorage.removeItem('verificationStatus');
+      
+      sessionStorage.removeItem('userId');
+      sessionStorage.removeItem('userRole');
+      
       setUserRole(null);
       setUserName('');
       setUserPicture('');
