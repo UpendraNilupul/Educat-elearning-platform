@@ -73,6 +73,22 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware); 
 
+// Session-swapping middleware for tab-level role isolation on localhost
+app.use((req, res, next) => {
+    if (req.session && req.session.roles) {
+        const reqRole = req.headers['x-user-role'];
+        if (reqRole && req.session.roles[reqRole]) {
+            const roleData = req.session.roles[reqRole];
+            req.session.userId = roleData.userId;
+            req.session.userRole = reqRole;
+            req.session.userName = roleData.userName;
+            req.session.userPicture = roleData.userPicture;
+            req.session.adminLevel = roleData.adminLevel;
+        }
+    }
+    next();
+});
+
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
     if (req.session && req.session.userId) {
@@ -102,6 +118,30 @@ app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
 app.use('/api', paymentRoute); 
+
+// ==========================================
+// 📊 STATS API ROUTE
+// ==========================================
+app.get('/api/public/stats', async (req, res) => {
+    try {
+        console.log("🚀 Stats API hit una!"); 
+        
+        const studentCount = await query('SELECT COUNT(*) AS count FROM students');
+        console.log("📦 Student Data:", studentCount); 
+
+        const teacherCount = await query('SELECT COUNT(*) AS count FROM teachers');
+        const courseCount = await query('SELECT COUNT(*) AS count FROM classes_courses');
+
+        res.status(200).json({
+            students: studentCount[0]?.count || 0,
+            teachers: teacherCount[0]?.count || 0,
+            courses: courseCount[0]?.count || 0
+        });
+    } catch (error) {
+        console.error("❌ Stats Backend Error:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
 
 // Chat Routes
 app.use('/api', studentChatRoutes);
@@ -169,3 +209,5 @@ server.listen(PORT, () => {
     // Start background jobs
     initAssignmentScheduler(io);
 });
+
+
