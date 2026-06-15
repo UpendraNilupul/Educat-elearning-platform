@@ -1228,4 +1228,108 @@ router.get('/export/students', async (req, res) => {
     }
 });
 
+// ==========================================
+// 28. FINANCIAL PAYOUT SYSTEM
+// ==========================================
+
+// A. Fetch & Sync Monthly Payouts
+router.get('/payouts', async (req, res) => {
+    try {
+        // Default to current month if none provided (Format: YYYY-MM)
+        const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
+        const [year, month] = monthYear.split('-');
+
+        // 1. Calculate raw earnings from student payments for this specific month
+        const rawEarnings = await query(`
+            SELECT 
+                c.t_id as teacher_id, 
+                COALESCE(SUM(p.amount), 0) as gross_earned
+            FROM payments p
+            JOIN classes_courses c ON p.c_id = c.id
+            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'success'
+            GROUP BY c.t_id
+        `, [month, year]);
+
+        // 2. Sync with the teacher_payouts table (Insert or Update)
+        for (let earning of rawEarnings) {
+            const platformFee = earning.gross_earned * 0.10; // 10% System Charge
+            
+            // Upsert logic: If row exists, update gross & fee. If not, insert it.
+            await query(`
+                INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, net_payable)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    gross_earnings = VALUES(gross_earnings),
+                    platform_fee = VALUES(platform_fee),
+                    net_payable = (VALUES(gross_earnings) - VALUES(platform_fee) + adjustment)
+            `, [earning.teacher_id, monthYear, earning.gross_earned, platformFee, earning.gross_earned - platformFee]);
+        }
+
+        // 3. Fetch the finalized list for the frontend
+        const payouts = await query(`
+            SELECT 
+                tp.*, u.name as teacher_name, u.picture
+            FROM teacher_payouts tp
+            JOIN teachers t ON tp.teacher_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE tp.month_year = ?
+            ORDER BY tp.net_payable DESC
+        `, [monthYear]);
+
+        // 4. Calculate Master System Stats for this month
+        const systemStats = {
+            totalGross: payouts.reduce((sum, p) => sum + parseFloat(p.gross_earnings), 0),
+            systemEarnings: payouts.reduce((sum, p) => sum + parseFloat(p.platform_fee), 0),
+            totalToPay: payouts.reduce((sum, p) => sum + parseFloat(p.net_payable), 0),
+        };
+
+        res.status(200).json({ success: true, data: payouts, stats: systemStats });
+    } catch (error) {
+        console.error("Payout Sync Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load payouts." });
+    }
+});
+
+// B. Adjust a Teacher's Payout (Bonus / Penalty)
+router.put('/payouts/:id/adjust', async (req, res) => {
+    try {
+        const { adjustment } = req.body;
+        
+        await query(`
+            UPDATE teacher_payouts 
+            SET adjustment = ?, 
+                net_payable = (gross_earnings - platform_fee + ?) 
+            WHERE id = ? AND status = 'pending'
+        `, [adjustment, adjustment, req.params.id]);
+
+        res.status(200).json({ success: true, message: "Adjustment applied successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to apply adjustment." });
+    }
+});
+
+// C. Bulk Process Payments for a Month
+router.post('/payouts/process', async (req, res) => {
+    try {
+        const { monthYear } = req.body;
+
+        if (!monthYear) return res.status(400).json({ success: false, message: "Month is required." });
+
+        await query(`
+            UPDATE teacher_payouts 
+            SET status = 'paid', paid_at = NOW() 
+            WHERE month_year = ? AND status = 'pending'
+        `, [monthYear]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Processed all teacher payouts for ${monthYear}`]
+        );
+
+        res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to process payments." });
+    }
+});
+
 export default router;

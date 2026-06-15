@@ -20,76 +20,23 @@ const CoursesPage = () => {
     const [filterStatus, setFilterStatus] = useState('All');
     const [activeTab, setActiveTab] = useState('In Progress');
     const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // 🌟 THE FIX: Moved courses to State so it can be updated by the backend
-    const [courses, setCourses] = useState([
-        {
-            id: 1,
-            title: 'Full Stack Web Development',
-            instructor: 'Dr. Sarah Jenkins',
-            progress: 65,
-            modulesCompleted: 14,
-            totalModules: 22,
-            totalHours: 32,
-            rating: 4.8,
-            status: 'In Progress',
-            color: 'purple',
-            thumbnail: 'bg-gradient-to-br from-purple-500 to-indigo-600'
-        },
-        {
-            id: 2,
-            title: 'UI/UX Design Masterclass',
-            instructor: 'Michael Chen',
-            progress: 42,
-            modulesCompleted: 8,
-            totalModules: 19,
-            totalHours: 24,
-            rating: 4.9,
-            status: 'In Progress',
-            color: 'blue',
-            thumbnail: 'bg-gradient-to-br from-blue-500 to-cyan-500'
-        },
-        {
-            id: 3,
-            title: 'Advanced Database Systems',
-            instructor: 'Prof. Alan Turing',
-            progress: 100,
-            modulesCompleted: 12,
-            totalModules: 12,
-            totalHours: 18,
-            rating: 4.7,
-            status: 'Completed',
-            color: 'green',
-            thumbnail: 'bg-gradient-to-br from-emerald-400 to-teal-500'
-        },
-        {
-            id: 4,
-            title: 'Machine Learning Basics',
-            instructor: 'Dr. Andrew Ng',
-            progress: 0,
-            modulesCompleted: 0,
-            totalModules: 28,
-            totalHours: 45,
-            rating: 4.9,
-            status: 'Not Started',
-            color: 'orange',
-            thumbnail: 'bg-gradient-to-br from-orange-400 to-red-500'
-        }
-    ]);
+    const [courses, setCourses] = useState([]);
 
     // 🌟 THE FIX: Built the API connector for when your backend is ready
     useEffect(() => {
         const fetchMyCourses = async () => {
-            // setLoading(true);
+            setLoading(true);
             try {
-                // UNCOMMENT THIS WHEN BACKEND IS READY:
-                // const response = await api.get('/student/my-courses-progress');
-                // if (response.data.success) setCourses(response.data.data);
+                const userId = localStorage.getItem('userId') || '2';
+                const response = await api.get(`/courses/student/${userId}`);
+                setCourses(response.data);
             } catch (error) {
                 console.error("Failed to load courses:", error);
             } finally {
-                // setLoading(false);
+                setLoading(false);
             }
         };
 
@@ -184,26 +131,42 @@ const CoursesPage = () => {
 
             {/* Courses Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCourses.map((course) => (
-                    <div key={course.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col">
-                        
-                        {/* Course Thumbnail */}
-                        <div className={`h-40 ${course.thumbnail} relative overflow-hidden`}>
-                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-                            
-                            {/* Status Badge */}
-                            <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-                                {course.progress === 100 ? (
-                                    <><CheckCircle className="w-3 h-3" /> Completed</>
-                                ) : (
-                                    <><Clock className="w-3 h-3" /> {course.status}</>
-                                )}
-                            </div>
+                {filteredCourses.map((course) => {
+                    const isImageUrl = course.thumbnail && course.thumbnail !== 'default' && 
+                        (course.thumbnail.startsWith('http') || course.thumbnail.startsWith('/') || course.thumbnail.startsWith('data:'));
+                    const gradients = {
+                        purple: 'from-purple-500 to-indigo-600',
+                        blue: 'from-blue-500 to-cyan-500',
+                        green: 'from-emerald-400 to-teal-500',
+                        orange: 'from-orange-400 to-red-500',
+                        red: 'from-red-500 to-rose-600'
+                    };
+                    const gradientClass = gradients[course.color] || gradients.purple;
 
-                            <button className="absolute top-4 left-4 p-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white hover:bg-white/40 transition-colors">
-                                <MoreVertical className="w-4 h-4" />
-                            </button>
-                        </div>
+                    return (
+                        <div key={course.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col">
+                            
+                            {/* Course Thumbnail */}
+                            <div className={`h-40 relative overflow-hidden bg-gray-100 ${!isImageUrl ? `bg-gradient-to-br ${gradientClass}` : ''}`}>
+                                {isImageUrl ? (
+                                    <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
+                                ) : (
+                                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
+                                )}
+                                
+                                {/* Status Badge */}
+                                <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                                    {course.progress === 100 ? (
+                                        <><CheckCircle className="w-3 h-3" /> Completed</>
+                                    ) : (
+                                        <><Clock className="w-3 h-3" /> {course.status}</>
+                                    )}
+                                </div>
+
+                                <button className="absolute top-4 left-4 p-1.5 bg-white/20 backdrop-blur-md rounded-lg text-white hover:bg-white/40 transition-colors">
+                                    <MoreVertical className="w-4 h-4" />
+                                </button>
+                            </div>
 
                         {/* Course Info */}
                         <div className="p-6 flex-1 flex flex-col">
@@ -262,7 +225,8 @@ const CoursesPage = () => {
                             </button>
                         </div>
                     </div>
-                ))}
+                );
+                })}
             </div>
         </div>
     );

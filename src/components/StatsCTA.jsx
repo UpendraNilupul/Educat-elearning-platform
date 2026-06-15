@@ -25,6 +25,27 @@ const StatsCTA = () => {
     const [isVisible, setIsVisible] = useState(false);
     const sectionRef = useRef(null);
 
+    // 1. ඇත්ත දත්ත (Real data) තියාගන්න State එකක් හදමු
+    const [realStats, setRealStats] = useState({
+        students: 0,
+        teachers: 0,
+        courses: 0
+    });
+
+    // 2. Component එක ලෝඩ් වෙද්දි Backend එකෙන් දත්ත ගේනවා
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/public/stats');
+                const data = await response.json();
+                setRealStats(data);
+            } catch (error) {
+                console.error("Error fetching real stats:", error);
+            }
+        };
+        fetchStats();
+    }, []);
+
     useEffect(() => {
         const observer = new IntersectionObserver(
             ([entry]) => {
@@ -47,10 +68,11 @@ const StatsCTA = () => {
         };
     }, []);
 
+    // 3. ඔරිජිනල් Array එකට Database එකෙන් ආපු ගණන් ටික (target විදිහට) දානවා
     const stats = [
-        { label: 'CLASSES', target: 172, subtext: 'Interactive and engaging lessons' },
-        { label: 'STUDENTS', target: 30024, subtext: 'Across the island and beyond' },
-        { label: 'TEACHERS', target: 24, subtext: 'Professional academic experts' },
+        { label: 'CLASSES', target: realStats.courses, subtext: 'Interactive and engaging lessons' },
+        { label: 'STUDENTS', target: realStats.students, subtext: 'Across the island and beyond' },
+        { label: 'TEACHERS', target: realStats.teachers, subtext: 'Professional academic experts' },
     ];
 
     return (
@@ -109,4 +131,3 @@ const StatsCTA = () => {
 };
 
 export default StatsCTA;
-
