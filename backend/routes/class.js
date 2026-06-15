@@ -182,5 +182,27 @@ router.get('/suggested-classes', async (req, res) => {
 
 
 
+// 3. POST STUDENT FEEDBACK
+router.post('/reviews', async (req, res) => {
+    try {
+        const { title, description, rating, survey_responses, c_id, s_id } = req.body;
+        
+        // Ensure student exists
+        let studentId = s_id;
+        const studentRes = await query(`SELECT id FROM students WHERE user_id = ?`, [s_id]);
+        if (studentRes.length > 0) {
+            studentId = studentRes[0].id;
+        }
+
+        await query(
+            'INSERT INTO reviews (title, description, rating, survey_responses, c_id, s_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [title || 'Review', description, rating, JSON.stringify(survey_responses), c_id, studentId]
+        );
+        res.status(200).json({ success: true, message: 'Review added successfully' });
+    } catch (error) {
+        console.error("Error in /reviews:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 export default router;

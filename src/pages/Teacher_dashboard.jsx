@@ -3,10 +3,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
-  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell
+  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell, Star
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
+import TeacherReviews from "./TeacherReviews";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -25,6 +26,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     { name: "Certification", icon: Award },
     { name: "Marketing", icon: Megaphone },
     { name: "Virtual Classroom", icon: Video },
+    { name: "Reviews", icon: Star },
   ];
 
   const [courses, setCourses] = useState([]);
@@ -112,6 +114,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             { name: "Certification", icon: Award },
             { name: "Marketing", icon: Megaphone },
             { name: "Virtual Classroom", icon: Video },
+            { name: "Reviews", icon: Star },
             { name: "Messages", icon: MessageSquare },
           ].map((item) => (
             <button
@@ -350,6 +353,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         )}
 
         {activeTab === "Messages" && <TeacherChat />}
+        
+        {activeTab === "Reviews" && <TeacherReviews />}
       </main>
     </div>
   );

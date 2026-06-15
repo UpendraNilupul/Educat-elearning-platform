@@ -15,9 +15,12 @@ import {
     ClipboardList,
     BookOpen,
     Link as LinkIcon,
-    X
+    X,
+    Star,
+    MessageSquare
 } from 'lucide-react';
 import api from '../api';
+import axios from 'axios';
 
 const getYouTubeEmbedUrl = (url) => {
     if (!url) return null;
@@ -25,6 +28,19 @@ const getYouTubeEmbedUrl = (url) => {
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
 };
+
+const feedbackQuestions = [
+  { id: 'q1', text: "1. How clear was the teacher's explanation during the class?", options: ['Very Clear', 'Clear', 'Average', 'Not Clear'] },
+  { id: 'q2', text: "2. How engaging was the lesson?", options: ['Very Engaging', 'Engaging', 'Somewhat Engaging', 'Not Engaging'] },
+  { id: 'q3', text: "3. Did the teacher answer students' questions effectively?", options: ['Always', 'Most of the Time', 'Sometimes', 'Rarely'] },
+  { id: 'q4', text: "4. How useful were the class materials?", options: ['Very Useful', 'Useful', 'Average', 'Not Useful'] },
+  { id: 'q5', text: "5. Would you recommend this class to other students?", options: ['Definitely', 'Probably', 'Maybe', 'No'] },
+  { id: 'q6', text: "6. How difficult was today's lesson?", options: ['Very Easy', 'Easy', 'Moderate', 'Difficult'] },
+  { id: 'q7', text: "7. How satisfied are you with the class overall?", options: ['Very Satisfied', 'Satisfied', 'Neutral', 'Unsatisfied'] },
+  { id: 'q8', text: "8. Was the class conducted on time?", options: ['Always', 'Usually', 'Sometimes', 'Never'] },
+  { id: 'q9', text: "9. How confident do you feel about the topic after this class?", options: ['Very Confident', 'Confident', 'Somewhat Confident', 'Not Confident'] },
+  { id: 'q10', text: "10. Which aspect of the class was the best?", options: ['Teacher Explanation', 'Class Activities', 'Assignments/Quizzes', 'Study Materials'] }
+];
 
 const TuitionClass = () => {
     const navigate = useNavigate();
@@ -38,6 +54,8 @@ const TuitionClass = () => {
 
     const [activeMonth, setActiveMonth] = useState(null);
     const [expandedLessons, setExpandedLessons] = useState([]);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [feedbackForm, setFeedbackForm] = useState({ rating: 5, title: '', description: '', survey_responses: {} });
 
     const toggleLesson = (lessonId) => {
         setExpandedLessons(prev => 
@@ -424,6 +442,9 @@ const TuitionClass = () => {
                         <p className="font-medium text-gray-500">By {currentClass.teacher.name}</p>
                     </div>
                 </div>
+                <button onClick={() => setIsFeedbackModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-600 font-bold rounded-xl hover:bg-yellow-100 transition-colors border border-yellow-200">
+                    <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" /> Rate Class
+                </button>
             </div>
 
             {/* SINGLE COLUMN LAYOUT */}
@@ -569,6 +590,118 @@ const TuitionClass = () => {
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
                             ></iframe>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isFeedbackModalOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="p-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <MessageSquare size={20} /> Class Feedback
+                            </h3>
+                            <button onClick={() => setIsFeedbackModalOpen(false)} className="text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+                        </div>
+                        
+                        <div className="p-6">
+                            <p className="text-gray-600 mb-4 text-sm text-center">Your feedback helps the teacher improve!</p>
+                            
+                            {/* Scrollable Form Area */}
+                            <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+                                
+                                {/* 1. Star Rating */}
+                                <div className="text-center">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Overall Rating</label>
+                                    <div className="flex gap-2 justify-center">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button 
+                                                key={star} type="button"
+                                                onClick={() => setFeedbackForm({...feedbackForm, rating: star})}
+                                                className="focus:outline-none transition-transform hover:scale-110 p-1"
+                                            >
+                                                <Star size={32} fill={star <= feedbackForm.rating ? "#EAB308" : "transparent"} color={star <= feedbackForm.rating ? "#EAB308" : "#CBD5E1"} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <hr className="border-gray-100" />
+
+                                {/* 2. MCQ Questions */}
+                                <div className="space-y-6">
+                                    {feedbackQuestions.map((q) => (
+                                        <div key={q.id} className="bg-gray-50 p-4 rounded-xl">
+                                            <p className="text-sm font-bold text-gray-800 mb-3">{q.text}</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {q.options.map((opt) => (
+                                                    <button
+                                                        key={opt}
+                                                        type="button"
+                                                        onClick={() => setFeedbackForm({
+                                                            ...feedbackForm, 
+                                                            survey_responses: { ...feedbackForm.survey_responses, [q.id]: opt }
+                                                        })}
+                                                        className={`p-2 text-sm text-left rounded-lg border transition-colors ${
+                                                            feedbackForm.survey_responses[q.id] === opt 
+                                                            ? 'bg-purple-100 border-purple-500 text-purple-800 font-bold' 
+                                                            : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300'
+                                                        }`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <hr className="border-gray-100" />
+
+                                {/* 3. Written Review */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Headline (Optional)</label>
+                                        <input 
+                                            type="text" placeholder="e.g., Excellent teaching style!" 
+                                            value={feedbackForm.title} onChange={(e) => setFeedbackForm({...feedbackForm, title: e.target.value})}
+                                            className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Detailed Review (Optional)</label>
+                                        <textarea 
+                                            rows="3" placeholder="What did you like the most?"
+                                            value={feedbackForm.description} onChange={(e) => setFeedbackForm({...feedbackForm, description: e.target.value})}
+                                            className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-purple-500 resize-none"
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Actions */}
+                            <div className="mt-6 pt-4 border-t border-gray-100 flex gap-3 justify-end">
+                                <button onClick={() => setIsFeedbackModalOpen(false)} className="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                                <button 
+                                    onClick={async () => {
+                                        if (Object.keys(feedbackForm.survey_responses).length < 10) {
+                                            alert("Please answer all 10 questions before submitting.");
+                                            return;
+                                        }
+                                        try {
+                                            const userId = localStorage.getItem('userId') || 1;
+                                            await api.post('/reviews', { ...feedbackForm, c_id: currentClass.id, s_id: userId });
+                                            setIsFeedbackModalOpen(false);
+                                            alert("Feedback submitted!");
+                                        } catch (err) { alert("Failed to submit review."); }
+                                    }}
+                                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl"
+                                >
+                                    Submit Review
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
