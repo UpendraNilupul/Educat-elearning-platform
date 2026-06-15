@@ -2,12 +2,21 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+<<<<<<< HEAD
   LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
   Users, Calendar, Edit2, Menu, X, MessageSquare, Bell, Star
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
 import TeacherReviews from "./TeacherReviews";
+=======
+  LayoutDashboard, BookOpen, FileText, Award, Video,
+  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell
+} from "lucide-react";
+import TeachersCourse from "./TeachersCourse";
+import TeacherChat from "./Teacher_Chat";
+import VirtualClassroom from "./Teacher_liveClass";
+>>>>>>> 2afa81d924140fbdb9d9cb056273494e796a3d09
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -23,10 +32,14 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     { name: "Overview", icon: LayoutDashboard },
     { name: "Course Management", icon: BookOpen },
     { name: "Assessments", icon: FileText },
+<<<<<<< HEAD
     { name: "Certification", icon: Award },
     { name: "Marketing", icon: Megaphone },
     { name: "Virtual Classroom", icon: Video },
     { name: "Reviews", icon: Star },
+=======
+    { name: "Virtual Classroom", icon: Video }
+>>>>>>> 2afa81d924140fbdb9d9cb056273494e796a3d09
   ];
 
   const [courses, setCourses] = useState([]);
@@ -97,7 +110,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         </div>
       </div>
 
-      {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
+      {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r flex flex-col shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -111,8 +124,6 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             { name: "Overview", icon: LayoutDashboard },
             { name: "Course Management", icon: BookOpen },
             { name: "Assessments", icon: FileText },
-            { name: "Certification", icon: Award },
-            { name: "Marketing", icon: Megaphone },
             { name: "Virtual Classroom", icon: Video },
             { name: "Reviews", icon: Star },
             { name: "Messages", icon: MessageSquare },
@@ -353,8 +364,13 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         )}
 
         {activeTab === "Messages" && <TeacherChat />}
+<<<<<<< HEAD
         
         {activeTab === "Reviews" && <TeacherReviews />}
+=======
+
+        {activeTab === "Virtual Classroom" && <VirtualClassroom />}
+>>>>>>> 2afa81d924140fbdb9d9cb056273494e796a3d09
       </main>
     </div>
   );

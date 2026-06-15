@@ -160,7 +160,7 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {[
                         { title: 'Total Students', value: kpis.totalStudents, icon: Users, color: 'text-blue-600', bg: 'bg-blue-100' },
-                        { title: 'Revenue Generated', value: `$${kpis.totalRevenue}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-100' },
+                        { title: 'Revenue Generated', value: `LKR ${kpis.totalRevenue}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-100' },
                         { title: 'Average Rating', value: `${kpis.avgRating} / 5`, icon: Star, color: 'text-orange-500', bg: 'bg-orange-100' },
                         { title: 'Active Courses', value: kpis.activeCourses, icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-100' },
                     ].map((stat, i) => (
@@ -209,7 +209,7 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                                                     </span>
                                                 </td>
                                                 <td className="p-4 text-center font-semibold text-gray-600">{course.total_students}</td>
-                                                <td className="p-4 text-right font-bold text-green-600">${parseFloat(course.total_revenue).toFixed(2)}</td>
+                                                <td className="p-4 text-right font-bold text-green-600">LKR {parseFloat(course.total_revenue).toFixed(2)}</td>
                                                 <td className="p-4 text-center">
                                                     <div className="flex items-center justify-center text-orange-400 font-bold text-sm">
                                                         <Star size={14} className="mr-1 fill-current" />

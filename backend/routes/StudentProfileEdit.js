@@ -258,10 +258,10 @@ router.get('/:studentId/calendar', async (req, res) => {
                 t.meeting_link, 
                 c.title AS course_title, 
                 c.theme_color 
-            FROM timetables t 
+            FROM live_classes t 
             JOIN classes_courses c ON t.c_id = c.id 
             JOIN enrollments e ON c.id = e.c_id 
-            WHERE e.s_id = ? AND t.status = 'scheduled'
+            WHERE e.s_id = ? AND t.status = 'scheduled' AND c.status = 'active'
         `, [studentId]);
 
         const classes = classRows.map(row => ({ ...row, type: 'class' }));

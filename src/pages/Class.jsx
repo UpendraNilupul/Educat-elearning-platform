@@ -286,7 +286,7 @@ const TuitionClass = () => {
                                                 className="flex items-center justify-center w-full gap-2 py-3 text-sm font-bold text-white transition-all bg-purple-600 shadow-md rounded-xl hover:bg-purple-700"
                                             >
                                                 <CreditCard className="w-4 h-4" />
-                                                Enroll Now (Rs. {cls.monthlyFee})
+                                                Enroll Now (LKR {cls.monthlyFee})
                                             </button>
                                         </div>
                                     )}
@@ -342,7 +342,7 @@ const TuitionClass = () => {
                                                     className="flex items-center justify-center w-full gap-2 py-3 text-sm font-bold text-white transition-all bg-purple-600 shadow-md rounded-xl hover:bg-purple-700"
                                                 >
                                                     <CreditCard className="w-4 h-4" />
-                                                    Make a Payment (Rs. {cls.monthlyFee})
+                                                    Make a Payment (LKR {cls.monthlyFee})
                                                 </button>
                                             </div>
                                         )}
@@ -393,7 +393,7 @@ const TuitionClass = () => {
                             </div>
                             <div className="text-right">
                                 <p className="text-xs font-bold text-gray-400 uppercase">Amount</p>
-                                <p className="text-2xl font-black text-brand-purple">Rs. {checkoutClass.monthlyFee}</p>
+                                <p className="text-2xl font-black text-brand-purple">LKR {checkoutClass.monthlyFee}</p>
                             </div>
                         </div>
 
