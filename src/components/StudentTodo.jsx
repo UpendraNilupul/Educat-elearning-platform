@@ -27,6 +27,14 @@ const StudentTodo = ({ userId = 1 }) => {
     const handleAddTodo = async (e) => {
         e.preventDefault();
         if (!newTask.trim()) return;
+        if (dueDate) {
+            const parts = dueDate.split('-');
+            const inputYear = parseInt(parts[0], 10);
+            if (parts[0].length > 4 || inputYear > 2100) {
+                alert("Please select a valid year (up to 2100).");
+                return;
+            }
+        }
 
         setIsAdding(true);
         try {
@@ -100,6 +108,7 @@ const StudentTodo = ({ userId = 1 }) => {
                         type="date"
                         className="w-full pl-4 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-xs text-gray-600"
                         value={dueDate}
+                        max="2100-12-31"
                         onChange={(e) => setDueDate(e.target.value)}
                     />
                     <button type="submit" className="bg-purple-600 text-white px-5 py-2 rounded-xl hover:bg-purple-700 transition-colors font-bold text-sm flex items-center justify-center gap-1 shadow-md whitespace-nowrap min-w-[100px] cursor-pointer">

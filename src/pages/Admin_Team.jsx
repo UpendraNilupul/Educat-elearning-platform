@@ -68,12 +68,19 @@ const Admin_Team = ({ userName, onLogout }) => {
             // Check if they are at least 18 years old
             const birthDate = new Date(formData.dob);
             const today = new Date();
+            const minDate = new Date('1900-01-01');
             let age = today.getFullYear() - birthDate.getFullYear();
             const monthDiff = today.getMonth() - birthDate.getMonth();
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
-            if (age < 18) newErrors.dob = "Sub-Admins must be at least 18 years old.";
+            if (age < 18) {
+                newErrors.dob = "Sub-Admins must be at least 18 years old.";
+            } else if (birthDate < minDate) {
+                newErrors.dob = "Date of birth must be after 1900-01-01.";
+            } else if (formData.dob.split('-')[0].length !== 4) {
+                newErrors.dob = "Date of birth must have a valid 4-digit year.";
+            }
         }
 
         if (!formData.gender) newErrors.gender = "Please select a gender.";
@@ -242,6 +249,8 @@ const Admin_Team = ({ userName, onLogout }) => {
                                 <input 
                                     type="date" 
                                     name="dob" 
+                                    min="1900-01-01"
+                                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                                     className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium text-gray-700 transition-colors ${errors.dob ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`}
                                     value={formData.dob} 
                                     onChange={handleChange} 

@@ -635,6 +635,19 @@ router.post('/promo-codes', async (req, res) => {
             return res.status(400).json({ success: false, message: "All fields are required." });
         }
 
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        if (expire_date < todayStr) {
+            return res.status(400).json({ success: false, message: "Expiry date must be today or a future date." });
+        }
+        const parts = expire_date.split('-');
+        if (parts[0].length !== 4 || parseInt(parts[0], 10) > 2100) {
+            return res.status(400).json({ success: false, message: "Expiry date must be a valid date with a 4-digit year no later than 2100." });
+        }
+
         // Convert the discount to decimal (e.g., 50% -> 0.50) if it comes in as a whole number
         let formattedDiscount = parseFloat(discount_percent);
         if (formattedDiscount > 1) {
@@ -872,6 +885,19 @@ router.put('/profile/:id', async (req, res) => {
     try {
         const { name, email, phone_number, address, dob, gender } = req.body;
 
+        if (dob) {
+            const dobDate = new Date(dob);
+            if (dobDate >= new Date()) {
+                return res.status(400).json({ success: false, message: "Date of birth must be in the past." });
+            }
+            if (dobDate < new Date('1900-01-01')) {
+                return res.status(400).json({ success: false, message: "Date of birth must be after 1900-01-01." });
+            }
+            if (dob.split('-')[0].length !== 4) {
+                return res.status(400).json({ success: false, message: "Date of birth must have a valid 4-digit year." });
+            }
+        }
+
         await query(`
             UPDATE users 
             SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ? 
@@ -1021,6 +1047,25 @@ router.post('/create-sub-admin', async (req, res) => {
         }
 
         const { name, email, password, phoneNumber, address, dob, gender } = req.body;
+
+        if (dob) {
+            const dobDate = new Date(dob);
+            const today = new Date();
+            let age = today.getFullYear() - dobDate.getFullYear();
+            const monthDiff = today.getMonth() - dobDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+                age--;
+            }
+            if (age < 18) {
+                return res.status(400).json({ success: false, message: "Sub-Admins must be at least 18 years old." });
+            }
+            if (dobDate < new Date('1900-01-01')) {
+                return res.status(400).json({ success: false, message: "Date of birth must be after 1900-01-01." });
+            }
+            if (dob.split('-')[0].length !== 4) {
+                return res.status(400).json({ success: false, message: "Date of birth must have a valid 4-digit year." });
+            }
+        }
 
         // Hash the new admin's password
         const hashedPassword = await bcrypt.hash(password, 10);

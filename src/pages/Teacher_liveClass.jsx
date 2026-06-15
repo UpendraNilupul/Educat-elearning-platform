@@ -284,8 +284,15 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
 
   const [dateError, setDateError] = useState(() => {
     const initialDate = editingClass ? editingClass.scheduled_date || editingClass.date || '' : '';
-    if (initialDate && initialDate < todayStr) {
-      return 'Please select today or a future date.';
+    if (initialDate) {
+      const parts = initialDate.split('-');
+      const yearVal = parseInt(parts[0], 10);
+      if (initialDate < todayStr) {
+        return 'Please select today or a future date.';
+      }
+      if (parts[0].length > 4 || yearVal > 2100) {
+        return 'Please select a valid year (up to 2100).';
+      }
     }
     return '';
   });
@@ -294,8 +301,16 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     if (name === 'date') {
-      if (value && value < todayStr) {
-        setDateError('Please select today or a future date.');
+      if (value) {
+        const parts = value.split('-');
+        const yearVal = parseInt(parts[0], 10);
+        if (value < todayStr) {
+          setDateError('Please select today or a future date.');
+        } else if (parts[0].length > 4 || yearVal > 2100) {
+          setDateError('Please select a valid year (up to 2100).');
+        } else {
+          setDateError('');
+        }
       } else {
         setDateError('');
       }
@@ -306,6 +321,12 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     e.preventDefault();
     if (formData.date < todayStr) {
       setDateError('Please select today or a future date.');
+      return;
+    }
+    const parts = formData.date.split('-');
+    const yearVal = parseInt(parts[0], 10);
+    if (parts[0].length > 4 || yearVal > 2100) {
+      setDateError('Please select a valid year (up to 2100).');
       return;
     }
     onSave(formData);
@@ -374,6 +395,7 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
                 type="date" 
                 name="date"
                 min={todayStr}
+                max="2100-12-31"
                 value={formData.date}
                 onChange={handleChange}
                 className={`w-full border rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none ${

@@ -13,6 +13,12 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const today = new Date();
+    const yearVal = today.getFullYear();
+    const monthVal = String(today.getMonth() + 1).padStart(2, '0');
+    const dayVal = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yearVal}-${monthVal}-${dayVal}`;
+
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -45,6 +51,20 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
 
     const handleCreatePromo = async (e) => {
         e.preventDefault();
+
+        if (formData.expire_date) {
+            if (formData.expire_date < todayStr) {
+                alert("Expiry date must be today or a future date.");
+                return;
+            }
+            const parts = formData.expire_date.split('-');
+            const inputYear = parseInt(parts[0], 10);
+            if (parts[0].length > 4 || inputYear > 2100) {
+                alert("Please select a valid year (up to 2100).");
+                return;
+            }
+        }
+
         try {
             const response = await api.post('/admin/promo-codes', formData);
             const result = response.data;
@@ -218,6 +238,8 @@ const Admin_PromoCodes = ({ userName, onLogout }) => {
                                     <input 
                                         type="date" 
                                         required
+                                        min={todayStr}
+                                        max="2100-12-31"
                                         className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-sm"
                                         value={formData.expire_date}
                                         onChange={(e) => setFormData({...formData, expire_date: e.target.value})}

@@ -114,7 +114,6 @@ router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) =
     const values = [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
     
 
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, id];
 
     try {
         const result = await query(updateQuery, values);
