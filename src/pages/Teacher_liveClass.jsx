@@ -278,7 +278,7 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     title: editingClass ? editingClass.title : '',
     date: editingClass ? editingClass.scheduled_date || editingClass.date || '' : '',
     time: editingClass ? (editingClass.time.includes('AM') || editingClass.time.includes('PM') ? convert12to24(editingClass.time) : editingClass.time) : '',
-    duration: editingClass ? (editingClass.duration || editingClass.duration_minutes || '60').toString().replace(' mins', '').replace(' min', '').trim() : '60',
+    duration: editingClass ? (editingClass.duration_minutes || '60').toString() : '60',
     link: editingClass ? editingClass.link : ''
   });
 
@@ -428,12 +428,16 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
                 name="duration"
                 value={formData.duration}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white"
               >
-                <option value="30">30 min</option>
-                <option value="60">1 hr</option>
-                <option value="90">1.5 hr</option>
-                <option value="120">2 hr</option>
+                {Array.from({ length: 12 }, (_, i) => (i + 1) * 30).map((mins) => {
+                  const label = mins >= 60 ? `${mins / 60} hr` : `${mins} min`;
+                  return (
+                    <option key={mins} value={mins.toString()}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="col-span-2">
