@@ -30,7 +30,9 @@ router.post('/login', async (req, res) => {
         }
 
         const user = results[0];
+        console.log(`[LOGIN DEBUG] email: "${email}", password: "${password}", hash in DB: "${user.password}"`);
         const isMatch = await bcrypt.compare(password, user.password);
+        console.log(`[LOGIN DEBUG] isMatch: ${isMatch}`);
 
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid email or password.' });
@@ -50,23 +52,33 @@ router.post('/login', async (req, res) => {
         // 3. Log the activity & Save Session (Normal Login)
         await query('INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', [user.id, 'login']);
 
+        const normalizedRole = String(user.role_name || '').toLowerCase().trim();
+
         req.session.userId = user.id;
-        req.session.userRole = user.role_name; 
+        req.session.userRole = normalizedRole; 
         req.session.userName = user.name;
         req.session.adminLevel = user.admin_level || null;
+        req.session.userPicture = user.picture;
+
+        // Initialize session roles and store role-specific details for tab isolation on localhost
+        req.session.roles = req.session.roles || {};
+        req.session.roles[normalizedRole] = {
+            userId: user.id,
+            userRole: normalizedRole,
+            userName: user.name,
+            adminLevel: user.admin_level || null,
+            userPicture: user.picture
+        };
         
         res.status(200).json({ 
             message: 'Logged in successfully!', 
             userId: user.id, 
-            userRole: user.role_name, 
+            userRole: normalizedRole, 
             adminLevel: user.admin_level || null,
             userName: user.name,
             userPicture: user.picture,
             verificationStatus: user.verification_status || null
         });
-
-        // Save picture to session
-        req.session.userPicture = user.picture;
 
     } catch (error) {
         console.error('Error logging in:', error);
@@ -78,13 +90,14 @@ router.get('/status', (req, res) => {
     if (req.session.userRole) {
         res.json({ 
             isLoggedIn: true, 
+            userId: req.session.userId,
             userRole: req.session.userRole,
             adminLevel: req.session.adminLevel || null,
             userName: req.session.userName,
             userPicture: req.session.userPicture
         });
     } else {
-        res.json({ isLoggedIn: false, userRole: null, adminLevel: null, userName: null });
+        res.json({ isLoggedIn: false, userId: null, userRole: null, adminLevel: null, userName: null });
     }
 });
 

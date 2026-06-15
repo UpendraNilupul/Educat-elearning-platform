@@ -156,7 +156,7 @@ const Admin_Courses = ({ userName, onLogout }) => {
                                         {/* Students */}
                                         <td className="p-4 text-center">
                                             <span className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-sm font-bold">
-                                                <users size={14} className="mr-1.5" />
+                                                <Users size={14} className="mr-1.5" />
                                                 {course.total_students}
                                             </span>
                                         </td>
@@ -164,7 +164,7 @@ const Admin_Courses = ({ userName, onLogout }) => {
                                         {/* Revenue */}
                                         <td className="p-4 text-right">
                                             <span className="text-sm font-black text-green-600">
-                                                ${parseFloat(course.total_revenue).toFixed(2)}
+                                                LKR {parseFloat(course.total_revenue).toFixed(2)}
                                             </span>
                                         </td>
 
