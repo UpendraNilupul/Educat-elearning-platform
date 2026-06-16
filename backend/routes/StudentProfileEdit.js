@@ -152,6 +152,19 @@ router.put('/profile/:userId', (req, res, next) => {
         school_name, grade_level, guardian_name, guardian_phone,
         removePhoto
     } = req.body;
+    
+    if (dob) {
+        const dobDate = new Date(dob);
+        if (dobDate >= new Date('2016-02-01')) {
+            return res.status(400).json({ success: false, message: 'Date of birth must be before 2016-02-01.' });
+        }
+        if (dobDate < new Date('1900-01-01')) {
+            return res.status(400).json({ success: false, message: 'Date of birth must be after 1900-01-01.' });
+        }
+        if (dob.split('-')[0].length !== 4) {
+            return res.status(400).json({ success: false, message: 'Date of birth must have a valid 4-digit year.' });
+        }
+    }
 
     let connection;
 
@@ -207,6 +220,41 @@ router.put('/profile/:userId', (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/student/dashboard/:studentId
+ * @desc    Get dashboard data (recent courses and upcoming deadlines)
+ */
+router.get('/dashboard/:studentId', async (req, res) => {
+    const studentId = req.params.studentId;
+
+    try {
+        const [courses] = await db.promise().query(`
+            SELECT c.id, c.name as subject, c.title as course_name, c.theme_color, u.name as teacher_name 
+            FROM classes_courses c 
+            JOIN enrollments e ON c.id = e.c_id 
+            JOIN teachers t ON c.t_id = t.id 
+            JOIN users u ON t.user_id = u.id 
+            WHERE e.s_id = ? 
+            ORDER BY e.enrolled_date DESC LIMIT 2
+        `, [studentId]);
+
+        const [deadlines] = await db.promise().query(`
+            SELECT a.id, a.title, a.deadline, c.name as course_name 
+            FROM assignments a 
+            JOIN modules m ON a.m_id = m.id 
+            JOIN classes_courses c ON m.c_id = c.id 
+            JOIN enrollments e ON c.id = e.c_id 
+            WHERE e.s_id = ? AND a.deadline >= NOW() 
+            ORDER BY a.deadline ASC LIMIT 3
+        `, [studentId]);
+
+        res.status(200).json({ courses, deadlines });
+    } catch (error) {
+        console.error('❌ Error fetching dashboard data:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching dashboard data' });
+    }
+});
+
+/**
  * @route   GET /api/student/:studentId/calendar
  * @desc    Get scheduled classes for a student's calendar
  */
@@ -223,10 +271,10 @@ router.get('/:studentId/calendar', async (req, res) => {
                 t.meeting_link, 
                 c.title AS course_title, 
                 c.theme_color 
-            FROM timetables t 
+            FROM live_classes t 
             JOIN classes_courses c ON t.c_id = c.id 
             JOIN enrollments e ON c.id = e.c_id 
-            WHERE e.s_id = ? AND t.status = 'scheduled'
+            WHERE e.s_id = ? AND t.status = 'scheduled' AND c.status = 'active'
         `, [studentId]);
 
         const classes = classRows.map(row => ({ ...row, type: 'class' }));
@@ -281,6 +329,14 @@ router.get('/:userId/todos', async (req, res) => {
 router.post('/:userId/todos', async (req, res) => {
     const userId = req.params.userId;
     const { task, due_date } = req.body;
+
+    if (due_date) {
+        const parts = due_date.split('-');
+        if (parts[0].length !== 4 || parseInt(parts[0], 10) > 2100) {
+            return res.status(400).json({ success: false, message: 'Due date must be a valid date with a 4-digit year no later than 2100.' });
+        }
+    }
+
     try {
         const [result] = await db.promise().query(
             'INSERT INTO todos (user_id, task, due_date) VALUES (?, ?, ?)',

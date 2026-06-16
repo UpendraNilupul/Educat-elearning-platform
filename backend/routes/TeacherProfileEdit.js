@@ -54,8 +54,17 @@ router.put('/:id', upload.single('picture'), (req, res) => {
     return res.status(400).json({ error: 'Phone number must be a valid format between 9 and 15 characters' });
   }
 
-  if (dob && new Date(dob) >= new Date('2018-01-01')) {
-    return res.status(400).json({ error: 'Date of birth must be before 2018-01-01' });
+  if (dob) {
+    const dobDate = new Date(dob);
+    if (dobDate >= new Date('2018-01-01')) {
+      return res.status(400).json({ error: 'Date of birth must be before 2018-01-01' });
+    }
+    if (dobDate < new Date('1900-01-01')) {
+      return res.status(400).json({ error: 'Date of birth must be after 1900-01-01' });
+    }
+    if (dob.split('-')[0].length !== 4) {
+      return res.status(400).json({ error: 'Date of birth must have a valid 4-digit year.' });
+    }
   }
 
   // -------------------------

@@ -34,7 +34,7 @@ const submissionUpload = multer({ storage: submissionStorage, fileFilter, limits
 router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assignmentUpload.array('attachments'), async (req, res) => {
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
-    
+
     const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
 
     try {
@@ -56,8 +56,8 @@ router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assi
             }
         }
 
-        res.status(201).json({ 
-            id: aId, 
+        res.status(201).json({
+            id: aId,
             m_id: mId,
             title,
             description,
@@ -132,11 +132,11 @@ router.delete('/attachments/:id', async (req, res) => {
 // --- TEACHER & STUDENT: GET ASSIGNMENTS FOR MODULE ---
 router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
     const { mId } = req.params;
-    const userId = req.session.userId; 
+    const userId = req.session.userId;
 
     try {
         const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mId]);
-        
+
         if (req.session.userRole === 'student') {
             const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
             if (studentRes.length > 0) {
@@ -147,7 +147,7 @@ router.get('/modules/:mId/assignments', requireAuth, async (req, res) => {
                         [assign.id, sId]
                     );
                     assign.userSubmission = submission.length > 0 ? submission[0] : null;
-                    
+
                     // 🌟 COMBINED FIX: Map attachments correctly with IDs for the frontend
                     const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [assign.id]);
                     assign.attachments = attachments;
@@ -173,11 +173,24 @@ router.get('/assignments/:id', requireAuth, async (req, res) => {
     try {
         const assignments = await query('SELECT * FROM assignments WHERE id = ?', [id]);
         if (assignments.length === 0) return res.status(404).json({ error: 'Assignment not found' });
-        
+
         const assign = assignments[0];
         const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [id]);
         assign.attachments = attachments;
-        
+
+        // If requested by a student, fetch their submission
+        if (req.session.userRole === 'student') {
+            const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [req.session.userId]);
+            if (studentRes.length > 0) {
+                const sId = studentRes[0].id;
+                const submission = await query(
+                    'SELECT id, file_url, submitted_at, grade, feedback, status FROM assignment_submissions WHERE a_id = ? AND s_id = ?',
+                    [assign.id, sId]
+                );
+                assign.userSubmission = submission.length > 0 ? submission[0] : null;
+            }
+        }
+
         res.json(assign);
     } catch (err) {
         console.error('Error fetching assignment:', err);
@@ -189,7 +202,7 @@ router.get('/assignments/:id', requireAuth, async (req, res) => {
 // 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
 router.post('/assignments/:aId/submit', requireRole(['student']), submissionUpload.single('submission'), async (req, res) => {
     const { aId } = req.params;
-    const userId = req.session.userId; 
+    const userId = req.session.userId;
 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -203,7 +216,7 @@ router.post('/assignments/:aId/submit', requireRole(['student']), submissionUplo
         // Check if late submission
         const assignmentRes = await query('SELECT deadline FROM assignments WHERE id = ?', [aId]);
         if (assignmentRes.length === 0) return res.status(404).json({ error: 'Assignment not found' });
-        
+
         let submissionStatus = 'submitted';
         if (new Date() > new Date(assignmentRes[0].deadline)) {
             submissionStatus = 'late_submitted';
@@ -211,7 +224,7 @@ router.post('/assignments/:aId/submit', requireRole(['student']), submissionUplo
 
         // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);
-        
+
         if (existing.length > 0) {
             await query(
                 'UPDATE assignment_submissions SET file_url = ?, submitted_at = NOW(), status = ? WHERE id = ?',

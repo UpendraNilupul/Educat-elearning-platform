@@ -52,6 +52,25 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
     const submitProfileUpdate = async (e) => {
         e.preventDefault();
+
+        if (profileData.dob) {
+            const birthDate = new Date(profileData.dob);
+            const today = new Date();
+            const minDate = new Date('1900-01-01');
+            if (birthDate >= today) {
+                alert("Date of birth must be in the past.");
+                return;
+            }
+            if (birthDate < minDate) {
+                alert("Date of birth must be after 1900-01-01.");
+                return;
+            }
+            if (profileData.dob.split('-')[0].length !== 4) {
+                alert("Date of birth must have a valid 4-digit year.");
+                return;
+            }
+        }
+
         setIsSavingProfile(true);
         try {
             // 🌟 THE FIX: Pass the profileData object directly to api.put
@@ -166,7 +185,16 @@ const Admin_Settings = ({ userName, onLogout }) => {
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
                                 <div className="relative">
                                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input type="date" name="dob" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700" value={profileData.dob} onChange={handleProfileChange} />
+                                    <input 
+                                        type="date" 
+                                        name="dob" 
+                                        required 
+                                        min="1900-01-01"
+                                        max={new Date().toISOString().split('T')[0]}
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700" 
+                                        value={profileData.dob} 
+                                        onChange={handleProfileChange} 
+                                    />
                                 </div>
                             </div>
                             <div>

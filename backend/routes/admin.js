@@ -635,6 +635,19 @@ router.post('/promo-codes', async (req, res) => {
             return res.status(400).json({ success: false, message: "All fields are required." });
         }
 
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        if (expire_date < todayStr) {
+            return res.status(400).json({ success: false, message: "Expiry date must be today or a future date." });
+        }
+        const parts = expire_date.split('-');
+        if (parts[0].length !== 4 || parseInt(parts[0], 10) > 2100) {
+            return res.status(400).json({ success: false, message: "Expiry date must be a valid date with a 4-digit year no later than 2100." });
+        }
+
         // Convert the discount to decimal (e.g., 50% -> 0.50) if it comes in as a whole number
         let formattedDiscount = parseFloat(discount_percent);
         if (formattedDiscount > 1) {
@@ -872,6 +885,19 @@ router.put('/profile/:id', async (req, res) => {
     try {
         const { name, email, phone_number, address, dob, gender } = req.body;
 
+        if (dob) {
+            const dobDate = new Date(dob);
+            if (dobDate >= new Date()) {
+                return res.status(400).json({ success: false, message: "Date of birth must be in the past." });
+            }
+            if (dobDate < new Date('1900-01-01')) {
+                return res.status(400).json({ success: false, message: "Date of birth must be after 1900-01-01." });
+            }
+            if (dob.split('-')[0].length !== 4) {
+                return res.status(400).json({ success: false, message: "Date of birth must have a valid 4-digit year." });
+            }
+        }
+
         await query(`
             UPDATE users 
             SET name = ?, email = ?, phone_number = ?, address = ?, dob = ?, gender = ? 
@@ -1021,6 +1047,25 @@ router.post('/create-sub-admin', async (req, res) => {
         }
 
         const { name, email, password, phoneNumber, address, dob, gender } = req.body;
+
+        if (dob) {
+            const dobDate = new Date(dob);
+            const today = new Date();
+            let age = today.getFullYear() - dobDate.getFullYear();
+            const monthDiff = today.getMonth() - dobDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+                age--;
+            }
+            if (age < 18) {
+                return res.status(400).json({ success: false, message: "Sub-Admins must be at least 18 years old." });
+            }
+            if (dobDate < new Date('1900-01-01')) {
+                return res.status(400).json({ success: false, message: "Date of birth must be after 1900-01-01." });
+            }
+            if (dob.split('-')[0].length !== 4) {
+                return res.status(400).json({ success: false, message: "Date of birth must have a valid 4-digit year." });
+            }
+        }
 
         // Hash the new admin's password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -1225,6 +1270,110 @@ router.get('/export/students', async (req, res) => {
         res.send(csvData);
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to export students." });
+    }
+});
+
+// ==========================================
+// 28. FINANCIAL PAYOUT SYSTEM
+// ==========================================
+
+// A. Fetch & Sync Monthly Payouts
+router.get('/payouts', async (req, res) => {
+    try {
+        // Default to current month if none provided (Format: YYYY-MM)
+        const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
+        const [year, month] = monthYear.split('-');
+
+        // 1. Calculate raw earnings from student payments for this specific month
+        const rawEarnings = await query(`
+            SELECT 
+                c.t_id as teacher_id, 
+                COALESCE(SUM(p.amount), 0) as gross_earned
+            FROM payments p
+            JOIN classes_courses c ON p.c_id = c.id
+            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'success'
+            GROUP BY c.t_id
+        `, [month, year]);
+
+        // 2. Sync with the teacher_payouts table (Insert or Update)
+        for (let earning of rawEarnings) {
+            const platformFee = earning.gross_earned * 0.10; // 10% System Charge
+            
+            // Upsert logic: If row exists, update gross & fee. If not, insert it.
+            await query(`
+                INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, net_payable)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    gross_earnings = VALUES(gross_earnings),
+                    platform_fee = VALUES(platform_fee),
+                    net_payable = (VALUES(gross_earnings) - VALUES(platform_fee) + adjustment)
+            `, [earning.teacher_id, monthYear, earning.gross_earned, platformFee, earning.gross_earned - platformFee]);
+        }
+
+        // 3. Fetch the finalized list for the frontend
+        const payouts = await query(`
+            SELECT 
+                tp.*, u.name as teacher_name, u.picture
+            FROM teacher_payouts tp
+            JOIN teachers t ON tp.teacher_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE tp.month_year = ?
+            ORDER BY tp.net_payable DESC
+        `, [monthYear]);
+
+        // 4. Calculate Master System Stats for this month
+        const systemStats = {
+            totalGross: payouts.reduce((sum, p) => sum + parseFloat(p.gross_earnings), 0),
+            systemEarnings: payouts.reduce((sum, p) => sum + parseFloat(p.platform_fee), 0),
+            totalToPay: payouts.reduce((sum, p) => sum + parseFloat(p.net_payable), 0),
+        };
+
+        res.status(200).json({ success: true, data: payouts, stats: systemStats });
+    } catch (error) {
+        console.error("Payout Sync Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load payouts." });
+    }
+});
+
+// B. Adjust a Teacher's Payout (Bonus / Penalty)
+router.put('/payouts/:id/adjust', async (req, res) => {
+    try {
+        const { adjustment } = req.body;
+        
+        await query(`
+            UPDATE teacher_payouts 
+            SET adjustment = ?, 
+                net_payable = (gross_earnings - platform_fee + ?) 
+            WHERE id = ? AND status = 'pending'
+        `, [adjustment, adjustment, req.params.id]);
+
+        res.status(200).json({ success: true, message: "Adjustment applied successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to apply adjustment." });
+    }
+});
+
+// C. Bulk Process Payments for a Month
+router.post('/payouts/process', async (req, res) => {
+    try {
+        const { monthYear } = req.body;
+
+        if (!monthYear) return res.status(400).json({ success: false, message: "Month is required." });
+
+        await query(`
+            UPDATE teacher_payouts 
+            SET status = 'paid', paid_at = NOW() 
+            WHERE month_year = ? AND status = 'pending'
+        `, [monthYear]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Processed all teacher payouts for ${monthYear}`]
+        );
+
+        res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to process payments." });
     }
 });
 

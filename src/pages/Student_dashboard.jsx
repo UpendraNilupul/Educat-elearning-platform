@@ -1,19 +1,20 @@
 // Force Vite HMR reload
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
 import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
-import DashboardHeader from '../components/DashboardHeader'; 
+import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
+import StudentVirtualClassroom from './StudentVirtualClassroom';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
-    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase, 
-    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight, 
-    Edit2, Search, SearchX, Loader2, MessageSquare
+    LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
+    Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
+    Edit2, Search, SearchX, Loader2, MessageSquare, Video
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -21,12 +22,28 @@ const Student = ({ userName, onLogout }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
+    const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Check for section changes in navigation state
+    useEffect(() => {
+        if (location.state?.section) {
+            setSelectedSection(location.state.section);
+        }
+    }, [location.state]);
 
     // Search-related state (ඔයාගේ යාලුවා හදපු ටික)
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+
+    // Dashboard Data
+    const [recentCourses, setRecentCourses] = useState([]);
+    const [recentClasses, setRecentClasses] = useState([]);
+    const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
+    const [loadingDashboard, setLoadingDashboard] = useState(true);
 
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
@@ -66,7 +83,71 @@ const Student = ({ userName, onLogout }) => {
                 console.error("Error fetching basic dashboard info:", error);
             }
         };
+
+        const fetchAssessmentsCount = async () => {
+            try {
+                const response = await api.get(`/student/my-assessments`);
+                const pendingCount = response.data.filter(a => {
+                    const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
+                    
+                    let isPastDeadline = false;
+                    if (a.type === 'Assignment') {
+                        isPastDeadline = new Date(a.time_limit) < new Date();
+                    } else if (a.type === 'Quiz' && a.publish_at) {
+                        const publishDate = new Date(a.publish_at);
+                        let timeLimitMs = 0;
+                        if (a.time_limit) {
+                            const parts = a.time_limit.split(':');
+                            timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
+                        }
+                        isPastDeadline = new Date() > new Date(publishDate.getTime() + timeLimitMs);
+                    }
+
+                    return a.status === 'pending' && isPublished && !isPastDeadline;
+                }).length;
+                setPendingAssessmentsCount(pendingCount);
+            } catch (error) {
+                console.error("Error fetching assessments count:", error);
+            }
+        };
+
         fetchBasicInfo();
+        fetchAssessmentsCount();
+    }, []);
+
+    useEffect(() => {
+        const fetchClasses = async () => {
+            try {
+                const response = await api.get(`/suggested-classes`);
+                if (Array.isArray(response.data)) {
+                    setRecentClasses(response.data);
+                } else {
+                    console.error("Expected array for recent classes, got:", response.data);
+                    setRecentClasses([]);
+                }
+            } catch (error) {
+                console.error("Error fetching recent classes:", error);
+                setRecentClasses([]);
+            }
+        };
+        fetchClasses();
+    }, []);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                // Replace '1' with the actual logged-in student ID from your auth context
+                const userId = localStorage.getItem('userId') || '1';
+                const response = await api.get(`/student/dashboard/${userId}`);
+                setRecentCourses(response.data.courses);
+                setUpcomingDeadlines(response.data.deadlines);
+                setLoadingDashboard(false);
+            } catch (error) {
+                console.error("Failed to fetch dashboard data", error);
+                setLoadingDashboard(false);
+            }
+        };
+        fetchDashboardData();
     }, []);
 
     const ads = ['/add1.png', '/add2.png', '/add3.png', '/add4.png'];
@@ -83,13 +164,9 @@ const Student = ({ userName, onLogout }) => {
     const navItems = [
         { name: 'Overview', icon: LayoutDashboard },
         { name: 'Calendar', icon: Calendar },
-        { name: 'Courses', icon: BookOpen },
-        { name: 'Lessons', icon: PlayCircle },
-        { name: 'Assessments', icon: FileText },
-        { name: 'Certification', icon: Award },
-        { name: 'Project', icon: Briefcase },
-        { name: 'Messages', icon: MessageSquare }, 
-        { name: 'Download', icon: Download },
+        { name: 'Lessons', label: 'Classes', icon: BookOpen },
+        { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
+        { name: 'Virtual Classroom', icon: Video },
     ];
 
     return (
@@ -118,7 +195,10 @@ const Student = ({ userName, onLogout }) => {
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className="text-sm">{item.name}</span>
+                            <span className="text-sm flex-1 text-left">{item.label || item.name}</span>
+                            {item.hasBadge && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                            )}
                         </button>
                     ))}
                 </nav>
@@ -155,7 +235,7 @@ const Student = ({ userName, onLogout }) => {
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
                     <DashboardHeader userName={userName} />
-                    
+
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
                     ) : selectedSection === 'Assessments' ? (
@@ -166,6 +246,8 @@ const Student = ({ userName, onLogout }) => {
                         <StudentCalendar studentId={1} />
                     ) : selectedSection === 'Messages' ? (
                         <StudentChat />
+                    ) : selectedSection === 'Virtual Classroom' ? (
+                        <StudentVirtualClassroom />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -262,7 +344,7 @@ const Student = ({ userName, onLogout }) => {
                                             {searchResults.map((course) => (
                                                 <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group overflow-hidden">
                                                     <div className="flex items-start justify-between mb-4">
-                                                        <div className={`p-2 rounded-xl bg-opacity-10 bg-${course.theme_color || 'purple'}-600 group-hover:scale-110 transition-transform`}>
+                                                        <div className={`p-2 rounded-xl bg-${course.theme_color || 'purple'}-600/10 group-hover:scale-110 transition-transform`}>
                                                             <BookOpen className={`w-5 h-5 text-${course.theme_color || 'purple'}-600`} />
                                                         </div>
                                                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -291,92 +373,48 @@ const Student = ({ userName, onLogout }) => {
                                 </div>
                             )}
 
-                            {/* Two-Column Grid: Deadlines and Recent Courses */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                                {/* Upcoming Deadlines Column (Restored to static content as Todo list moved to Calendar) */}
-                                <div className="lg:col-span-1">
-                                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h2 className="text-xl font-semibold text-gray-950">Upcoming Deadlines</h2>
-                                            <button className="text-sm font-semibold text-brand-purple hover:underline">View All</button>
-                                        </div>
-                                        <div className="space-y-4">
-                                            {[
-                                                { title: 'AI Ethics Quiz', course: 'Artificial Intelligence', date: 'Oct 24', time: '11:59 PM', urgent: true },
-                                                { title: 'UX Case Study #2', course: 'UI/UX Design', date: 'Oct 26', time: '10:00 AM', urgent: false },
-                                                { title: 'SQL Advanced Lab', course: 'Database Systems', date: 'Oct 28', time: '11:59 PM', urgent: false }
-                                            ].map((item, idx) => (
-                                                <div key={idx} className="bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-start gap-4 group">
-                                                    <div className={`p-3 rounded-xl shrink-0 ${item.urgent ? 'bg-red-50 text-red-500' : 'bg-white text-gray-400'}`}>
-                                                        <Calendar className="w-5 h-5" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <h4 className="font-bold text-gray-900 group-hover:text-brand-purple transition-colors">{item.title}</h4>
-                                                        <p className="text-xs text-gray-700 font-medium mt-0.5">{item.course}</p>
-                                                        <div className="flex items-center gap-3 mt-3">
-                                                            <span className="text-[11px] font-bold text-gray-700 bg-gray-200 px-2 py-0.5 rounded-md uppercase">
-                                                                {item.date}
-                                                            </span>
-                                                            <span className="text-[11px] font-bold text-gray-500">
-                                                                {item.time}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <button className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100">
-                                                        <ChevronRight className="w-5 h-5 text-gray-400" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                            {/* Suggested Classes */}
+                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-10">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-xl font-semibold text-gray-950">Suggested Classes for You</h3>
+                                    <button 
+                                        onClick={() => setSelectedSection('Lessons')}
+                                        className="text-sm font-semibold text-brand-purple hover:underline"
+                                    >
+                                        View All
+                                    </button>
                                 </div>
 
-                                {/* Recent Courses */}
-                                <div className="lg:col-span-2">
-                                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <h2 className="text-xl font-semibold text-gray-950">Recent Courses</h2>
-                                            <button className="text-sm font-semibold text-brand-purple hover:underline">View My Learning</button>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {[
-                                                { title: 'Full Stack Web Development', instructor: 'Dr. Sarah Jenkins', progress: 65, modules: '14/22', color: 'purple' },
-                                                { title: 'UI/UX Design Masterclass', instructor: 'Michael Chen', progress: 42, modules: '8/19', color: 'blue' }
-                                            ].map((course, idx) => (
-                                                <div key={idx} className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
-                                                    <div className={`h-32 bg-${course.color === 'purple' ? 'purple-600' : 'blue-600'} relative overflow-hidden`}>
-                                                        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-                                                        <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
-                                                            In Progress
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-6">
-                                                        <h4 className="font-bold text-gray-950 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.title}</h4>
-                                                        <p className="text-xs text-gray-700 font-medium mt-1">{course.instructor}</p>
-                                                        <div className="mt-6">
-                                                            <div className="flex justify-between items-end mb-2">
-                                                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Modules</span>
-                                                                <span className="text-xs font-extrabold text-gray-950">{course.progress}%</span>
-                                                            </div>
-                                                            <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-gray-100 p-[1px]">
-                                                                <div
-                                                                    className={`bg-${course.color === 'purple' ? 'brand-purple' : 'blue-500'} h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(74,11,89,0.3)]`}
-                                                                    style={{ width: `${course.progress}%` }}
-                                                                ></div>
-                                                            </div>
-                                                            <p className="text-[10px] text-gray-500 font-bold mt-2 uppercase">{course.modules} Completed</p>
-                                                        </div>
-
-                                                        <button className="w-full mt-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-purple transition-all shadow-md active:scale-95">
-                                                            <Play className="w-4 h-4 fill-white" />
-                                                            Resume Course
-                                                        </button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {loadingDashboard && (!Array.isArray(recentClasses) || recentClasses.length === 0) ? (
+                                        <div className="col-span-full flex justify-center p-4"><Loader2 className="w-6 h-6 animate-spin text-brand-purple" /></div>
+                                    ) : (!Array.isArray(recentClasses) || recentClasses.length === 0) ? (
+                                        <p className="col-span-full text-sm text-gray-500 p-4 text-center">No suggested classes found.</p>
+                                    ) : (
+                                        recentClasses.map((cls) => (
+                                            <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border border-orange-100 shadow-sm rounded-2xl hover:shadow-lg group">
+                                                <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
+                                                <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-orange-50/50 to-white">
+                                                    <img src={cls.thumbnail || cls.teacher?.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
+                                                    <div>
+                                                        <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher?.name || cls.teacher_name}</h3>
+                                                        <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                                <div className="flex flex-col flex-1 p-6">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <h2 className="text-xl font-black text-gray-900 transition-colors group-hover:text-orange-600">{cls.subject}</h2>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => setSelectedSection('Lessons')}
+                                                        className="w-full mt-auto py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm bg-gray-900 text-white hover:bg-orange-600"
+                                                    >
+                                                        Enter Portal
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )))}
                                 </div>
                             </div>
                         </>
