@@ -60,7 +60,8 @@ router.get('/courses', async (req, res) => {
                         description: a.description,
                         attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
                         deadline: a.deadline,
-                        maxMarks: a.max_marks
+                        maxMarks: a.max_marks,
+                        publish_at: a.publish_at
                     };
                 }));
 
@@ -69,7 +70,8 @@ router.get('/courses', async (req, res) => {
                     id: q.id,
                     number: q.number,
                     timeLimit: q.time_limit,
-                    isPeerReviewed: q.is_peer_reviewed === 1
+                    isPeerReviewed: q.is_peer_reviewed === 1,
+                    publish_at: q.publish_at
                 }));
             }
         }
@@ -80,17 +82,39 @@ router.get('/courses', async (req, res) => {
     }
 });
 
+const thumbnailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/thumbnails';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+const uploadThumbnail = multer({ storage: thumbnailStorage });
+
+// POST upload course thumbnail
+router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uploadThumbnail.single('thumbnail'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+    const baseURL = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+    const fileUrl = `${baseURL}/uploads/thumbnails/${req.file.filename}`;
+    res.status(200).json({ url: fileUrl });
+});
+
 // POST a new course
 router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("POST /courses req.body:", req.body);
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
 
         const result = await query(
-            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
+            'INSERT INTO classes_courses (name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
         );
         res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
@@ -103,22 +127,24 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("PUT /courses/:id req.body:", req.body);
     const { id } = req.params;
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
     
     const updateQuery = `
         UPDATE classes_courses 
-        SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
+        SET name = ?, title = ?, type = ?, grade = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
         WHERE id = ?
     `;
     
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
+    const values = [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
+    
+
 
     try {
         const result = await query(updateQuery, values);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
         }
-        res.status(200).json({ id: parseInt(id), name, title, type, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
+        res.status(200).json({ id: parseInt(id), name, title, type, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
         return res.status(500).json({ message: 'Server error' });
@@ -177,11 +203,11 @@ router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
 
 router.put('/teacher/modules/:id/visibility', async (req, res) => {
     // isVisible කියන්නේ true (පේනවා) ද false (හැංගිලා) ද කියන එක
-    const { isVisible } = req.body; 
-    
+    const { isVisible } = req.body;
+
     try {
         await query(
-            'UPDATE modules SET isVisible = ? WHERE id = ?', 
+            'UPDATE modules SET isVisible = ? WHERE id = ?',
             [isVisible ? 1 : 0, req.params.id]
         );
         res.json({ success: true, message: "Visibility updated!" });
@@ -355,6 +381,7 @@ router.get('/courses/search', async (req, res) => {
             c.name AS class_name, 
             c.title AS subject, 
             c.type, 
+            c.grade,
             c.theme_color, 
             c.thumbnail_url, 
             u.name AS teacher_name 
@@ -477,28 +504,30 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 a.id, a.title, a.deadline, a.publish_at, a.max_marks,
                 c.title as subject, c.id as courseId, 'Assignment' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status,
-                sub.grade, sub.feedback, sub.status as sub_status, sub.file_url
+                IF(MAX(sub.id) IS NOT NULL, 'completed', 'pending') as status,
+                MAX(sub.grade) as grade, MAX(sub.feedback) as feedback, MAX(sub.status) as sub_status, MAX(sub.file_url) as file_url
             FROM assignments a
             JOIN modules m ON a.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            GROUP BY a.id, a.title, a.deadline, a.publish_at, a.max_marks, c.title, c.id
         `, [studentId, studentId]);
 
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit,
+                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array

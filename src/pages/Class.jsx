@@ -18,6 +18,8 @@ import {
     X,
     Star,
     MessageSquare
+    Clock,
+    AlertCircle
 } from 'lucide-react';
 import api from '../api';
 import axios from 'axios';
@@ -58,9 +60,9 @@ const TuitionClass = () => {
     const [feedbackForm, setFeedbackForm] = useState({ rating: 5, title: '', description: '', survey_responses: {} });
 
     const toggleLesson = (lessonId) => {
-        setExpandedLessons(prev => 
-            prev.includes(lessonId) 
-                ? prev.filter(id => id !== lessonId) 
+        setExpandedLessons(prev =>
+            prev.includes(lessonId)
+                ? prev.filter(id => id !== lessonId)
                 : [...prev, lessonId]
         );
     };
@@ -217,7 +219,7 @@ const TuitionClass = () => {
                                 <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border-2 shadow-sm rounded-2xl border-emerald-100 hover:shadow-lg">
                                     <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded uppercase">Unlocked</div>
                                     <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-emerald-50/30 to-white">
-                                        <img src={cls.teacher.image} alt={cls.teacher.name} className="object-cover w-16 h-16 shadow-sm rounded-xl" />
+                                        <img src={cls.thumbnail || cls.teacher.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                         <div>
                                             <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher.name}</h3>
                                             <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>
@@ -254,7 +256,7 @@ const TuitionClass = () => {
                             <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border border-orange-100 shadow-sm rounded-2xl hover:shadow-lg group">
                                 <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
                                 <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-orange-50/50 to-white">
-                                    <img src={cls.teacher.image} alt={cls.teacher.name} className="object-cover w-16 h-16 shadow-sm rounded-xl" />
+                                    <img src={cls.thumbnail || cls.teacher.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                     <div>
                                         <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher.name}</h3>
                                         <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>
@@ -307,7 +309,7 @@ const TuitionClass = () => {
                             {unpaidClasses.map((cls) => (
                                 <div key={cls.id} className="flex flex-col overflow-hidden transition-all bg-white border border-gray-100 shadow-sm rounded-2xl hover:shadow-lg">
                                     <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-gray-50 to-white">
-                                        <img src={cls.teacher.image} alt={cls.teacher.name} className="object-cover w-16 h-16 shadow-sm rounded-xl grayscale opacity-80" />
+                                        <img src={cls.thumbnail || cls.teacher.image} alt={cls.subject} className={`object-cover w-16 h-16 shadow-sm rounded-xl ${!cls.thumbnail ? 'grayscale opacity-80' : ''} animate-in fade-in`} />
                                         <div>
                                             <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher.name}</h3>
                                             <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>
@@ -449,133 +451,212 @@ const TuitionClass = () => {
 
             {/* SINGLE COLUMN LAYOUT */}
             <div className="w-full mt-4">
-                    {currentClass.months.map((month, index) => (
-                        <div key={month.id} className="mb-4 overflow-hidden bg-white border border-gray-300 shadow-sm rounded-xl">
-                            {/* Module Header Row */}
-                            <div
-                                className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50"
-                                onClick={() => setActiveMonth(activeMonth === month.id ? null : month.id)}
-                            >
-                                <h3 className="text-base font-bold text-gray-900">
-                                    {index + 1}. {month.name}
-                                </h3>
+                {currentClass.months.map((month, index) => (
+                    <div key={month.id} className="mb-4 overflow-hidden bg-white border border-gray-300 shadow-sm rounded-xl">
+                        {/* Module Header Row */}
+                        <div
+                            className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50"
+                            onClick={() => setActiveMonth(activeMonth === month.id ? null : month.id)}
+                        >
+                            <h3 className="text-base font-bold text-gray-900">
+                                {index + 1}. {month.name}
+                            </h3>
 
-                                {/* Action Buttons Group (Cleaned) */}
-                                <div className="flex items-center text-gray-500">
-                                    <button className="transition-colors hover:text-gray-800">
-                                        {activeMonth === month.id ? (
-                                            <ChevronUp className="w-5 h-5" />
-                                        ) : (
-                                            <ChevronDown className="w-5 h-5" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Expanded Area */}
-                            {activeMonth === month.id && (
-                                <div className="p-4 border-t border-gray-100 bg-gray-50">
-                                    {(!month.lessons?.length && !month.assignments?.length && !month.quizzes?.length) ? (
-                                        <p className="p-6 text-sm text-gray-400 text-center italic">No content has been uploaded to this module yet.</p>
+                            {/* Action Buttons Group (Cleaned) */}
+                            <div className="flex items-center text-gray-500">
+                                <button className="transition-colors hover:text-gray-800">
+                                    {activeMonth === month.id ? (
+                                        <ChevronUp className="w-5 h-5" />
                                     ) : (
-                                        <div className="space-y-4 flex flex-col">
-                                            {/* LESSONS AND RESOURCES */}
-                                            {month.lessons?.map(lesson => (
-                                                <div key={lesson.id} className="mb-6">
-                                                    {/* Lesson Header */}
-                                                    <div onClick={() => toggleLesson(lesson.id)} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl mb-3 cursor-pointer hover:bg-gray-100 transition-colors">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                                                            <h5 className="text-sm font-bold text-gray-800">{lesson.title}</h5>
-                                                        </div>
-                                                        {expandedLessons.includes(lesson.id) ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                        <ChevronDown className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Expanded Area */}
+                        {activeMonth === month.id && (
+                            <div className="p-4 border-t border-gray-100 bg-gray-50">
+                                {(!month.lessons?.length && !month.assignments?.length && !month.quizzes?.length) ? (
+                                    <p className="p-6 text-sm text-gray-400 text-center italic">No content has been uploaded to this module yet.</p>
+                                ) : (
+                                    <div className="space-y-4 flex flex-col">
+                                        {/* LESSONS AND RESOURCES */}
+                                        {month.lessons?.map(lesson => (
+                                            <div key={lesson.id} className="mb-6">
+                                                {/* Lesson Header */}
+                                                <div onClick={() => toggleLesson(lesson.id)} className="flex items-center justify-between bg-gray-50 border border-gray-200 px-4 py-3 rounded-xl mb-3 cursor-pointer hover:bg-gray-100 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                                                        <h5 className="text-sm font-bold text-gray-800">{lesson.title}</h5>
                                                     </div>
+                                                    {expandedLessons.includes(lesson.id) ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                                                </div>
 
-                                                    {/* Nested Resources */}
-                                                    {expandedLessons.includes(lesson.id) && (
-                                                        <div className="flex flex-col gap-2 pl-6 relative mb-4">
-                                                            <div className="absolute left-[11px] top-0 bottom-4 w-px bg-gray-200"></div>
-                                                            {lesson.resources?.map(resource => {
-                                                                const embedUrl = resource.type === 'link' ? getYouTubeEmbedUrl(resource.link) : null;
-                                                                
-                                                                if (embedUrl) {
-                                                                    return (
-                                                                        <button key={resource.id} onClick={() => setPlayingVideoUrl(embedUrl)} className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 text-left cursor-pointer group">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                                                                    <PlayCircle className="w-4 h-4 text-red-500" />
-                                                                                </div>
-                                                                                <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
-                                                                            </div>
-                                                                            <ChevronRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                        </button>
-                                                                    );
-                                                                }
+                                                {/* Nested Resources */}
+                                                {expandedLessons.includes(lesson.id) && (
+                                                    <div className="flex flex-col gap-2 pl-6 relative mb-4">
+                                                        <div className="absolute left-[11px] top-0 bottom-4 w-px bg-gray-200"></div>
+                                                        {lesson.resources?.map(resource => {
+                                                            const embedUrl = resource.type === 'link' ? getYouTubeEmbedUrl(resource.link) : null;
 
+                                                            if (embedUrl) {
                                                                 return (
-                                                                    <a key={resource.id} href={resource.link} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 cursor-pointer group text-left">
+                                                                    <button key={resource.id} onClick={() => setPlayingVideoUrl(embedUrl)} className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 text-left cursor-pointer group">
                                                                         <div className="flex items-center gap-3">
                                                                             <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                                                                {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                                                <PlayCircle className="w-4 h-4 text-red-500" />
                                                                             </div>
                                                                             <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
                                                                         </div>
                                                                         <ChevronRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                    </a>
+                                                                    </button>
                                                                 );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                            }
 
-                                            {/* ASSIGNMENTS */}
-                                            {month.assignments?.map(assignment => (
-                                                <div 
-                                                    key={assignment.id} 
-                                                    onClick={() => navigate(`/student/assignment/${assignment.id}`)} 
-                                                    className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all shadow-sm cursor-pointer group mb-2"
+                                                            return (
+                                                                <a key={resource.id} href={resource.link} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-gray-50 transition-all shadow-sm relative z-10 ml-2 cursor-pointer group text-left">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                                                                            {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                                        </div>
+                                                                        <span className="font-semibold text-sm text-gray-700">{resource.name}</span>
+                                                                    </div>
+                                                                    <ChevronRight className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {/* ASSIGNMENTS HEADER */}
+                                        {(month.assignments || []).length > 0 && (
+                                            <div className="mt-6 mb-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <ClipboardList className="w-5 h-5 text-purple-600" />
+                                                    <h3 className="font-bold text-gray-800">Assignments</h3>
+                                                </div>
+                                                <hr className="border-gray-200" />
+                                            </div>
+                                        )}
+
+                                        {/* ASSIGNMENTS */}
+                                        {month.assignments?.map(assignment => {
+                                            const isLocked = assignment.publish_at && new Date(assignment.publish_at) > new Date();
+                                            const isPastDeadline = new Date(assignment.deadline) < new Date();
+                                            return (
+                                                <div
+                                                    key={assignment.id}
+                                                    onClick={() => !isLocked && !isPastDeadline && navigate(`/student/assignment/${assignment.id}`)}
+                                                    className={`flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl transition-all shadow-sm ${isLocked || isPastDeadline ? 'opacity-70 cursor-not-allowed' : 'hover:border-orange-300 hover:bg-orange-50 cursor-pointer group'} mb-2`}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
-                                                            <ClipboardList className="w-4 h-4" />
+                                                        <div className={`p-2 rounded-lg ${isLocked || isPastDeadline ? 'bg-gray-100 text-gray-500' : 'bg-orange-50 text-orange-600'}`}>
+                                                            {isLocked ? <Lock className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="font-semibold text-sm text-gray-700">{assignment.title}</span>
-                                                            {assignment.deadline && <span className="text-[10px] text-gray-500">Due: {new Date(assignment.deadline).toLocaleDateString()}</span>}
+                                                            {isLocked ? (
+                                                                <span className="text-[10px] font-bold text-red-500">Locked until {new Date(assignment.publish_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                                            ) : isPastDeadline ? (
+                                                                <span className="text-[10px] font-bold text-red-500">Missed Deadline</span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-medium text-gray-500">Due: {new Date(assignment.deadline).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" />
+                                                    {!isLocked && !isPastDeadline && <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" />}
                                                 </div>
-                                            ))}
+                                            )
+                                        })}
 
-                                            {/* QUIZZES */}
-                                            {month.quizzes?.map((quiz, index) => (
-                                                <div key={quiz.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-green-300 transition-colors shadow-sm">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-green-50 rounded-lg text-green-600">
-                                                            <BookOpen className="w-4 h-4" />
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-semibold text-sm text-gray-700">Quiz #{index + 1}</span>
-                                                            {quiz.time_limit && <span className="text-[10px] text-gray-500">{quiz.time_limit} mins</span>}
-                                                        </div>
-                                                    </div>
+                                        {/* QUIZZES HEADER */}
+                                        {(month.quizzes || []).length > 0 && (
+                                            <div className="mt-6 mb-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <BookOpen className="w-5 h-5 text-blue-500" />
+                                                    <h3 className="font-bold text-gray-800">Quizzes</h3>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
+                                                <hr className="border-gray-200" />
+                                            </div>
+                                        )}
+
+                                        {/* QUIZZES */}
+                                        {(month.quizzes || []).length > 0 && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                                {month.quizzes.map((quiz, index) => {
+                                                    const isLocked = quiz.publish_at && new Date(quiz.publish_at) > new Date();
+                                                    let isPastDeadline = false;
+                                                    if (quiz.publish_at) {
+                                                        const publishDate = new Date(quiz.publish_at);
+                                                        let timeLimitMs = 0;
+                                                        if (quiz.timeLimit) {
+                                                            const parts = quiz.timeLimit.split(':');
+                                                            timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
+                                                        }
+                                                        isPastDeadline = new Date() > new Date(publishDate.getTime() + timeLimitMs);
+                                                    }
+
+                                                    return (
+                                                        <div 
+                                                            key={quiz.id} 
+                                                            onClick={() => !isLocked && !isPastDeadline && navigate('/student', { state: { section: 'Assessments', startQuizId: quiz.id } })}
+                                                            className={`border rounded-xl p-4 transition-all relative ${isLocked || isPastDeadline ? 'opacity-70 cursor-not-allowed bg-gray-50' : 'bg-blue-50/50 hover:bg-white border-blue-100 hover:border-blue-300 hover:shadow-md cursor-pointer group/quiz'}`}
+                                                        >
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    {isLocked ? <Lock size={14} className="text-gray-400" /> : <BookOpen size={14} className="text-gray-700" />}
+                                                                    <h5 className="font-bold text-gray-800">Quiz</h5>
+                                                                </div>
+                                                                {quiz.timeLimit && (
+                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPastDeadline ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                        {isPastDeadline ? 'Missed Deadline' : quiz.timeLimit}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 text-[10px] mt-3">
+                                                                {isLocked ? (
+                                                                    <div className="flex items-center gap-1 text-red-500 font-medium">
+                                                                        <Clock size={12} />
+                                                                        <span>Locked until {new Date(quiz.publish_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                                                    </div>
+                                                                ) : isPastDeadline ? (
+                                                                    <div className="flex items-center gap-1 text-red-500 font-medium">
+                                                                        <AlertCircle size={12} />
+                                                                        <span>Deadline Passed</span>
+                                                                    </div>
+                                                                ) : quiz.publish_at ? (
+                                                                    <div className="flex items-center gap-1 text-gray-400 font-medium">
+                                                                        <Calendar size={12} />
+                                                                        <span>Published {new Date(quiz.publish_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-1 text-gray-400 font-medium">
+                                                                        <CheckCircle size={12} />
+                                                                        <span>Available Now</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
 
             {playingVideoUrl && (
                 <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 lg:p-12 animate-in fade-in duration-200">
                     <div className="w-full max-w-5xl relative flex flex-col items-end">
-                        <button 
-                            onClick={() => setPlayingVideoUrl(null)} 
+                        <button
+                            onClick={() => setPlayingVideoUrl(null)}
                             className="mb-4 text-white hover:text-gray-300 flex items-center gap-2 font-bold"
                         >
                             <X size={24} /> Close Video

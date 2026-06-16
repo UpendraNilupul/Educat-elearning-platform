@@ -29,15 +29,18 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     name: "",
     title: "",
     type: "Class",
+    grade: "",
     status: "not_active",
     is_published: false,
     theme_color: "purple",
     thumbnail_url: "",
-    students: 0, 
-    modules: 0, 
+    students: 0,
+    modules: 0,
     progress: 0,
     monthly_fee: 0
   });
+
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 
   const [expandedChapters, setExpandedChapters] = useState([]);
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
@@ -109,12 +112,28 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
   const [editingQuizId, setEditingQuizId] = useState(null);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+  const [quizErrors, setQuizErrors] = useState({});
   const [quizData, setQuizData] = useState({
     number: 1,
     time_limit: "00:30:00",
     publish_at: "",
     questions: []
   });
+
+  React.useEffect(() => {
+    if (!isQuizModalOpen) {
+      setQuizErrors({});
+      return;
+    }
+    const errors = {};
+    if (quizData.publish_at && quizData.publish_at.trim() !== "") {
+      const publishAt = new Date(quizData.publish_at);
+      if (publishAt <= new Date()) {
+        errors.publish_at = "Publish date must be in the future";
+      }
+    }
+    setQuizErrors(errors);
+  }, [quizData.publish_at, isQuizModalOpen]);
 
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
@@ -566,7 +585,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
   const updateQuizOption = (qIndex, oIndex, field, value) => {
     const updatedQuestions = [...quizData.questions];
-    if (field === 'correct' && updatedQuestions[qIndex].type === 'single') {
+    if (field === 'correct' && (updatedQuestions[qIndex].type === 'single' || updatedQuestions[qIndex].type === 'dropdown')) {
       updatedQuestions[qIndex].options.forEach((opt, i) => opt.correct = (i === oIndex));
     } else {
       updatedQuestions[qIndex].options[oIndex][field] = value;
@@ -590,7 +609,12 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       setQuizData({
         number: data.number,
         time_limit: data.time_limit,
-        publish_at: data.publish_at ? new Date(data.publish_at).toISOString().slice(0, 16) : "",
+        publish_at: data.publish_at ? (() => {
+          const d = new Date(data.publish_at);
+          if (isNaN(d.getTime())) return "";
+          const pad = n => n.toString().padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        })() : "",
         questions: data.questions.map(q => ({
           id: q.id,
           question: q.question,
@@ -635,6 +659,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
   const submitQuiz = async (e) => {
     e.preventDefault();
+    if (Object.keys(quizErrors).length > 0) return;
     if (quizData.questions.length === 0) {
       alert("Please add at least one question.");
       return;
@@ -653,6 +678,15 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       if (editingQuizId) {
         await api.put(`/quizzes/${editingQuizId}`, quizPayload);
+
+        // Handle deleted questions
+        const resp = await api.get(`/quizzes/${editingQuizId}`);
+        const existingQuestionIds = resp.data.questions.map(q => q.id);
+        const currentQuestionIds = quizData.questions.filter(q => q.id).map(q => q.id);
+        const deletedQuestionIds = existingQuestionIds.filter(id => !currentQuestionIds.includes(id));
+        for (let qId of deletedQuestionIds) {
+          await api.delete(`/quizzes/${editingQuizId}/questions/${qId}`);
+        }
       } else {
         const resp = await api.post(`/modules/${activeModuleId}/quizzes`, quizPayload);
         const newQuiz = resp.data;
@@ -910,12 +944,13 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       name: "",
       title: "",
       type: "Class",
+      grade: "",
       status: "not_active",
       is_published: false,
       theme_color: "purple",
       thumbnail_url: "",
-      students: 0, 
-      modules: 0, 
+      students: 0,
+      modules: 0,
       progress: 0,
       monthly_fee: 0
     });
@@ -928,16 +963,43 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       name: course.name || "",
       title: course.title || "",
       type: course.type || "Class",
+      grade: course.grade || "",
       status: course.status || "not_active",
       is_published: course.is_published || false,
       theme_color: course.theme_color || "purple",
       thumbnail_url: course.thumbnail_url || "",
-      students: course.students || 0, 
-      modules: course.modules || 0, 
+      students: course.students || 0,
+      modules: course.modules || 0,
       progress: course.progress || 0,
       monthly_fee: course.monthly_fee || 0
     });
     setIsModalOpen(true);
+  };
+
+  const handleThumbnailUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadData = new FormData();
+    uploadData.append("thumbnail", file);
+
+    setIsUploadingThumbnail(true);
+    try {
+      const response = await api.post("/courses/upload-thumbnail", uploadData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      setFormData((prev) => ({
+        ...prev,
+        thumbnail_url: response.data.url,
+      }));
+    } catch (error) {
+      console.error("Error uploading thumbnail:", error);
+      alert(error.response?.data?.message || "Failed to upload image");
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -1298,7 +1360,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                             <BookOpen size={18} className="text-blue-500" /> Quizzes
                           </h4>
                           <button
-                            onClick={() => { setActiveModuleId(chapter.id); setIsQuizModalOpen(true); }}
+                            onClick={() => { 
+                                setActiveModuleId(chapter.id); 
+                                setEditingQuizId(null);
+                                setQuizErrors({});
+                                const nextQuizNumber = (chapter.quizzes || []).length + 1;
+                                setQuizData({ number: nextQuizNumber, time_limit: "00:30:00", publish_at: "", questions: [] });
+                                setIsQuizModalOpen(true); 
+                            }}
                             className="text-xs font-bold text-blue-600 hover:text-blue-700"
                           >
                             + Create Quiz
@@ -1328,7 +1397,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                   </button>
                                 </div>
                                 <div className="flex justify-between items-start mb-2 pr-12">
-                                  <h5 className="font-bold text-gray-800">Quiz #{qz.number}</h5>
+                                  <h5 className="font-bold text-gray-800">Quiz</h5>
                                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
                                     {qz.time_limit}
                                   </span>
@@ -1380,7 +1449,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-xl text-gray-800 line-clamp-2">{course.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{course.students} Students • {course.modules} Modules</p>
+                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.students} Students • {course.modules} Modules</p>
                     <p className="text-sm font-bold text-purple-600 mt-1">LKR {course.monthly_fee ? parseFloat(course.monthly_fee).toFixed(2) : '0.00'}</p>
                   </div>
                 </div>
@@ -1629,15 +1698,29 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail Image URL</label>
-                <input
-                  type="url"
-                  name="thumbnail_url"
-                  value={formData.thumbnail_url}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Course Thumbnail</label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    {formData.thumbnail_url && (
+                      <img
+                        src={formData.thumbnail_url}
+                        alt="Thumbnail Preview"
+                        className="w-16 h-16 rounded-xl object-cover border"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleThumbnailUpload}
+                        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  {isUploadingThumbnail && (
+                    <p className="text-xs text-purple-600 animate-pulse font-medium">Uploading image...</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1669,17 +1752,34 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="not_active">Not Active</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="not_active">Not Active</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                  <select
+                    name="grade"
+                    value={formData.grade}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="">Select Grade</option>
+                    {Array.from({ length: 13 }, (_, i) => `Grade ${i + 1}`).map((grade) => (
+                      <option key={grade} value={grade}>{grade}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4 border-t mt-6">
@@ -1782,16 +1882,6 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
             <form onSubmit={submitQuiz} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Quiz Number</label>
-                  <input
-                    type="number"
-                    value={quizData.number}
-                    onChange={e => setQuizData({ ...quizData, number: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-                    required
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Time Limit (HH:MM:SS)</label>
                   <input
                     type="text"
@@ -1802,21 +1892,19 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                     required
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="mt-4">
-                  {/* Peer Review option removed */}
-                </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Publish On (Optional)</label>
                   <input
                     type="datetime-local"
                     value={quizData.publish_at}
                     onChange={e => setQuizData({ ...quizData, publish_at: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all text-sm"
+                    className={`w-full px-4 py-2 rounded-xl border focus:ring-2 outline-none transition-all text-sm ${quizErrors.publish_at
+                      ? 'border-red-500 focus:ring-red-100 focus:border-red-600'
+                      : 'border-gray-200 focus:ring-blue-100 focus:border-blue-600'
+                      }`}
                   />
-                  <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>
+                  {quizErrors.publish_at && <p className="text-[10px] text-red-500 mt-1 font-medium">{quizErrors.publish_at}</p>}
+                  {!quizErrors.publish_at && <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>}
                 </div>
               </div>
 
@@ -1846,6 +1934,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                             className="text-xs border rounded p-1"
                           >
                             <option value="single">Single Selection (Radio)</option>
+                            <option value="dropdown">Dropdown Selection</option>
                             <option value="multiple">Multiple Selection (Checkboxes)</option>
                           </select>
                           <input
@@ -1861,7 +1950,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                           {q.options.map((opt, oIdx) => (
                             <div key={oIdx} className="flex items-center gap-2">
                               <input
-                                type={q.type === 'single' ? 'radio' : 'checkbox'}
+                                type={q.type === 'single' || q.type === 'dropdown' ? 'radio' : 'checkbox'}
                                 checked={opt.correct}
                                 onChange={e => updateQuizOption(qIdx, oIdx, 'correct', e.target.checked)}
                                 className="rounded-full text-blue-600"
@@ -1892,8 +1981,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <button type="button" onClick={() => { setIsQuizModalOpen(false); setEditingQuizId(null); }} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
                 <button
                   type="submit"
-                  disabled={isSavingQuiz}
-                  className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${isSavingQuiz ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+                  disabled={isSavingQuiz || Object.keys(quizErrors).length > 0}
+                  className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${isSavingQuiz || Object.keys(quizErrors).length > 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                 >
                   {isSavingQuiz ? 'Saving...' : (editingQuizId ? 'Save Changes' : 'Create Quiz')}
