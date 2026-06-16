@@ -18,7 +18,7 @@ router.get('/student/classes', async (req, res) => {
 
         const classes = await query(`
             SELECT 
-                c.id, c.title AS grade, c.title AS subject, c.monthly_fee,
+                c.id, c.title AS grade, c.title AS subject, c.monthly_fee, c.thumbnail_url,
                 t.id AS teacher_id, u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN enrollments e ON c.id = e.c_id
@@ -125,6 +125,7 @@ router.get('/student/classes', async (req, res) => {
                 id: cls.id,
                 grade: cls.grade || 'Grade',
                 subject: cls.subject,
+                thumbnail: cls.thumbnail_url || null,
                 teacher: {
                     name: cls.teacher_name,
                     image: cls.teacher_image || `https://ui-avatars.com/api/?name=${cls.teacher_name.replace(/ /g, '+')}&background=4a0b59&color=fff`
@@ -162,7 +163,7 @@ router.get('/suggested-classes', async (req, res) => {
 
         const suggested = await query(`
             SELECT 
-                c.id, c.title AS grade, c.title AS subject, c.monthly_fee,
+                c.id, c.grade AS grade, c.title AS subject, c.monthly_fee, c.thumbnail_url,
                 u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN teachers t ON c.t_id = t.id
@@ -176,6 +177,7 @@ router.get('/suggested-classes', async (req, res) => {
             id: cls.id,
             grade: cls.grade || 'Grade',
             subject: cls.subject,
+            thumbnail: cls.thumbnail_url || null,
             monthlyFee: cls.monthly_fee || 2500,
             teacher: {
                 name: cls.teacher_name,

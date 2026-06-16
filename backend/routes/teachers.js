@@ -157,6 +157,10 @@ router.post('/teacher/liveclasses', requireAuth, requireRole(['teacher']), async
         if (scheduled_date < todayStr) {
             return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
         }
+        const dateParts = scheduled_date.split('-');
+        if (dateParts[0].length !== 4 || parseInt(dateParts[0], 10) > 2100) {
+            return res.status(400).json({ error: 'Scheduled date must be a valid date with a 4-digit year no later than 2100.' });
+        }
 
         const result = await query(`
             INSERT INTO live_classes (c_id, title, scheduled_date, start_time, duration_minutes, meeting_link, status)
@@ -218,6 +222,10 @@ router.put('/teacher/liveclasses/:id', requireAuth, requireRole(['teacher']), as
 
         if (scheduled_date < todayStr) {
             return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
+        }
+        const dateParts = scheduled_date.split('-');
+        if (dateParts[0].length !== 4 || parseInt(dateParts[0], 10) > 2100) {
+            return res.status(400).json({ error: 'Scheduled date must be a valid date with a 4-digit year no later than 2100.' });
         }
 
         await query(`

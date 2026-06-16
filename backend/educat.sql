@@ -116,11 +116,13 @@ CREATE TABLE advertisements (
     FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
+-- UPDATED: Added grade column to map courses/classes to specific educational levels
 CREATE TABLE classes_courses (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
+    grade VARCHAR(50) DEFAULT NULL,
     t_id INT NOT NULL, 
     teacher_id INT DEFAULT 1,          
     students INT DEFAULT 0,            
@@ -295,6 +297,9 @@ CREATE TABLE quiz_submissions (
     started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     saved_state JSON DEFAULT NULL,
     submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'in_progress',
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    saved_state JSON DEFAULT NULL,
     FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
@@ -351,6 +356,7 @@ CREATE TABLE reviews (
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    survey_responses JSON,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
@@ -399,8 +405,8 @@ CREATE TABLE admin_escalations (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     sub_admin_id INT NOT NULL,
     entity_type VARCHAR(50) NOT NULL, 
-    entity_id INT NOT NULL,           
-    reason TEXT NOT NULL,             
+    entity_id INT NOT NULL,            
+    reason TEXT NOT NULL,              
     status VARCHAR(20) DEFAULT 'pending', 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(sub_admin_id) REFERENCES users(id) ON DELETE CASCADE
@@ -429,20 +435,6 @@ CREATE TABLE messages (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE teacher_payouts (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
-    month_year VARCHAR(7) NOT NULL, /* Format: YYYY-MM */
-    gross_earnings DECIMAL(10,2) DEFAULT 0.00,
-    platform_fee DECIMAL(10,2) DEFAULT 0.00,
-    adjustment DECIMAL(10,2) DEFAULT 0.00,
-    net_payable DECIMAL(10,2) DEFAULT 0.00,
-    status VARCHAR(20) DEFAULT 'pending',
-    paid_at DATETIME NULL,
-    UNIQUE KEY unique_month_teacher (teacher_id, month_year),
-    FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
 -- ==========================================

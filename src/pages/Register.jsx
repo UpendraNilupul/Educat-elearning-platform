@@ -60,7 +60,14 @@ const Register = ({ setUserName, setUserRole }) => {
         if (value) {
           const selectedDate = new Date(value);
           const limitDate = new Date('2016-02-01');
-          if (selectedDate >= limitDate) error = 'Date must be before 2016-02-01';
+          const minDate = new Date('1900-01-01');
+          if (selectedDate >= limitDate) {
+            error = 'Date must be before 2016-02-01';
+          } else if (selectedDate < minDate) {
+            error = 'Date of birth must be after 1900-01-01';
+          } else if (value.split('-')[0].length > 4) {
+            error = 'Year must be a 4-digit number';
+          }
         }
         break;
       case 'gender':
@@ -116,7 +123,14 @@ const Register = ({ setUserName, setUserRole }) => {
     if (dob) {
       const selectedDate = new Date(dob);
       const limitDate = new Date('2016-02-01');
-      if (selectedDate >= limitDate) newErrors.dob = 'Date of birth must be before 2016-02-01';
+      const minDate = new Date('1900-01-01');
+      if (selectedDate >= limitDate) {
+        newErrors.dob = 'Date of birth must be before 2016-02-01';
+      } else if (selectedDate < minDate) {
+        newErrors.dob = 'Date of birth must be after 1900-01-01';
+      } else if (dob.split('-')[0].length > 4) {
+        newErrors.dob = 'Date of birth must have a valid 4-digit year';
+      }
     }
 
     setErrors(newErrors);
@@ -252,7 +266,7 @@ const Register = ({ setUserName, setUserRole }) => {
               <div>
                   <label>Date of Birth</label>
                   <input type="date" name="dob" className={getInputClass('dob')}
-                    value={formData.dob} onChange={handleChange} max="2016-01-31" required />
+                    value={formData.dob} onChange={handleChange} min="1900-01-01" max="2016-01-31" required />
                   {errors.dob && <p style={errorStyle}>{errors.dob}</p>}
               </div>
               <div>

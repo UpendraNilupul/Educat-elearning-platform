@@ -74,16 +74,49 @@ app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware); 
 
 // Session-swapping middleware for tab-level role isolation on localhost
-app.use((req, res, next) => {
-    if (req.session && req.session.roles) {
+app.use(async (req, res, next) => {
+    if (req.session) {
         const reqRole = req.headers['x-user-role'];
-        if (reqRole && req.session.roles[reqRole]) {
-            const roleData = req.session.roles[reqRole];
-            req.session.userId = roleData.userId;
-            req.session.userRole = reqRole;
-            req.session.userName = roleData.userName;
-            req.session.userPicture = roleData.userPicture;
-            req.session.adminLevel = roleData.adminLevel;
+        const reqUserId = req.headers['x-user-id'];
+        
+        if (reqRole && reqUserId) {
+            req.session.roles = req.session.roles || {};
+            if (!req.session.roles[reqRole]) {
+                try {
+                    const sqlQuery = `
+                        SELECT users.id, roles.role_name, users.name, users.picture, admins.admin_level 
+                        FROM users 
+                        JOIN roles ON users.role_id = roles.id 
+                        LEFT JOIN admins ON users.id = admins.user_id
+                        WHERE users.id = ?
+                    `;
+                    const results = await query(sqlQuery, [reqUserId]);
+                    if (results.length > 0) {
+                        const user = results[0];
+                        const normalizedRole = String(user.role_name || '').toLowerCase().trim();
+                        if (normalizedRole === String(reqRole).toLowerCase().trim()) {
+                            req.session.roles[normalizedRole] = {
+                                userId: user.id,
+                                userRole: normalizedRole,
+                                userName: user.name,
+                                adminLevel: user.admin_level || null,
+                                userPicture: user.picture
+                            };
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to reconstruct session roles:", err);
+                }
+            }
+            
+            if (req.session.roles[reqRole]) {
+                const roleData = req.session.roles[reqRole];
+                req.session.userId = roleData.userId;
+                req.session.userRole = reqRole;
+                req.session.userName = roleData.userName;
+                req.session.userPicture = roleData.userPicture;
+                req.session.adminLevel = roleData.adminLevel;
+            }
         }
     }
     next();

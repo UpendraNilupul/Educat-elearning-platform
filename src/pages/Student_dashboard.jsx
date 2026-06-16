@@ -391,7 +391,7 @@ const Student = ({ userName, onLogout }) => {
                                             <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border border-orange-100 shadow-sm rounded-2xl hover:shadow-lg group">
                                                 <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
                                                 <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-orange-50/50 to-white">
-                                                    <img src={cls.teacher?.image} alt={cls.teacher?.name} className="object-cover w-16 h-16 shadow-sm rounded-xl" />
+                                                    <img src={cls.thumbnail || cls.teacher?.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                                     <div>
                                                         <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher?.name || cls.teacher_name}</h3>
                                                         <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>
