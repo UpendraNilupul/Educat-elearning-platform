@@ -185,19 +185,6 @@ CREATE TABLE timetables (
 -- LEVEL 5: FINANCIAL RECORDS
 -- ==========================================
 
-CREATE TABLE teacher_payouts (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
-    month_year VARCHAR(7) NOT NULL, 
-    gross_earnings DECIMAL(10,2) NOT NULL,
-    platform_fee DECIMAL(10,2) NOT NULL,
-    adjustment DECIMAL(10,2) DEFAULT 0.00,
-    net_payable DECIMAL(10,2) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending', 
-    paid_at DATETIME DEFAULT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
-);
 
 -- ==========================================
 -- LEVEL 6: ASSETS, CURRICULUM, AND ASSESSMENTS
@@ -304,6 +291,9 @@ CREATE TABLE quiz_submissions (
     qz_id INT NOT NULL,
     s_id INT NOT NULL,
     score DECIMAL(5,2),
+    status VARCHAR(20) DEFAULT 'in_progress',
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    saved_state JSON DEFAULT NULL,
     submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE

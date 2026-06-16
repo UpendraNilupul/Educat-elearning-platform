@@ -63,6 +63,10 @@ router.get('/student/classes', async (req, res) => {
 
                 const isPaid = payments.length > 0;
 
+                const quizzes = await query(`
+                    SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC
+                `, [mod.id]);
+
                 monthsData.push({
                     id: mod.id,
                     name: mod.name,
@@ -90,6 +94,12 @@ router.get('/student/classes', async (req, res) => {
                                 feedback: a.submissionFeedback
                             } : null
                         };
+                    })),
+                    quizzes: quizzes.map(q => ({
+                        id: q.id,
+                        number: q.number,
+                        timeLimit: q.time_limit,
+                        publish_at: q.publish_at
                     }))
                 });
             }
@@ -106,7 +116,8 @@ router.get('/student/classes', async (req, res) => {
                     isPaid: payments.length > 0,
                     topics: 'Course Introduction',
                     lessons: [],
-                    assignments: []
+                    assignments: [],
+                    quizzes: []
                 });
             }
 
