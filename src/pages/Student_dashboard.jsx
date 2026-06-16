@@ -1,6 +1,6 @@
 // Force Vite HMR reload
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
@@ -23,6 +23,14 @@ const Student = ({ userName, onLogout }) => {
     const [firstName, setFirstName] = useState('Student');
     const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Check for section changes in navigation state
+    useEffect(() => {
+        if (location.state?.section) {
+            setSelectedSection(location.state.section);
+        }
+    }, [location.state]);
 
     // Search-related state (ඔයාගේ යාලුවා හදපු ටික)
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
@@ -80,7 +88,21 @@ const Student = ({ userName, onLogout }) => {
                 const response = await api.get(`/student/my-assessments`);
                 const pendingCount = response.data.filter(a => {
                     const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
-                    return a.status === 'pending' && isPublished;
+                    
+                    let isPastDeadline = false;
+                    if (a.type === 'Assignment') {
+                        isPastDeadline = new Date(a.time_limit) < new Date();
+                    } else if (a.type === 'Quiz' && a.publish_at) {
+                        const publishDate = new Date(a.publish_at);
+                        let timeLimitMs = 0;
+                        if (a.time_limit) {
+                            const parts = a.time_limit.split(':');
+                            timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
+                        }
+                        isPastDeadline = new Date() > new Date(publishDate.getTime() + timeLimitMs);
+                    }
+
+                    return a.status === 'pending' && isPublished && !isPastDeadline;
                 }).length;
                 setPendingAssessmentsCount(pendingCount);
             } catch (error) {

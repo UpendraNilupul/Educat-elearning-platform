@@ -60,7 +60,8 @@ router.get('/courses', async (req, res) => {
                         description: a.description,
                         attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
                         deadline: a.deadline,
-                        maxMarks: a.max_marks
+                        maxMarks: a.max_marks,
+                        publish_at: a.publish_at
                     };
                 }));
 
@@ -69,7 +70,8 @@ router.get('/courses', async (req, res) => {
                     id: q.id,
                     number: q.number,
                     timeLimit: q.time_limit,
-                    isPeerReviewed: q.is_peer_reviewed === 1
+                    isPeerReviewed: q.is_peer_reviewed === 1,
+                    publish_at: q.publish_at
                 }));
             }
         }
@@ -201,11 +203,11 @@ router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
 
 router.put('/teacher/modules/:id/visibility', async (req, res) => {
     // isVisible කියන්නේ true (පේනවා) ද false (හැංගිලා) ද කියන එක
-    const { isVisible } = req.body; 
-    
+    const { isVisible } = req.body;
+
     try {
         await query(
-            'UPDATE modules SET isVisible = ? WHERE id = ?', 
+            'UPDATE modules SET isVisible = ? WHERE id = ?',
             [isVisible ? 1 : 0, req.params.id]
         );
         res.json({ success: true, message: "Visibility updated!" });
@@ -502,28 +504,30 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 a.id, a.title, a.deadline, a.publish_at, a.max_marks,
                 c.title as subject, c.id as courseId, 'Assignment' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status,
-                sub.grade, sub.feedback, sub.status as sub_status, sub.file_url
+                IF(MAX(sub.id) IS NOT NULL, 'completed', 'pending') as status,
+                MAX(sub.grade) as grade, MAX(sub.feedback) as feedback, MAX(sub.status) as sub_status, MAX(sub.file_url) as file_url
             FROM assignments a
             JOIN modules m ON a.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            GROUP BY a.id, a.title, a.deadline, a.publish_at, a.max_marks, c.title, c.id
         `, [studentId, studentId]);
 
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit,
+                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array
