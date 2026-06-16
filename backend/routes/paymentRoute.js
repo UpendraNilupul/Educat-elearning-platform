@@ -64,6 +64,16 @@ router.post('/payment/notify', async (req, res) => {
                             VALUES (?, ?)
                         `, [actualStudentId, classId]);
                         console.log("🎓 Student successfully enrolled in the class via Webhook!");
+                        
+                        // 3. Add Notification
+                        try {
+                            await query(`
+                                INSERT INTO notifications (user_id, title, description, is_read)
+                                VALUES (?, 'Payment Successful', 'Your payment was successful and you have been enrolled.', FALSE)
+                            `, [userId]);
+                        } catch (notifErr) {
+                            console.error("⚠️ Notification save warning:", notifErr);
+                        }
                     } catch (e) {
                         console.error("⚠️ Enrollment warning:", e);
                     }
@@ -126,6 +136,16 @@ router.post('/payment/manual-success', async (req, res) => {
                         VALUES (?, ?)
                     `, [actualStudentId, finalClassId]);
                     console.log("🎓 SUCCESS: Student officially enrolled in the class!");
+                    
+                    // 3. Add Notification
+                    try {
+                        await query(`
+                            INSERT INTO notifications (user_id, title, description, is_read)
+                            VALUES (?, 'Payment Successful', 'Your payment was successful and you have been enrolled.', FALSE)
+                        `, [userId]);
+                    } catch (notifErr) {
+                        console.error("⚠️ Notification save warning:", notifErr);
+                    }
                 } catch (enrollError) {
                     console.error("⚠️ Enrollment save warning:", enrollError);
                 }

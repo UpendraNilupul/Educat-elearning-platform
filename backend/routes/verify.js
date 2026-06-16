@@ -111,6 +111,17 @@ router.get('/notifications/:userId', (req, res) => {
   });
 });
 
+// 3.5 Mark Notifications as read
+router.put('/notifications/:userId/read', (req, res) => {
+  const { userId } = req.params;
+  const sql = "UPDATE notifications SET is_read = TRUE WHERE user_id = ? AND is_read = FALSE";
+  
+  db.query(sql, [userId], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: "Notifications marked as read" });
+  });
+});
+
 // 4. Get Teacher Status for retrieving submitted documents
 router.get('/teacher-status/:userId', (req, res) => {
   const { userId } = req.params;
