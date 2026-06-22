@@ -114,6 +114,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [quizErrors, setQuizErrors] = useState({});
   const [quizData, setQuizData] = useState({
+    title: "",
     number: 1,
     time_limit: "00:30:00",
     publish_at: "",
@@ -607,6 +608,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       setEditingQuizId(qzId);
       setActiveModuleId(moduleId);
       setQuizData({
+        title: data.title || "",
         number: data.number,
         time_limit: data.time_limit,
         publish_at: data.publish_at ? (() => {
@@ -671,6 +673,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       // 1. Create or Update Quiz Metadata
       const quizPayload = {
+        title: quizData.title,
         number: quizData.number,
         time_limit: quizData.time_limit,
         publish_at: quizData.publish_at || null
@@ -742,7 +745,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       setIsQuizModalOpen(false);
       setEditingQuizId(null);
-      setQuizData({ number: 1, time_limit: "00:30:00", publish_at: "", questions: [] });
+      setQuizData({ title: "", number: 1, time_limit: "00:30:00", publish_at: "", questions: [] });
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Error saving quiz: ' + err.message);
@@ -1365,7 +1368,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                 setEditingQuizId(null);
                                 setQuizErrors({});
                                 const nextQuizNumber = (chapter.quizzes || []).length + 1;
-                                setQuizData({ number: nextQuizNumber, time_limit: "00:30:00", publish_at: "", questions: [] });
+                                setQuizData({ title: "", number: nextQuizNumber, time_limit: "00:30:00", publish_at: "", questions: [] });
                                 setIsQuizModalOpen(true); 
                             }}
                             className="text-xs font-bold text-blue-600 hover:text-blue-700"
@@ -1397,7 +1400,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                   </button>
                                 </div>
                                 <div className="flex justify-between items-start mb-2 pr-12">
-                                  <h5 className="font-bold text-gray-800">Quiz</h5>
+                                  <h5 className="font-bold text-gray-800">{qz.title}</h5>
                                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
                                     {qz.time_limit}
                                   </span>
@@ -1880,6 +1883,16 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">{editingQuizId ? 'Edit Quiz' : 'Create Quiz'}</h2>
             <form onSubmit={submitQuiz} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Quiz Title</label>
+                <input
+                  type="text"
+                  value={quizData.title}
+                  onChange={e => setQuizData({ ...quizData, title: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+                  placeholder="e.g. Midterm Exam"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Time Limit (HH:MM:SS)</label>

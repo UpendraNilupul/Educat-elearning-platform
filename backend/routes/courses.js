@@ -68,6 +68,7 @@ router.get('/courses', async (req, res) => {
                 const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
                 mod.quizzes = quizzes.map(q => ({
                     id: q.id,
+                    title: q.title || `Quiz #${q.number}`,
                     number: q.number,
                     timeLimit: q.time_limit,
                     isPeerReviewed: q.is_peer_reviewed === 1,
@@ -518,7 +519,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
+                q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
                 IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q

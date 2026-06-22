@@ -608,7 +608,7 @@ const TuitionClass = () => {
                                                             <div className="flex items-start justify-between mb-2">
                                                                 <div className="flex items-center gap-2">
                                                                     {isLocked ? <Lock size={14} className="text-gray-400" /> : <BookOpen size={14} className="text-gray-700" />}
-                                                                    <h5 className="font-bold text-gray-800">Quiz</h5>
+                                                                    <h5 className="font-bold text-gray-800">{quiz.title || `Quiz #${quiz.number}`}</h5>
                                                                 </div>
                                                                 {quiz.timeLimit && (
                                                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPastDeadline ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
