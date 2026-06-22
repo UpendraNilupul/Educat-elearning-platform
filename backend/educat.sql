@@ -252,6 +252,7 @@ CREATE TABLE assignment_submissions (
 
 CREATE TABLE quizes (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) DEFAULT NULL,
     number INT NOT NULL,
     time_limit TIME NOT NULL,
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
