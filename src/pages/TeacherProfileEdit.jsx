@@ -77,6 +77,28 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (formData.dob) {
+      const selectedDate = new Date(formData.dob);
+      const limitDate = new Date('2018-01-01');
+      const minDate = new Date('1900-01-01');
+      if (selectedDate >= limitDate) {
+        setMessage({ type: 'error', text: 'Date of birth must be before 2018-01-01' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      if (selectedDate < minDate) {
+        setMessage({ type: 'error', text: 'Date of birth must be after 1900-01-01' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      if (formData.dob.split('-')[0].length !== 4) {
+        setMessage({ type: 'error', text: 'Date of birth must have a valid 4-digit year' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
     setLoading(true);
     const data = new FormData();
     for (let key in formData) {
@@ -212,6 +234,8 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
           <input
             type="date"
             name="dob"
+            min="1900-01-01"
+            max="2017-12-31"
             value={formData.dob}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"

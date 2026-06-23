@@ -239,6 +239,102 @@ const AssessmentsPage = () => {
 
     const quizProgress = activeQuiz ? ((currentQuestionIdx + 1) / (activeQuiz.questions?.length || 1)) * 100 : 0;
 
+    const renderAssessmentCard = (item) => {
+        const isLocked = item.publish_at && new Date(item.publish_at) > new Date();
+        return (
+            <div key={`${item.type}-${item.id}`} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+                <div>
+                    <div className="flex justify-between items-start mb-4">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${item.type === 'Quiz' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                            {item.type}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            {item.status}
+                        </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
+                    <p className="text-xs text-gray-500 font-medium mt-1">{item.subject}</p>
+
+                    <div className="mt-4 space-y-2 text-sm text-gray-500">
+                        {item.deadline && (
+                            <div className="flex items-center gap-2">
+                                <Clock size={14} className="text-gray-400" />
+                                <span>Due: {new Date(item.deadline).toLocaleDateString()}</span>
+                            </div>
+                        )}
+                        {item.time_limit && (
+                            <div className="flex items-center gap-2">
+                                <Clock size={14} className="text-gray-400" />
+                                <span>Time Limit: {item.time_limit}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                {item.status === 'pending' ? (
+                    isLocked ? (
+                        <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2 text-xs">
+                            <Clock size={14} /> Locked until {new Date(item.publish_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </button>
+                    ) : isPastDeadline(item) ? (
+                        <button disabled className="w-full bg-red-50 text-red-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed border border-red-100 flex items-center justify-center gap-2 text-xs">
+                            <AlertCircle size={14} /> Missed Deadline
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : navigate(`/student/assignment/${item.id}`)}
+                            className="w-full bg-purple-600 text-white py-2.5 rounded-xl mt-6 font-bold hover:bg-purple-700 transition shadow-sm"
+                        >
+                            {item.type === 'Quiz' ? 'Start Quiz' : 'Start Assignment'}
+                        </button>
+                    )
+                ) : (
+                    item.type === 'Quiz' ? (
+                        <button
+                            onClick={() => handleReviewQuiz(item.id)}
+                            className="w-full bg-blue-100 text-blue-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-blue-200 transition shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <BookOpen size={18} /> Review Quiz
+                        </button>
+                    ) : item.type !== 'Quiz' && new Date(item.deadline) > new Date() && item.sub_status !== 'graded' ? (
+                        <button
+                            onClick={() => navigate(`/student/assignment/${item.id}`)}
+                            className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-gray-300 transition shadow-sm"
+                        >
+                            Resubmit Assignment
+                        </button>
+                    ) : (
+                        <div className="mt-6">
+                            <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl font-bold cursor-not-allowed">
+                                <CheckCircle2 size={18} className="inline mr-2" /> Done
+                            </button>
+
+                            {/* Display Marks and Feedback if Graded */}
+                            {item.type === 'Assignment' && item.sub_status === 'graded' && (
+                                <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Teacher's Grade</span>
+                                        <span className="text-lg font-black text-purple-700">{item.grade} <span className="text-xs text-purple-400">/ {item.max_marks}</span></span>
+                                    </div>
+                                    {item.feedback && (
+                                        <div className="mt-2 pt-2 border-t border-purple-200/50">
+                                            <p className="text-xs text-purple-800 italic">"{item.feedback}"</p>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => navigate(`/student/assignment/${item.id}`)}
+                                        className="w-full mt-3 bg-white text-purple-600 border border-purple-200 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors"
+                                    >
+                                        View Full Details
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="p-8 w-full min-h-screen bg-gray-50 relative">
             {/* Header */}
@@ -265,107 +361,56 @@ const AssessmentsPage = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assessments.filter(item => {
-                    const pastDeadline = isPastDeadline(item);
-                    const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
-                    return effectiveStatus === activeTab;
-                }).map((item) => {
-                    const isLocked = item.publish_at && new Date(item.publish_at) > new Date();
-                    return (
-                        <div key={`${item.type}-${item.id}`} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-                            <div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${item.type === 'Quiz' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                        {item.type}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                        {item.status}
-                                    </span>
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                                <p className="text-xs text-gray-500 font-medium mt-1">{item.subject}</p>
-
-                                <div className="mt-4 space-y-2 text-sm text-gray-500">
-                                    {item.deadline && (
-                                        <div className="flex items-center gap-2">
-                                            <Clock size={14} className="text-gray-400" />
-                                            <span>Due: {new Date(item.deadline).toLocaleDateString()}</span>
-                                        </div>
-                                    )}
-                                    {item.time_limit && (
-                                        <div className="flex items-center gap-2">
-                                            <Clock size={14} className="text-gray-400" />
-                                            <span>Time Limit: {item.time_limit}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            {item.status === 'pending' ? (
-                                isLocked ? (
-                                    <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2 text-xs">
-                                        <Clock size={14} /> Locked until {new Date(item.publish_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                    </button>
-                                ) : isPastDeadline(item) ? (
-                                    <button disabled className="w-full bg-red-50 text-red-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed border border-red-100 flex items-center justify-center gap-2 text-xs">
-                                        <AlertCircle size={14} /> Missed Deadline
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => item.type === 'Quiz' ? handleStartQuiz(item) : navigate(`/student/assignment/${item.id}`)}
-                                        className="w-full bg-purple-600 text-white py-2.5 rounded-xl mt-6 font-bold hover:bg-purple-700 transition shadow-sm"
-                                    >
-                                        {item.type === 'Quiz' ? 'Start Quiz' : 'Start Assignment'}
-                                    </button>
-                                )
-                            ) : (
-                                item.type === 'Quiz' ? (
-                                    <button
-                                        onClick={() => handleReviewQuiz(item.id)}
-                                        className="w-full bg-blue-100 text-blue-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-blue-200 transition shadow-sm flex items-center justify-center gap-2"
-                                    >
-                                        <BookOpen size={18} /> Review Quiz
-                                    </button>
-                                ) : item.type !== 'Quiz' && new Date(item.deadline) > new Date() && item.sub_status !== 'graded' ? (
-                                    <button
-                                        onClick={() => navigate(`/student/assignment/${item.id}`)}
-                                        className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-gray-300 transition shadow-sm"
-                                    >
-                                        Resubmit Assignment
-                                    </button>
-                                ) : (
-                                    <div className="mt-6">
-                                        <button disabled className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl font-bold cursor-not-allowed">
-                                            <CheckCircle2 size={18} className="inline mr-2" /> Done
-                                        </button>
-
-                                        {/* Display Marks and Feedback if Graded */}
-                                        {item.type === 'Assignment' && item.sub_status === 'graded' && (
-                                            <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Teacher's Grade</span>
-                                                    <span className="text-lg font-black text-purple-700">{item.grade} <span className="text-xs text-purple-400">/ {item.max_marks}</span></span>
-                                                </div>
-                                                {item.feedback && (
-                                                    <div className="mt-2 pt-2 border-t border-purple-200/50">
-                                                        <p className="text-xs text-purple-800 italic">"{item.feedback}"</p>
-                                                    </div>
-                                                )}
-                                                <button
-                                                    onClick={() => navigate(`/student/assignment/${item.id}`)}
-                                                    className="w-full mt-3 bg-white text-purple-600 border border-purple-200 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors"
-                                                >
-                                                    View Full Details
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )
+            {activeTab === 'pending' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {assessments.filter(item => {
+                        const pastDeadline = isPastDeadline(item);
+                        const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
+                        return effectiveStatus === 'pending';
+                    }).map(renderAssessmentCard)}
+                </div>
+            ) : (
+                <div className="space-y-12">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 border-b border-gray-200 pb-2">
+                            <BookOpen className="text-blue-500" size={24} /> Completed Quizzes
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {assessments.filter(item => {
+                                const pastDeadline = isPastDeadline(item);
+                                const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
+                                return effectiveStatus === 'completed' && item.type === 'Quiz';
+                            }).map(renderAssessmentCard)}
+                            {assessments.filter(item => {
+                                const pastDeadline = isPastDeadline(item);
+                                const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
+                                return effectiveStatus === 'completed' && item.type === 'Quiz';
+                            }).length === 0 && (
+                                <p className="text-gray-500 italic">No completed quizzes yet.</p>
                             )}
                         </div>
-                    )
-                })}
-            </div>
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 border-b border-gray-200 pb-2">
+                            <ClipboardList className="text-purple-500" size={24} /> Completed Assignments
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {assessments.filter(item => {
+                                const pastDeadline = isPastDeadline(item);
+                                const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
+                                return effectiveStatus === 'completed' && item.type === 'Assignment';
+                            }).map(renderAssessmentCard)}
+                            {assessments.filter(item => {
+                                const pastDeadline = isPastDeadline(item);
+                                const effectiveStatus = (item.status === 'pending' && pastDeadline) ? 'completed' : item.status;
+                                return effectiveStatus === 'completed' && item.type === 'Assignment';
+                            }).length === 0 && (
+                                <p className="text-gray-500 italic">No completed assignments yet.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Quiz Player Overlay */}
             {activeQuiz && (

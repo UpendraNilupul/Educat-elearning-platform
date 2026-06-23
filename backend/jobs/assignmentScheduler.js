@@ -63,7 +63,7 @@ const initAssignmentScheduler = (io) => {
 
             // 2. Find all pending quizzes
             const pendingQuizzes = await query(`
-                SELECT q.id, q.number, m.c_id, cc.title as course_title
+                SELECT q.id, q.title, q.number, m.c_id, cc.title as course_title
                 FROM quizes q
                 JOIN modules m ON q.m_id = m.id
                 JOIN classes_courses cc ON m.c_id = cc.id
@@ -90,7 +90,7 @@ const initAssignmentScheduler = (io) => {
                             VALUES (?, ?, ?)
                         `, [
                             'New Quiz Published',
-                            `A new quiz (Quiz #${qz.number}) has been published in your course "${qz.course_title}".`,
+                            `A new quiz (${qz.title || `Quiz #${qz.number}`}) has been published in your course "${qz.course_title}".`,
                             student.user_id
                         ]);
                         
@@ -98,7 +98,7 @@ const initAssignmentScheduler = (io) => {
                         if (io) {
                             io.to(`user_${student.user_id}`).emit('new_notification', {
                                 title: 'New Quiz Published',
-                                description: `A new quiz (Quiz #${qz.number}) has been published in your course "${qz.course_title}".`
+                                description: `A new quiz (${qz.title || `Quiz #${qz.number}`}) has been published in your course "${qz.course_title}".`
                             });
                         }
                     }

@@ -29,6 +29,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     name: "",
     title: "",
     type: "Class",
+    grade: "",
     status: "not_active",
     is_published: false,
     theme_color: "purple",
@@ -38,6 +39,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     progress: 0,
     monthly_fee: 0
   });
+
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 
   const [expandedChapters, setExpandedChapters] = useState([]);
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
@@ -111,6 +114,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [quizErrors, setQuizErrors] = useState({});
   const [quizData, setQuizData] = useState({
+    title: "",
     number: 1,
     time_limit: "00:30:00",
     publish_at: "",
@@ -604,6 +608,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       setEditingQuizId(qzId);
       setActiveModuleId(moduleId);
       setQuizData({
+        title: data.title || "",
         number: data.number,
         time_limit: data.time_limit,
         publish_at: data.publish_at ? (() => {
@@ -668,6 +673,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       // 1. Create or Update Quiz Metadata
       const quizPayload = {
+        title: quizData.title,
         number: quizData.number,
         time_limit: quizData.time_limit,
         publish_at: quizData.publish_at || null
@@ -739,7 +745,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       setIsQuizModalOpen(false);
       setEditingQuizId(null);
-      setQuizData({ number: 1, time_limit: "00:30:00", publish_at: "", questions: [] });
+      setQuizData({ title: "", number: 1, time_limit: "00:30:00", publish_at: "", questions: [] });
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Error saving quiz: ' + err.message);
@@ -941,6 +947,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       name: "",
       title: "",
       type: "Class",
+      grade: "",
       status: "not_active",
       is_published: false,
       theme_color: "purple",
@@ -959,6 +966,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       name: course.name || "",
       title: course.title || "",
       type: course.type || "Class",
+      grade: course.grade || "",
       status: course.status || "not_active",
       is_published: course.is_published || false,
       theme_color: course.theme_color || "purple",
@@ -969,6 +977,32 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       monthly_fee: course.monthly_fee || 0
     });
     setIsModalOpen(true);
+  };
+
+  const handleThumbnailUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadData = new FormData();
+    uploadData.append("thumbnail", file);
+
+    setIsUploadingThumbnail(true);
+    try {
+      const response = await api.post("/courses/upload-thumbnail", uploadData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      setFormData((prev) => ({
+        ...prev,
+        thumbnail_url: response.data.url,
+      }));
+    } catch (error) {
+      console.error("Error uploading thumbnail:", error);
+      alert(error.response?.data?.message || "Failed to upload image");
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -1334,7 +1368,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                 setEditingQuizId(null);
                                 setQuizErrors({});
                                 const nextQuizNumber = (chapter.quizzes || []).length + 1;
-                                setQuizData({ number: nextQuizNumber, time_limit: "00:30:00", publish_at: "", questions: [] });
+                                setQuizData({ title: "", number: nextQuizNumber, time_limit: "00:30:00", publish_at: "", questions: [] });
                                 setIsQuizModalOpen(true); 
                             }}
                             className="text-xs font-bold text-blue-600 hover:text-blue-700"
@@ -1366,7 +1400,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                   </button>
                                 </div>
                                 <div className="flex justify-between items-start mb-2 pr-12">
-                                  <h5 className="font-bold text-gray-800">Quiz</h5>
+                                  <h5 className="font-bold text-gray-800">{qz.title}</h5>
                                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
                                     {qz.time_limit}
                                   </span>
@@ -1418,7 +1452,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-xl text-gray-800 line-clamp-2">{course.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{course.students} Students • {course.modules} Modules</p>
+                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.students} Students • {course.modules} Modules</p>
                     <p className="text-sm font-bold text-purple-600 mt-1">LKR {course.monthly_fee ? parseFloat(course.monthly_fee).toFixed(2) : '0.00'}</p>
                   </div>
                 </div>
@@ -1667,15 +1701,29 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail Image URL</label>
-                <input
-                  type="url"
-                  name="thumbnail_url"
-                  value={formData.thumbnail_url}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Course Thumbnail</label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    {formData.thumbnail_url && (
+                      <img
+                        src={formData.thumbnail_url}
+                        alt="Thumbnail Preview"
+                        className="w-16 h-16 rounded-xl object-cover border"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleThumbnailUpload}
+                        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  {isUploadingThumbnail && (
+                    <p className="text-xs text-purple-600 animate-pulse font-medium">Uploading image...</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1707,17 +1755,34 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="not_active">Not Active</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="not_active">Not Active</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                  <select
+                    name="grade"
+                    value={formData.grade}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                  >
+                    <option value="">Select Grade</option>
+                    {Array.from({ length: 13 }, (_, i) => `Grade ${i + 1}`).map((grade) => (
+                      <option key={grade} value={grade}>{grade}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4 border-t mt-6">
@@ -1818,6 +1883,16 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">{editingQuizId ? 'Edit Quiz' : 'Create Quiz'}</h2>
             <form onSubmit={submitQuiz} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Quiz Title</label>
+                <input
+                  type="text"
+                  value={quizData.title}
+                  onChange={e => setQuizData({ ...quizData, title: e.target.value })}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
+                  placeholder="e.g. Midterm Exam"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Time Limit (HH:MM:SS)</label>

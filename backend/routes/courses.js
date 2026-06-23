@@ -68,6 +68,7 @@ router.get('/courses', async (req, res) => {
                 const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
                 mod.quizzes = quizzes.map(q => ({
                     id: q.id,
+                    title: q.title || `Quiz #${q.number}`,
                     number: q.number,
                     timeLimit: q.time_limit,
                     isPeerReviewed: q.is_peer_reviewed === 1,
@@ -82,17 +83,39 @@ router.get('/courses', async (req, res) => {
     }
 });
 
+const thumbnailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/thumbnails';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+const uploadThumbnail = multer({ storage: thumbnailStorage });
+
+// POST upload course thumbnail
+router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uploadThumbnail.single('thumbnail'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+    const baseURL = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+    const fileUrl = `${baseURL}/uploads/thumbnails/${req.file.filename}`;
+    res.status(200).json({ url: fileUrl });
+});
+
 // POST a new course
 router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("POST /courses req.body:", req.body);
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
 
         const result = await query(
-            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
+            'INSERT INTO classes_courses (name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
         );
         res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
@@ -105,17 +128,16 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("PUT /courses/:id req.body:", req.body);
     const { id } = req.params;
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
-
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
+    
     const updateQuery = `
         UPDATE classes_courses 
-        SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
+        SET name = ?, title = ?, type = ?, grade = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
         WHERE id = ?
     `;
-
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
-
-
+    
+    const values = [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
+    
 
 
     try {
@@ -123,7 +145,7 @@ router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) =
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
         }
-        res.status(200).json({ id: parseInt(id), name, title, type, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
+        res.status(200).json({ id: parseInt(id), name, title, type, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
         return res.status(500).json({ message: 'Server error' });
@@ -360,6 +382,7 @@ router.get('/courses/search', async (req, res) => {
             c.name AS class_name, 
             c.title AS subject, 
             c.type, 
+            c.grade,
             c.theme_color, 
             c.thumbnail_url, 
             u.name AS teacher_name 
@@ -496,7 +519,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
+                q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
                 IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
@@ -513,6 +536,46 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
     } catch (err) {
         console.error("Assessments fetch error:", err);
         res.status(500).json({ error: "Failed to fetch assessments" });
+    }
+});
+
+// GET scheduled live classes for courses the student is enrolled in
+router.get('/student/liveclasses', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+
+    try {
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        if (studentRes.length === 0) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+        const studentId = studentRes[0].id;
+
+        const liveClasses = await query(`
+            SELECT 
+                lc.id,
+                lc.c_id,
+                lc.title,
+                DATE_FORMAT(lc.scheduled_date, '%Y-%m-%d') AS scheduled_date,
+                lc.start_time,
+                lc.duration_minutes,
+                lc.meeting_link,
+                lc.status,
+                c.title AS course_title,
+                c.theme_color,
+                u.name AS teacher_name
+            FROM live_classes lc
+            JOIN classes_courses c ON lc.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            JOIN teachers t ON c.t_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE e.s_id = ? AND lc.status = 'scheduled' AND c.status = 'active'
+            ORDER BY lc.scheduled_date ASC, lc.start_time ASC
+        `, [studentId]);
+
+        res.status(200).json(liveClasses);
+    } catch (err) {
+        console.error("Error fetching student live classes:", err);
+        res.status(500).json({ error: "Failed to fetch live classes" });
     }
 });
 
