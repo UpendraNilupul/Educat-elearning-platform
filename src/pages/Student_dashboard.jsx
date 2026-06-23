@@ -8,12 +8,13 @@ import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
 import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
+import StudentVirtualClassroom from './StudentVirtualClassroom';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
     LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
     Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
-    Edit2, Search, SearchX, Loader2, MessageSquare
+    Edit2, Search, SearchX, Loader2, MessageSquare, Video
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -165,6 +166,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Calendar', icon: Calendar },
         { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
+        { name: 'Virtual Classroom', icon: Video },
     ];
 
     return (
@@ -244,6 +246,8 @@ const Student = ({ userName, onLogout }) => {
                         <StudentCalendar studentId={1} />
                     ) : selectedSection === 'Messages' ? (
                         <StudentChat />
+                    ) : selectedSection === 'Virtual Classroom' ? (
+                        <StudentVirtualClassroom />
                     ) : (
                         <>
                             {/* Welcome Section */}

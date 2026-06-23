@@ -8,12 +8,12 @@ const query = util.promisify(db.query).bind(db);
 // --- TEACHER: CREATE QUIZ ---
 router.post('/modules/:mId/quizzes', async (req, res) => {
     const { mId } = req.params;
-    const { number, time_limit, publish_at } = req.body;
+    const { title, number, time_limit, publish_at } = req.body;
 
     try {
         const result = await query(
-            'INSERT INTO quizes (m_id, number, time_limit, is_peer_reviewed, publish_at) VALUES (?, ?, ?, ?, ?)',
-            [mId, number, time_limit || '00:30:00', false, publish_at || null]
+            'INSERT INTO quizes (m_id, title, number, time_limit, is_peer_reviewed, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [mId, title || null, number, time_limit || '00:30:00', false, publish_at || null]
         );
         res.status(201).json({ id: result.insertId, message: 'Quiz created successfully' });
     } catch (err) {
@@ -72,8 +72,9 @@ router.get('/quizzes/:id', async (req, res) => {
     try {
         const quizRes = await query('SELECT * FROM quizes WHERE id = ?', [id]);
         if (quizRes.length === 0) return res.status(404).json({ error: 'Quiz not found' });
-        
+
         const quiz = quizRes[0];
+        quiz.title = quiz.title || `Quiz #${quiz.number}`;
 
         // Fetch questions for this quiz
         const questions = await query(`
@@ -115,19 +116,20 @@ router.post('/quizzes/:id/start', async (req, res) => {
         const quizRes = await query('SELECT * FROM quizes WHERE id = ?', [id]);
         if (quizRes.length === 0) return res.status(404).json({ error: 'Quiz not found' });
         const quiz = quizRes[0];
+        quiz.title = quiz.title || `Quiz #${quiz.number}`;
 
         if (quiz.publish_at) {
             const publishDate = new Date(quiz.publish_at);
             if (publishDate > new Date()) {
                 return res.status(403).json({ error: 'Quiz is not yet published and cannot be accessed.' });
             }
-            
+
             let timeLimitMs = 0;
             if (quiz.time_limit) {
                 const parts = quiz.time_limit.split(':');
                 timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
             }
-            
+
             if (new Date() > new Date(publishDate.getTime() + timeLimitMs)) {
                 return res.status(403).json({ error: 'The quiz deadline has passed and it can no longer be started.' });
             }
@@ -169,7 +171,7 @@ router.post('/quizzes/:id/start', async (req, res) => {
                 const now = new Date();
                 const elapsedSecs = Math.floor((now - startedAt) / 1000);
                 remainingTime = Math.max(0, timeLimitSecs - elapsedSecs);
-                
+
                 // If time expired on backend, we could auto-submit here, but let's let frontend handle it for now
                 // or just send 0 so frontend auto-submits immediately.
             }
@@ -180,7 +182,7 @@ router.post('/quizzes/:id/start', async (req, res) => {
                 [id, sId]
             );
             submission = { id: insertRes.insertId };
-            
+
             if (quiz.time_limit) {
                 const parts = quiz.time_limit.split(':');
                 remainingTime = (parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2]);
@@ -208,7 +210,7 @@ router.post('/quizzes/:id/start', async (req, res) => {
         quiz.questions = questions;
         quiz.remainingTime = remainingTime;
         quiz.savedState = savedState;
-        
+
         res.json(quiz);
     } catch (err) {
         console.error('Error starting quiz:', err);
@@ -250,6 +252,7 @@ router.get('/quizzes/:id/review/:userId', async (req, res) => {
         const quizRes = await query('SELECT * FROM quizes WHERE id = ?', [id]);
         if (quizRes.length === 0) return res.status(404).json({ error: 'Quiz not found' });
         const quiz = quizRes[0];
+        quiz.title = quiz.title || `Quiz #${quiz.number}`;
 
         // 2. Fetch questions with ALL options and flag which ones are correct
         const questions = await query(`
@@ -283,7 +286,7 @@ router.get('/quizzes/:id/review/:userId', async (req, res) => {
                 FROM student_quiz_answers sa
                 WHERE sa.submission_id = ?
             `, [subId]);
-            
+
             // Format into { qId: aId } or { qId: [aId1, aId2] }
             answers.forEach(ans => {
                 const qType = questions.find(q => q.id === ans.q_id)?.type;
@@ -294,7 +297,7 @@ router.get('/quizzes/:id/review/:userId', async (req, res) => {
                     studentAnswers[ans.q_id] = ans.a_id;
                 }
             });
-            
+
             // Add score to the response
             quiz.score = submission[0].score;
         }
@@ -313,6 +316,7 @@ router.get('/quizzes/:id/questions', async (req, res) => {
         const quizRes = await query('SELECT * FROM quizes WHERE id = ?', [id]);
         if (quizRes.length === 0) return res.status(404).json({ error: 'Quiz not found' });
         const quiz = quizRes[0];
+        quiz.title = quiz.title || `Quiz #${quiz.number}`;
 
         // Check if quiz is published
         if (quiz.publish_at && new Date(quiz.publish_at) > new Date()) {
@@ -357,7 +361,7 @@ router.post('/quizzes/:qzId/submit', async (req, res) => {
             "SELECT id FROM quiz_submissions WHERE qz_id = ? AND s_id = ? AND status = 'in_progress' ORDER BY id DESC LIMIT 1",
             [qzId, sId]
         );
-        
+
         let submissionId;
         if (subRes.length > 0) {
             submissionId = subRes[0].id;
@@ -397,13 +401,13 @@ router.post('/quizzes/:qzId/submit', async (req, res) => {
             // Fetch question metadata
             const qMeta = await query('SELECT type, marks FROM question_bank WHERE id = ?', [qId]);
             if (qMeta.length === 0) continue;
-            
+
             const { type, marks } = qMeta[0];
             const maxMarks = parseFloat(marks);
 
             // Fetch all options for this question
             const allOptions = await query('SELECT id, correct FROM answers WHERE q_id = ?', [qId]);
-            
+
             let correctCount = 0;
             let incorrectCount = 0;
             const correctSet = new Set();
@@ -437,14 +441,14 @@ router.post('/quizzes/:qzId/submit', async (req, res) => {
                 // Checkbox: Partial credit + Penalty
                 let reward = 0;
                 let penalty = 0;
-                
+
                 if (correctCount > 0) {
                     reward = (maxMarks / correctCount) * userCorrectPicks;
                 }
                 if (incorrectCount > 0) {
                     penalty = (maxMarks / incorrectCount) * userIncorrectPicks;
                 }
-                
+
                 questionScore = reward - penalty;
                 if (questionScore < 0) questionScore = 0; // Floor limit
             } else {
@@ -460,10 +464,10 @@ router.post('/quizzes/:qzId/submit', async (req, res) => {
         // 4. Update total score in submission
         await query('UPDATE quiz_submissions SET score = ? WHERE id = ?', [totalScore, submissionId]);
 
-        res.json({ 
-            message: 'Quiz submitted successfully', 
-            submissionId, 
-            score: totalScore 
+        res.json({
+            message: 'Quiz submitted successfully',
+            submissionId,
+            score: totalScore
         });
     } catch (err) {
         console.error('Error submitting quiz:', err);
@@ -486,12 +490,12 @@ router.get('/modules/:mId/quizzes', async (req, res) => {
 // --- TEACHER: UPDATE QUIZ METADATA ---
 router.put('/quizzes/:id', async (req, res) => {
     const { id } = req.params;
-    const { number, time_limit, publish_at } = req.body;
+    const { title, number, time_limit, publish_at } = req.body;
 
     try {
         await query(
-            'UPDATE quizes SET number = ?, time_limit = ?, publish_at = ? WHERE id = ?',
-            [number, time_limit, publish_at, id]
+            'UPDATE quizes SET title = ?, number = ?, time_limit = ?, publish_at = ? WHERE id = ?',
+            [title || null, number, time_limit, publish_at, id]
         );
         res.json({ message: 'Quiz updated successfully' });
     } catch (err) {
@@ -506,10 +510,10 @@ router.delete('/quizzes/:id', async (req, res) => {
     try {
         // 1. Delete associated questions mapping
         await query('DELETE FROM quiz_questions WHERE qz_id = ?', [id]);
-        
+
         // 2. Delete the quiz
         await query('DELETE FROM quizes WHERE id = ?', [id]);
-        
+
         res.json({ message: 'Quiz deleted successfully' });
     } catch (err) {
         console.error('Error deleting quiz:', err);

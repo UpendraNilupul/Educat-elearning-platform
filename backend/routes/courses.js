@@ -68,6 +68,7 @@ router.get('/courses', async (req, res) => {
                 const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
                 mod.quizzes = quizzes.map(q => ({
                     id: q.id,
+                    title: q.title || `Quiz #${q.number}`,
                     number: q.number,
                     timeLimit: q.time_limit,
                     isPeerReviewed: q.is_peer_reviewed === 1,
@@ -518,7 +519,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
+                q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
                 IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
@@ -535,6 +536,46 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
     } catch (err) {
         console.error("Assessments fetch error:", err);
         res.status(500).json({ error: "Failed to fetch assessments" });
+    }
+});
+
+// GET scheduled live classes for courses the student is enrolled in
+router.get('/student/liveclasses', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+
+    try {
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        if (studentRes.length === 0) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+        const studentId = studentRes[0].id;
+
+        const liveClasses = await query(`
+            SELECT 
+                lc.id,
+                lc.c_id,
+                lc.title,
+                DATE_FORMAT(lc.scheduled_date, '%Y-%m-%d') AS scheduled_date,
+                lc.start_time,
+                lc.duration_minutes,
+                lc.meeting_link,
+                lc.status,
+                c.title AS course_title,
+                c.theme_color,
+                u.name AS teacher_name
+            FROM live_classes lc
+            JOIN classes_courses c ON lc.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            JOIN teachers t ON c.t_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE e.s_id = ? AND lc.status = 'scheduled' AND c.status = 'active'
+            ORDER BY lc.scheduled_date ASC, lc.start_time ASC
+        `, [studentId]);
+
+        res.status(200).json(liveClasses);
+    } catch (err) {
+        console.error("Error fetching student live classes:", err);
+        res.status(500).json({ error: "Failed to fetch live classes" });
     }
 });
 

@@ -97,6 +97,7 @@ router.get('/student/classes', async (req, res) => {
                     })),
                     quizzes: quizzes.map(q => ({
                         id: q.id,
+                        title: q.title,
                         number: q.number,
                         timeLimit: q.time_limit,
                         publish_at: q.publish_at
