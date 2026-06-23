@@ -18,13 +18,13 @@ router.get('/student/classes', async (req, res) => {
 
         const classes = await query(`
             SELECT 
-                c.id, c.title AS grade, c.title AS subject, c.monthly_fee, c.thumbnail_url,
+                c.id, c.status, c.title AS grade, c.title AS subject, c.monthly_fee, c.thumbnail_url,
                 t.id AS teacher_id, u.name AS teacher_name, u.picture AS teacher_image
             FROM classes_courses c
             JOIN enrollments e ON c.id = e.c_id
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
-            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
             GROUP BY c.id
         `, [studentId]);
 
@@ -126,6 +126,7 @@ router.get('/student/classes', async (req, res) => {
                 id: cls.id,
                 grade: cls.grade || 'Grade',
                 subject: cls.subject,
+                status: cls.status,
                 thumbnail: cls.thumbnail_url || null,
                 teacher: {
                     name: cls.teacher_name,
@@ -208,6 +209,12 @@ router.post('/reviews', async (req, res) => {
             studentId = studentRes[0].id;
         }
 
+        // Check if student already reviewed this class
+        const existingReview = await query(`SELECT id FROM reviews WHERE c_id = ? AND s_id = ?`, [c_id, studentId]);
+        if (existingReview.length > 0) {
+            return res.status(409).json({ error: 'Duplicate: You have already submitted a review for this class.' });
+        }
+
         await query(
             'INSERT INTO reviews (title, description, rating, survey_responses, c_id, s_id) VALUES (?, ?, ?, ?, ?, ?)',
             [title || 'Review', description, rating, JSON.stringify(survey_responses), c_id, studentId]
@@ -215,6 +222,25 @@ router.post('/reviews', async (req, res) => {
         res.status(200).json({ success: true, message: 'Review added successfully' });
     } catch (error) {
         console.error("Error in /reviews:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. GET CHECK REVIEW STATUS
+router.get('/reviews/check/:classId/:userId', async (req, res) => {
+    try {
+        const { classId, userId } = req.params;
+        
+        let studentId = userId;
+        const studentRes = await query(`SELECT id FROM students WHERE user_id = ?`, [userId]);
+        if (studentRes.length > 0) {
+            studentId = studentRes[0].id;
+        }
+
+        const existingReview = await query(`SELECT id FROM reviews WHERE c_id = ? AND s_id = ?`, [classId, studentId]);
+        res.status(200).json({ hasReviewed: existingReview.length > 0 });
+    } catch (error) {
+        console.error("Error checking review status:", error);
         res.status(500).json({ error: error.message });
     }
 });
