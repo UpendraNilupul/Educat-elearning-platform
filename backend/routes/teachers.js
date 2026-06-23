@@ -104,6 +104,33 @@ router.get('/teachers/:userId/dashboard-stats', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch dashboard stats' });
     }
 });
+// Get Reviews for a specific teacher
+router.get('/teachers/:userId/reviews', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const teacherRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+        if (teacherRes.length === 0) return res.status(404).json({ error: 'Teacher not found' });
+        const teacherId = teacherRes[0].id;
+
+        const reviewsRes = await query(`
+            SELECT r.id, r.title, r.description, r.rating, r.survey_responses, r.c_id, cc.title as course_name, u.name as student_name
+            FROM reviews r
+            JOIN classes_courses cc ON r.c_id = cc.id
+            LEFT JOIN students s ON r.s_id = s.id
+            LEFT JOIN users u ON s.user_id = u.id
+            WHERE cc.t_id = ?
+            ORDER BY r.id DESC
+        `, [teacherId]);
+
+        res.json({
+            success: true,
+            reviews: reviewsRes
+        });
+    } catch (err) {
+        console.error('Error fetching teacher reviews:', err);
+        res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
 
 // GET all live classes for the authenticated teacher
 router.get('/teacher/liveclasses', requireAuth, requireRole(['teacher']), async (req, res) => {
@@ -156,6 +183,10 @@ router.post('/teacher/liveclasses', requireAuth, requireRole(['teacher']), async
 
         if (scheduled_date < todayStr) {
             return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
+        }
+        const dateParts = scheduled_date.split('-');
+        if (dateParts[0].length !== 4 || parseInt(dateParts[0], 10) > 2100) {
+            return res.status(400).json({ error: 'Scheduled date must be a valid date with a 4-digit year no later than 2100.' });
         }
 
         const result = await query(`
@@ -218,6 +249,10 @@ router.put('/teacher/liveclasses/:id', requireAuth, requireRole(['teacher']), as
 
         if (scheduled_date < todayStr) {
             return res.status(400).json({ error: 'Scheduled date must be today or a future date.' });
+        }
+        const dateParts = scheduled_date.split('-');
+        if (dateParts[0].length !== 4 || parseInt(dateParts[0], 10) > 2100) {
+            return res.status(400).json({ error: 'Scheduled date must be a valid date with a 4-digit year no later than 2100.' });
         }
 
         await query(`

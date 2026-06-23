@@ -8,12 +8,13 @@ import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
 import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
+import StudentVirtualClassroom from './StudentVirtualClassroom';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
     LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
     Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
-    Edit2, Search, SearchX, Loader2, MessageSquare
+    Edit2, Search, SearchX, Loader2, MessageSquare, Video
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -165,6 +166,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Calendar', icon: Calendar },
         { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
+        { name: 'Virtual Classroom', icon: Video },
     ];
 
     return (
@@ -244,6 +246,8 @@ const Student = ({ userName, onLogout }) => {
                         <StudentCalendar studentId={1} />
                     ) : selectedSection === 'Messages' ? (
                         <StudentChat />
+                    ) : selectedSection === 'Virtual Classroom' ? (
+                        <StudentVirtualClassroom />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -391,7 +395,7 @@ const Student = ({ userName, onLogout }) => {
                                             <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border border-orange-100 shadow-sm rounded-2xl hover:shadow-lg group">
                                                 <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
                                                 <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-orange-50/50 to-white">
-                                                    <img src={cls.teacher?.image} alt={cls.teacher?.name} className="object-cover w-16 h-16 shadow-sm rounded-xl" />
+                                                    <img src={cls.thumbnail || cls.teacher?.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                                     <div>
                                                         <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher?.name || cls.teacher_name}</h3>
                                                         <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>

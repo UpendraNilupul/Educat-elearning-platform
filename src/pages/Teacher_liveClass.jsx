@@ -278,14 +278,21 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     title: editingClass ? editingClass.title : '',
     date: editingClass ? editingClass.scheduled_date || editingClass.date || '' : '',
     time: editingClass ? (editingClass.time.includes('AM') || editingClass.time.includes('PM') ? convert12to24(editingClass.time) : editingClass.time) : '',
-    duration: editingClass ? (editingClass.duration || editingClass.duration_minutes || '60').toString().replace(' mins', '').replace(' min', '').trim() : '60',
+    duration: editingClass ? (editingClass.duration_minutes || '60').toString() : '60',
     link: editingClass ? editingClass.link : ''
   });
 
   const [dateError, setDateError] = useState(() => {
     const initialDate = editingClass ? editingClass.scheduled_date || editingClass.date || '' : '';
-    if (initialDate && initialDate < todayStr) {
-      return 'Please select today or a future date.';
+    if (initialDate) {
+      const parts = initialDate.split('-');
+      const yearVal = parseInt(parts[0], 10);
+      if (initialDate < todayStr) {
+        return 'Please select today or a future date.';
+      }
+      if (parts[0].length > 4 || yearVal > 2100) {
+        return 'Please select a valid year (up to 2100).';
+      }
     }
     return '';
   });
@@ -294,8 +301,16 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     if (name === 'date') {
-      if (value && value < todayStr) {
-        setDateError('Please select today or a future date.');
+      if (value) {
+        const parts = value.split('-');
+        const yearVal = parseInt(parts[0], 10);
+        if (value < todayStr) {
+          setDateError('Please select today or a future date.');
+        } else if (parts[0].length > 4 || yearVal > 2100) {
+          setDateError('Please select a valid year (up to 2100).');
+        } else {
+          setDateError('');
+        }
       } else {
         setDateError('');
       }
@@ -306,6 +321,12 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
     e.preventDefault();
     if (formData.date < todayStr) {
       setDateError('Please select today or a future date.');
+      return;
+    }
+    const parts = formData.date.split('-');
+    const yearVal = parseInt(parts[0], 10);
+    if (parts[0].length > 4 || yearVal > 2100) {
+      setDateError('Please select a valid year (up to 2100).');
       return;
     }
     onSave(formData);
@@ -374,6 +395,7 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
                 type="date" 
                 name="date"
                 min={todayStr}
+                max="2100-12-31"
                 value={formData.date}
                 onChange={handleChange}
                 className={`w-full border rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none ${
@@ -406,12 +428,16 @@ const ScheduleModal = ({ onClose, editingClass, onSave, courses, loadingCourses 
                 name="duration"
                 value={formData.duration}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white"
               >
-                <option value="30">30 min</option>
-                <option value="60">1 hr</option>
-                <option value="90">1.5 hr</option>
-                <option value="120">2 hr</option>
+                {Array.from({ length: 12 }, (_, i) => (i + 1) * 30).map((mins) => {
+                  const label = mins >= 60 ? `${mins / 60} hr` : `${mins} min`;
+                  return (
+                    <option key={mins} value={mins.toString()}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="col-span-2">
