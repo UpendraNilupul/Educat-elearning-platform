@@ -50,7 +50,7 @@ router.get('/student/classes', async (req, res) => {
             for (let mod of modules) {
 
                 const lessons = await query('SELECT id, title FROM lessons WHERE m_id = ? AND isVisible = 1 ORDER BY number ASC', [mod.id]);
-                
+
                 for (let lesson of lessons) {
                     const resources = await query('SELECT id, name, link, type FROM resources WHERE l_id = ? AND isVisible = 1 ORDER BY number ASC', [lesson.id]);
                     lesson.resources = resources;
