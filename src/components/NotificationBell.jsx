@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Circle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api';
 
@@ -7,6 +7,7 @@ const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [filter, setFilter] = useState('all'); // 'all' or 'unread'
     const dropdownRef = useRef(null);
     const userId = localStorage.getItem('userId') || '2'; // Default or logged in user
 
@@ -58,19 +59,31 @@ const NotificationBell = () => {
         }
     };
 
-    const handleBellClick = async () => {
+    const handleBellClick = () => {
         setIsOpen(!isOpen);
-        if (!isOpen && unreadCount > 0) {
-            // Mark all as read when opened
-            try {
-                await api.put(`/notifications/${userId}/read`);
-                setUnreadCount(0);
-                setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-            } catch (error) {
-                console.error('Error marking notifications as read:', error);
-            }
+    };
+
+    const markAsRead = async (notificationId) => {
+        try {
+            await api.put(`/notifications/${userId}/read/${notificationId}`);
+            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: 1 } : n));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
         }
     };
+
+    const markAllAsRead = async () => {
+        try {
+            await api.put(`/notifications/${userId}/read`);
+            setUnreadCount(0);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+        } catch (error) {
+            console.error('Error marking notifications as read:', error);
+        }
+    };
+
+    const filteredNotifications = notifications.filter(n => filter === 'all' ? true : !n.is_read);
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -94,34 +107,58 @@ const NotificationBell = () => {
                             </span>
                         )}
                     </div>
+
+                    <div className="px-4 py-2 flex gap-2 border-b border-gray-100">
+                        <button 
+                            className={`px-3 py-1 text-xs rounded-full transition-colors ${filter === 'all' ? 'bg-gray-200 text-gray-800 font-semibold' : 'text-gray-500 hover:bg-gray-100'}`}
+                            onClick={() => setFilter('all')}
+                        >
+                            All
+                        </button>
+                        <button 
+                            className={`px-3 py-1 text-xs rounded-full transition-colors ${filter === 'unread' ? 'bg-brand-purple text-white font-semibold' : 'text-gray-500 hover:bg-gray-100'}`}
+                            onClick={() => setFilter('unread')}
+                        >
+                            Unread
+                        </button>
+                    </div>
                     
                     <div className="max-h-[350px] overflow-y-auto">
-                        {notifications.length === 0 ? (
+                        {filteredNotifications.length === 0 ? (
                             <div className="p-6 text-center text-gray-500 text-sm">
-                                No notifications yet.
+                                No notifications found.
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-50">
-                                {notifications.map((notif) => (
-                                    <div key={notif.id} className={`p-4 transition-colors hover:bg-gray-50 ${!notif.is_read ? 'bg-purple-50/30' : ''}`}>
-                                        <h4 className="text-sm font-semibold text-gray-900 mb-1">{notif.title}</h4>
-                                        <p className="text-xs text-gray-600 line-clamp-2">{notif.description}</p>
-                                        <span className="text-[10px] text-gray-400 mt-2 block">
-                                            {new Date(notif.created_at).toLocaleString()}
-                                        </span>
+                                {filteredNotifications.map((notif) => (
+                                    <div 
+                                        key={notif.id} 
+                                        onClick={() => !notif.is_read && markAsRead(notif.id)}
+                                        className={`p-4 transition-colors hover:bg-gray-50 flex gap-3 ${!notif.is_read ? 'bg-purple-50/30 cursor-pointer' : ''}`}
+                                    >
+                                        <div className="mt-1 flex-shrink-0">
+                                            {!notif.is_read && <div className="w-2.5 h-2.5 bg-black rounded-full" title="Unread"></div>}
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className={`text-sm mb-1 ${!notif.is_read ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{notif.title}</h4>
+                                            <p className="text-xs text-gray-600 line-clamp-2">{notif.description}</p>
+                                            <span className="text-[10px] text-gray-400 mt-2 block">
+                                                {new Date(notif.created_at).toLocaleString()}
+                                            </span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
                     
-                    {notifications.length > 0 && (
+                    {notifications.length > 0 && unreadCount > 0 && (
                         <div className="p-3 border-t border-gray-100 bg-gray-50 text-center">
                             <button 
-                                onClick={() => setIsOpen(false)}
+                                onClick={markAllAsRead}
                                 className="text-xs font-semibold text-brand-purple hover:text-purple-700 transition-colors flex items-center justify-center gap-1 w-full cursor-pointer hover:underline"
                             >
-                                <Check className="w-3 h-3" /> All caught up
+                                <Check className="w-3 h-3" /> Mark all as read
                             </button>
                         </div>
                     )}

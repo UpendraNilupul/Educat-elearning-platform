@@ -111,14 +111,30 @@ router.get('/notifications/:userId', (req, res) => {
   });
 });
 
-// 3.5 Mark Notifications as read
+// 3.5 Mark All Notifications as read
 router.put('/notifications/:userId/read', (req, res) => {
   const { userId } = req.params;
-  const sql = "UPDATE notifications SET is_read = TRUE WHERE user_id = ? AND is_read = FALSE";
+  const sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0";
   
   db.query(sql, [userId], (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
+    console.log(`All notifications marked read for user ${userId}. Affected: ${result.affectedRows}`);
     res.json({ success: true, message: "Notifications marked as read" });
+  });
+});
+
+// 3.6 Mark Single Notification as read
+router.put('/notifications/:userId/read/:notificationId', (req, res) => {
+  const { userId, notificationId } = req.params;
+  const sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND id = ?";
+  
+  db.query(sql, [userId, notificationId], (err, result) => {
+    if (err) {
+      console.error("Error marking notification read:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log(`Notification ${notificationId} read status updated. Affected rows: ${result.affectedRows}`);
+    res.json({ success: true, message: "Notification marked as read" });
   });
 });
 
