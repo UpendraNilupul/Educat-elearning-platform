@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import db from '../db.js'; 
 import util from 'util';
+import { sendEnrollmentEmail } from '../emailService.js';
 
 const query = util.promisify(db.query).bind(db);
 const router = express.Router();
@@ -45,10 +46,17 @@ router.post('/payment/notify', async (req, res) => {
             const [classId, moduleId, userId, timestamp] = order_id.split('_');
 
             try {
-                const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+                const studentData = await query(`
+                    SELECT s.id, u.email, u.name 
+                    FROM students s
+                    JOIN users u ON s.user_id = u.id
+                    WHERE s.user_id = ?
+                `, [userId]);
                 
                 if (studentData.length > 0) {
                     const actualStudentId = studentData[0].id;
+                    const studentEmail = studentData[0].email;
+                    const studentName = studentData[0].name;
 
                     // 1. Save Payment
                     await query(`
@@ -64,6 +72,22 @@ router.post('/payment/notify', async (req, res) => {
                             VALUES (?, ?)
                         `, [actualStudentId, classId]);
                         console.log("🎓 Student successfully enrolled in the class via Webhook!");
+                        
+                        // Send Email Notification
+                        const courseData = await query('SELECT title FROM classes_courses WHERE id = ?', [classId]);
+                        if (courseData.length > 0 && studentEmail) {
+                            sendEnrollmentEmail(studentEmail, studentName, courseData[0].title);
+                        }
+                        
+                        // 3. Add Notification
+                        try {
+                            await query(`
+                                INSERT INTO notifications (user_id, title, description, is_read)
+                                VALUES (?, 'Payment Successful', 'Your payment was successful and you have been enrolled.', 0)
+                            `, [userId]);
+                        } catch (notifErr) {
+                            console.error("⚠️ Notification save warning:", notifErr);
+                        }
                     } catch (e) {
                         console.error("⚠️ Enrollment warning:", e);
                     }
@@ -103,10 +127,17 @@ router.post('/payment/manual-success', async (req, res) => {
     
     try {
         console.log(`🔍 Finding student (userId: ${userId})...`);
-        const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        const studentData = await query(`
+            SELECT s.id, u.email, u.name 
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.user_id = ?
+        `, [userId]);
         
         if (studentData.length > 0) {
             const actualStudentId = studentData[0].id;
+            const studentEmail = studentData[0].email;
+            const studentName = studentData[0].name;
             console.log(`✅ Student found! (DB id: ${actualStudentId})`);
             
             const existing = await query('SELECT id FROM payments WHERE invoice_link = ?', [order_id]);
@@ -126,6 +157,22 @@ router.post('/payment/manual-success', async (req, res) => {
                         VALUES (?, ?)
                     `, [actualStudentId, finalClassId]);
                     console.log("🎓 SUCCESS: Student officially enrolled in the class!");
+                    
+                    // Send Email Notification
+                    const courseData = await query('SELECT title FROM classes_courses WHERE id = ?', [finalClassId]);
+                    if (courseData.length > 0 && studentEmail) {
+                        sendEnrollmentEmail(studentEmail, studentName, courseData[0].title);
+                    }
+                    
+                    // 3. Add Notification
+                    try {
+                        await query(`
+                            INSERT INTO notifications (user_id, title, description, is_read)
+                            VALUES (?, 'Payment Successful', 'Your payment was successful and you have been enrolled.', 0)
+                        `, [userId]);
+                    } catch (notifErr) {
+                        console.error("⚠️ Notification save warning:", notifErr);
+                    }
                 } catch (enrollError) {
                     console.error("⚠️ Enrollment save warning:", enrollError);
                 }

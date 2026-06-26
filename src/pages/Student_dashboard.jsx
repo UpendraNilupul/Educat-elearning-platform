@@ -1,6 +1,6 @@
 // Force Vite HMR reload
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import CoursesPage from './Course';
 import AssessmentsPage from './AssessmentsPage';
 import StudentProfileEdit from '../components/StudentProfileEdit';
@@ -8,12 +8,13 @@ import TuitionClass from './Class';
 import StudentCalendar from '../components/StudentCalendar';
 import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
+import StudentVirtualClassroom from './StudentVirtualClassroom';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 import {
     LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
     Download, Settings, LogOut, GraduationCap, Calendar, Play, X, ChevronRight,
-    Edit2, Search, SearchX, Loader2, MessageSquare
+    Edit2, Search, SearchX, Loader2, MessageSquare, Video
 } from 'lucide-react';
 
 const Student = ({ userName, onLogout }) => {
@@ -23,6 +24,14 @@ const Student = ({ userName, onLogout }) => {
     const [firstName, setFirstName] = useState('Student');
     const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Check for section changes in navigation state
+    useEffect(() => {
+        if (location.state?.section) {
+            setSelectedSection(location.state.section);
+        }
+    }, [location.state]);
 
     // Search-related state (ඔයාගේ යාලුවා හදපු ටික)
     const [filters, setFilters] = useState({ teacher: '', className: '', subject: '' });
@@ -80,7 +89,21 @@ const Student = ({ userName, onLogout }) => {
                 const response = await api.get(`/student/my-assessments`);
                 const pendingCount = response.data.filter(a => {
                     const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
-                    return a.status === 'pending' && isPublished;
+                    
+                    let isPastDeadline = false;
+                    if (a.type === 'Assignment') {
+                        isPastDeadline = new Date(a.time_limit) < new Date();
+                    } else if (a.type === 'Quiz' && a.publish_at) {
+                        const publishDate = new Date(a.publish_at);
+                        let timeLimitMs = 0;
+                        if (a.time_limit) {
+                            const parts = a.time_limit.split(':');
+                            timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
+                        }
+                        isPastDeadline = new Date() > new Date(publishDate.getTime() + timeLimitMs);
+                    }
+
+                    return a.status === 'pending' && isPublished && !isPastDeadline;
                 }).length;
                 setPendingAssessmentsCount(pendingCount);
             } catch (error) {
@@ -143,6 +166,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Calendar', icon: Calendar },
         { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
+        { name: 'Virtual Classroom', icon: Video },
     ];
 
     return (
@@ -222,6 +246,8 @@ const Student = ({ userName, onLogout }) => {
                         <StudentCalendar studentId={1} />
                     ) : selectedSection === 'Messages' ? (
                         <StudentChat />
+                    ) : selectedSection === 'Virtual Classroom' ? (
+                        <StudentVirtualClassroom />
                     ) : (
                         <>
                             {/* Welcome Section */}
@@ -318,7 +344,7 @@ const Student = ({ userName, onLogout }) => {
                                             {searchResults.map((course) => (
                                                 <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all group overflow-hidden">
                                                     <div className="flex items-start justify-between mb-4">
-                                                        <div className={`p-2 rounded-xl bg-opacity-10 bg-${course.theme_color || 'purple'}-600 group-hover:scale-110 transition-transform`}>
+                                                        <div className={`p-2 rounded-xl bg-${course.theme_color || 'purple'}-600/10 group-hover:scale-110 transition-transform`}>
                                                             <BookOpen className={`w-5 h-5 text-${course.theme_color || 'purple'}-600`} />
                                                         </div>
                                                         <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -369,7 +395,7 @@ const Student = ({ userName, onLogout }) => {
                                             <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border border-orange-100 shadow-sm rounded-2xl hover:shadow-lg group">
                                                 <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded uppercase">New</div>
                                                 <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-orange-50/50 to-white">
-                                                    <img src={cls.teacher?.image} alt={cls.teacher?.name} className="object-cover w-16 h-16 shadow-sm rounded-xl" />
+                                                    <img src={cls.thumbnail || cls.teacher?.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                                     <div>
                                                         <h3 className="font-bold text-gray-900 line-clamp-1">{cls.teacher?.name || cls.teacher_name}</h3>
                                                         <p className="mt-1 text-xs font-semibold text-gray-500">{cls.grade}</p>

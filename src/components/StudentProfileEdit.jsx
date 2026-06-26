@@ -18,7 +18,15 @@ const profileSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
   address: z.string().min(5, "Address is required"),
-  dob: z.string().min(1, "Date of birth is required"),
+  dob: z.string()
+    .min(1, "Date of birth is required")
+    .refine((val) => {
+      if (!val) return false;
+      const d = new Date(val);
+      const limitDate = new Date('2016-02-01');
+      const minDate = new Date('1900-01-01');
+      return d < limitDate && d >= minDate && val.split('-')[0].length === 4;
+    }, "Date of birth must be between 1900-01-01 and 2016-02-01"),
   gender: z.string().min(1, "Please select a gender"),
   schoolName: z.string().min(2, "School name is required"),
   gradeLevel: z.string().min(1, "Grade level is required"),
@@ -339,6 +347,8 @@ const StudentProfileEdit = ({ onClose }) => {
                   <input
                     type="date"
                     {...register("dob")}
+                    min="1900-01-01"
+                    max="2016-01-31"
                     className={getInputClassName(errors.dob)}
                   />
                   {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob.message}</p>}

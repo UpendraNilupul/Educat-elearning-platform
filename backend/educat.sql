@@ -4,10 +4,10 @@ USE educat;
 
 -- Turn on the Event Scheduler for the 7-day auto-delete message feature
 SET GLOBAL event_scheduler = ON;
-SET FOREIGN_KEY_CHECKS = 0; -- Prevents errors when dropping/creating
+SET FOREIGN_KEY_CHECKS = 0; -- Temporarily disable checks during full schema generation
 
 -- ==========================================
--- LEVEL 1: CORE TABLES
+-- LEVEL 1: CORE LOOKUP TABLES (No Dependencies)
 -- ==========================================
 
 CREATE TABLE roles (
@@ -21,7 +21,7 @@ CREATE TABLE subjects (
 );
 
 -- ==========================================
--- LEVEL 2: USERS & ROLES
+-- LEVEL 2: IDENTITY AND AUTHENTICATION
 -- ==========================================
 
 CREATE TABLE users (
@@ -52,7 +52,7 @@ CREATE TABLE password_resets (
 );
 
 -- ==========================================
--- LEVEL 3: SPECIFIC USER PROFILES & ACTIVITY
+-- LEVEL 3: USER PROFILE SPECIFICATIONS & UTILITIES
 -- ==========================================
 
 CREATE TABLE teachers (
@@ -106,10 +106,9 @@ CREATE TABLE todos (
 );
 
 -- ==========================================
--- LEVEL 4: COURSES & CONTENT
+-- LEVEL 4: PLATFORM ACADEMICS & CONTENT ENTITIES
 -- ==========================================
 
--- From Teammate: Advertisements Table
 CREATE TABLE advertisements (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     t_id INT NOT NULL,
@@ -117,18 +116,20 @@ CREATE TABLE advertisements (
     FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
+-- UPDATED: Added grade column to map courses/classes to specific educational levels
 CREATE TABLE classes_courses (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
+    grade VARCHAR(50) DEFAULT NULL,
     t_id INT NOT NULL, 
-    teacher_id INT DEFAULT 1,          -- MIGRATION ADDED (Teammate)
-    students INT DEFAULT 0,            -- MIGRATION ADDED (Teammate)
-    modules INT DEFAULT 0,             -- MIGRATION ADDED (Teammate)
-    progress INT DEFAULT 0,            -- MIGRATION ADDED (Teammate)
-    monthly_fee DECIMAL(10,2) DEFAULT 0, -- MIGRATION ADDED (Teammate)
-    schedule_text VARCHAR(255) DEFAULT NULL, -- MIGRATION ADDED (Teammate)
+    teacher_id INT DEFAULT 1,          
+    students INT DEFAULT 0,            
+    modules INT DEFAULT 0,             
+    progress INT DEFAULT 0,            
+    monthly_fee DECIMAL(10,2) DEFAULT 0, 
+    schedule_text VARCHAR(255) DEFAULT NULL, 
     status VARCHAR(20) DEFAULT 'not_active',
     is_published BOOLEAN DEFAULT FALSE,
     theme_color VARCHAR(20) DEFAULT 'purple', 
@@ -157,6 +158,19 @@ CREATE TABLE modules (
     FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE live_classes (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    scheduled_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    duration_minutes INT NOT NULL,
+    meeting_link VARCHAR(300) NOT NULL,
+    status VARCHAR(20) DEFAULT 'scheduled',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE timetables (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     c_id INT NOT NULL,
@@ -170,7 +184,12 @@ CREATE TABLE timetables (
 );
 
 -- ==========================================
--- LEVEL 5: MODULE ASSETS & ASSESSMENTS
+-- LEVEL 5: FINANCIAL RECORDS
+-- ==========================================
+
+
+-- ==========================================
+-- LEVEL 6: ASSETS, CURRICULUM, AND ASSESSMENTS
 -- ==========================================
 
 CREATE TABLE lessons (
@@ -190,9 +209,9 @@ CREATE TABLE resources (
     link VARCHAR(300) NOT NULL,
     number INT NOT NULL,
     isVisible TINYINT(1) DEFAULT 1,    
-    type VARCHAR(50) DEFAULT 'pdf',    -- MIGRATION ADDED (Teammate)
+    type VARCHAR(50) DEFAULT 'pdf',    
     m_id INT NOT NULL,
-    l_id INT,                          -- MIGRATION ADDED (Teammate)
+    l_id INT,                          
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE,
     FOREIGN KEY(l_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
@@ -202,11 +221,11 @@ CREATE TABLE assignments (
     m_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
-    attachment_url VARCHAR(300),       -- MIGRATION ADDED (Teammate)
+    attachment_url VARCHAR(300),       
     deadline DATETIME NOT NULL,
     max_marks DECIMAL(5,2) DEFAULT 100.00,
-    publish_at DATETIME DEFAULT NULL,  -- MIGRATION ADDED (Teammate)
-    notification_sent BOOLEAN DEFAULT FALSE, -- MIGRATION ADDED (Teammate)
+    publish_at DATETIME DEFAULT NULL,  
+    notification_sent BOOLEAN DEFAULT FALSE, 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
@@ -233,12 +252,13 @@ CREATE TABLE assignment_submissions (
 
 CREATE TABLE quizes (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) DEFAULT NULL,
     number INT NOT NULL,
     time_limit TIME NOT NULL,
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     m_id INT NOT NULL,
-    publish_at DATETIME DEFAULT NULL,        -- MIGRATION ADDED (Teammate)
-    notification_sent BOOLEAN DEFAULT FALSE, -- MIGRATION ADDED (Teammate)
+    publish_at DATETIME DEFAULT NULL,        
+    notification_sent BOOLEAN DEFAULT FALSE, 
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
 
@@ -274,7 +294,13 @@ CREATE TABLE quiz_submissions (
     qz_id INT NOT NULL,
     s_id INT NOT NULL,
     score DECIMAL(5,2),
+    status VARCHAR(20) DEFAULT 'in_progress',
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    saved_state JSON DEFAULT NULL,
     submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'in_progress',
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    saved_state JSON DEFAULT NULL,
     FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
@@ -290,7 +316,7 @@ CREATE TABLE student_quiz_answers (
 );
 
 -- ==========================================
--- LEVEL 6: CONNECTIONS & TRANSACTIONS
+-- LEVEL 7: TRANSACTIONS & SYSTEM FEEDBACK
 -- ==========================================
 
 CREATE TABLE payments (
@@ -314,7 +340,6 @@ CREATE TABLE notifications (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- From Teammate: Certificates Table
 CREATE TABLE certificates (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     link VARCHAR(200) NOT NULL,
@@ -332,12 +357,13 @@ CREATE TABLE reviews (
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    survey_responses JSON,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 -- ==========================================
--- LEVEL 7: STATUS & PROGRESS TRACKING
+-- LEVEL 8: PROGRESSION & ADMIN MANAGEMENT
 -- ==========================================
 
 CREATE TABLE enrollments (
@@ -380,15 +406,15 @@ CREATE TABLE admin_escalations (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     sub_admin_id INT NOT NULL,
     entity_type VARCHAR(50) NOT NULL, 
-    entity_id INT NOT NULL,           
-    reason TEXT NOT NULL,             
+    entity_id INT NOT NULL,            
+    reason TEXT NOT NULL,              
     status VARCHAR(20) DEFAULT 'pending', 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(sub_admin_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ==========================================
--- LEVEL 8: COMMUNICATION & CHAT SYSTEM
+-- LEVEL 9: MESSAGING & REAL-TIME COMMUNICATIONS
 -- ==========================================
 
 CREATE TABLE conversations (
@@ -412,22 +438,8 @@ CREATE TABLE messages (
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE teacher_payouts (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    teacher_id INT NOT NULL,
-    month_year VARCHAR(7) NOT NULL, /* Format: YYYY-MM */
-    gross_earnings DECIMAL(10,2) DEFAULT 0.00,
-    platform_fee DECIMAL(10,2) DEFAULT 0.00,
-    adjustment DECIMAL(10,2) DEFAULT 0.00,
-    net_payable DECIMAL(10,2) DEFAULT 0.00,
-    status VARCHAR(20) DEFAULT 'pending',
-    paid_at DATETIME NULL,
-    UNIQUE KEY unique_month_teacher (teacher_id, month_year),
-    FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
-);
-
 -- ==========================================
--- LEVEL 9: AUTOMATED CLEANUP EVENTS
+-- LEVEL 10: AUTO-CRON CLEANUP ROUTINES
 -- ==========================================
 
 DELIMITER $$
@@ -440,26 +452,56 @@ DO
 DELIMITER ;
 
 -- ==========================================
--- LEVEL 10: DATABASE INDEXES
+-- LEVEL 11: SPEED OPTIMIZATION INDEXES
 -- ==========================================
+
 CREATE INDEX idx_user_email ON users(email);
 CREATE INDEX idx_teacher_verification ON teachers(verification_status);
 CREATE INDEX idx_student_code ON students(user_code);
 CREATE INDEX idx_teacher_code ON teachers(user_code);
 CREATE INDEX idx_enrollment_lookup ON enrollments(s_id, c_id, status);
 
-SET FOREIGN_KEY_CHECKS = 1;
+SET FOREIGN_KEY_CHECKS = 1; -- Safely re-enable relational checks before executing seeds
 
 -- ==========================================
--- SEED DATA
+-- LEVEL 12: SYSTEM IMMUTABLE SEED DATA
 -- ==========================================
+
 INSERT INTO roles (role_name) VALUES ('admin'), ('teacher'), ('student');
 
 INSERT INTO subjects (name) VALUES 
 ('Web Development'), ('Data Science'), ('UI/UX Design'), ('Mathematics'), ('Languages'), ('A/L Physics'), ('A/L Chemistry');
 
--- Add a default admin account
+-- System Super Administrator Profile
 INSERT INTO users(name, password, role_id, email, phone_number, address, dob, gender, status, join_date, picture) 
 VALUES ('Super Admin', '$2b$10$ZemIIkWGaWhDaNFgHiXGyOEmzj2qoHzjNCoWNgNFBha9LfHhTPPJS', 1, 'admin.user@example.com', '077777777', 'Kandy', '2000-02-01', 'male', 'active', CURDATE(), 'default_admin.png');
 
 INSERT INTO admins(user_id, admin_level) VALUES (1, 'super');
+
+-- ==========================================
+-- LEVEL 13: MOCK ACADEMIC & FINANCIAL SEEDS
+-- ==========================================
+
+-- Teacher Users
+INSERT INTO users (name, password, role_id, email, phone_number, address, dob, gender, status, join_date) VALUES 
+('teacher1', '$2b$10$ZemIIkWGaWhDaNFgHiXGyO', 2, 'teacher1@example.com', '0771111111', 'Jaffna', '1990-01-01', 'male', 'active', CURDATE()),
+('teacher2', '$2b$10$ZemIIkWGaWhDaNFgHiXGyO', 2, 'teacher2@example.com', '0772222222', 'Colombo', '1992-05-15', 'female', 'active', CURDATE()),
+('teacher3', '$2b$10$ZemIIkWGaWhDaNFgHiXGyO', 2, 'teacher3@example.com', '0773333333', 'Kandy', '1988-11-20', 'male', 'active', CURDATE());
+
+-- Teacher Identity Links
+INSERT INTO teachers (user_id, user_code, highest_qualification, university, experience_years, verification_status) VALUES 
+(2, 'TCH001', 'BSc in Computer Science', 'University of Jaffna', 5, 'approved'),
+(3, 'TCH002', 'MSc in Data Science', 'University of Colombo', 7, 'approved'),
+(4, 'TCH003', 'PhD in Mathematics', 'University of Peradeniya', 10, 'approved');
+
+-- Mock Live Courses
+INSERT INTO classes_courses (name, title, type, t_id, status, is_published) VALUES
+('Full-Stack Web Development', 'Mastering MERN', 'course', 1, 'active', 1),
+('Advanced Data Science', 'Machine Learning Essentials', 'course', 2, 'active', 1);
+
+-- Verified Instructor Financial Payout History
+INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, adjustment, net_payable, status, paid_at) VALUES 
+(1, '2026-06', 850.00, 85.00, 0.00, 765.00, 'pending', NULL),
+(2, '2026-05', 1200.00, 120.00, 0.00, 1080.00, 'paid', '2026-05-31 10:00:00'),
+(2, '2026-06', 1500.00, 150.00, 50.00, 1400.00, 'pending', NULL),
+(3, '2026-06', 300.00, 30.00, -10.00, 260.00, 'pending', NULL);

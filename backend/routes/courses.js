@@ -60,16 +60,19 @@ router.get('/courses', async (req, res) => {
                         description: a.description,
                         attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
                         deadline: a.deadline,
-                        maxMarks: a.max_marks
+                        maxMarks: a.max_marks,
+                        publish_at: a.publish_at
                     };
                 }));
 
                 const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
                 mod.quizzes = quizzes.map(q => ({
                     id: q.id,
+                    title: q.title || `Quiz #${q.number}`,
                     number: q.number,
                     timeLimit: q.time_limit,
-                    isPeerReviewed: q.is_peer_reviewed === 1
+                    isPeerReviewed: q.is_peer_reviewed === 1,
+                    publish_at: q.publish_at
                 }));
             }
         }
@@ -80,16 +83,39 @@ router.get('/courses', async (req, res) => {
     }
 });
 
+const thumbnailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/thumbnails';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+const uploadThumbnail = multer({ storage: thumbnailStorage });
+
+// POST upload course thumbnail
+router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uploadThumbnail.single('thumbnail'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+    const baseURL = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+    const fileUrl = `${baseURL}/uploads/thumbnails/${req.file.filename}`;
+    res.status(200).json({ url: fileUrl });
+});
+
 // POST a new course
 router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
-    const { name, title, type, status, is_published, theme_color, thumbnail_url, students, progress, userId } = req.body;
+    console.log("POST /courses req.body:", req.body);
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
 
         const result = await query(
-            'INSERT INTO classes_courses (name, title, type, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, students || 0, 0, progress || 0, actualTeacherId]
+            'INSERT INTO classes_courses (name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
         );
         res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
@@ -100,25 +126,73 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 
 // PUT (update) a course
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
+    console.log("PUT /courses/:id req.body:", req.body);
     const { id } = req.params;
-    const { name, title, type, status, is_published, theme_color, thumbnail_url } = req.body;
-
+    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
+    
     const updateQuery = `
         UPDATE classes_courses 
-        SET name = ?, title = ?, type = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?
+        SET name = ?, title = ?, type = ?, grade = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
         WHERE id = ?
     `;
+    
+    const values = [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
+    
 
-    const values = [name, title, type, status, is_published ? 1 : 0, theme_color, thumbnail_url, id];
 
     try {
         const result = await query(updateQuery, values);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
         }
-        res.status(200).json({ id: parseInt(id), name, title, type, status, is_published, theme_color, thumbnail_url });
+        res.status(200).json({ id: parseInt(id), name, title, type, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// PUT mark a course as complete
+router.put('/courses/:id/complete', requireRole(['teacher', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    const { final_summary } = req.body;
+    try {
+        const updateQuery = `
+            UPDATE classes_courses 
+            SET status = 'completed', final_summary = ?
+            WHERE id = ?
+        `;
+        const result = await query(updateQuery, [final_summary || null, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        
+        res.status(200).json({ success: true, message: 'Course marked as complete' });
+    } catch (err) {
+        console.error('Error completing course:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// PUT reopen a completed course
+router.put('/courses/:id/reopen', requireRole(['teacher', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const updateQuery = `
+            UPDATE classes_courses 
+            SET status = 'active'
+            WHERE id = ?
+        `;
+        const result = await query(updateQuery, [id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        
+        res.status(200).json({ success: true, message: 'Course reopened successfully' });
+    } catch (err) {
+        console.error('Error reopening course:', err);
         return res.status(500).json({ message: 'Server error' });
     }
 });
@@ -175,11 +249,11 @@ router.post('/modules', requireRole(['teacher', 'admin']), async (req, res) => {
 
 router.put('/teacher/modules/:id/visibility', async (req, res) => {
     // isVisible කියන්නේ true (පේනවා) ද false (හැංගිලා) ද කියන එක
-    const { isVisible } = req.body; 
-    
+    const { isVisible } = req.body;
+
     try {
         await query(
-            'UPDATE modules SET isVisible = ? WHERE id = ?', 
+            'UPDATE modules SET isVisible = ? WHERE id = ?',
             [isVisible ? 1 : 0, req.params.id]
         );
         res.json({ success: true, message: "Visibility updated!" });
@@ -353,13 +427,14 @@ router.get('/courses/search', async (req, res) => {
             c.name AS class_name, 
             c.title AS subject, 
             c.type, 
+            c.grade,
             c.theme_color, 
             c.thumbnail_url, 
             u.name AS teacher_name 
         FROM classes_courses c 
         JOIN teachers t ON c.t_id = t.id 
         JOIN users u ON t.user_id = u.id 
-        WHERE c.is_published = TRUE
+        WHERE c.status = 'active'
     `;
     const params = [];
 
@@ -430,7 +505,7 @@ router.get('/courses/student/:userId', requireAuth, async (req, res) => {
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
             LEFT JOIN reviews r ON r.c_id = c.id AND r.s_id = ?
-            WHERE e.s_id = ?
+            WHERE e.s_id = ? AND c.status IN ('active', 'completed')
         `, [studentId, studentId, studentId]);
 
         // Calculate percentage progress
@@ -475,28 +550,30 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 a.id, a.title, a.deadline, a.publish_at, a.max_marks,
                 c.title as subject, c.id as courseId, 'Assignment' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status,
-                sub.grade, sub.feedback, sub.status as sub_status, sub.file_url
+                IF(MAX(sub.id) IS NOT NULL, 'completed', 'pending') as status,
+                MAX(sub.grade) as grade, MAX(sub.feedback) as feedback, MAX(sub.status) as sub_status, MAX(sub.file_url) as file_url
             FROM assignments a
             JOIN modules m ON a.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
+            GROUP BY a.id, a.title, a.deadline, a.publish_at, a.max_marks, c.title, c.id
         `, [studentId, studentId]);
 
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit,
+                q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(sub.id IS NOT NULL, 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array
@@ -504,6 +581,46 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
     } catch (err) {
         console.error("Assessments fetch error:", err);
         res.status(500).json({ error: "Failed to fetch assessments" });
+    }
+});
+
+// GET scheduled live classes for courses the student is enrolled in
+router.get('/student/liveclasses', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+
+    try {
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        if (studentRes.length === 0) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+        const studentId = studentRes[0].id;
+
+        const liveClasses = await query(`
+            SELECT 
+                lc.id,
+                lc.c_id,
+                lc.title,
+                DATE_FORMAT(lc.scheduled_date, '%Y-%m-%d') AS scheduled_date,
+                lc.start_time,
+                lc.duration_minutes,
+                lc.meeting_link,
+                lc.status,
+                c.title AS course_title,
+                c.theme_color,
+                u.name AS teacher_name
+            FROM live_classes lc
+            JOIN classes_courses c ON lc.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            JOIN teachers t ON c.t_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE e.s_id = ? AND lc.status = 'scheduled' AND c.status IN ('active', 'completed')
+            ORDER BY lc.scheduled_date ASC, lc.start_time ASC
+        `, [studentId]);
+
+        res.status(200).json(liveClasses);
+    } catch (err) {
+        console.error("Error fetching student live classes:", err);
+        res.status(500).json({ error: "Failed to fetch live classes" });
     }
 });
 

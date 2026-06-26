@@ -3,10 +3,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
-  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell
+  Users, Calendar, Edit2, Menu, X, MessageSquare, Bell, Star
 } from "lucide-react";
 import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
+import TeacherReviews from "./TeacherReviews";
+import VirtualClassroom from "./Teacher_liveClass";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -25,6 +27,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     { name: "Certification", icon: Award },
     { name: "Marketing", icon: Megaphone },
     { name: "Virtual Classroom", icon: Video },
+    { name: "Reviews", icon: Star }
   ];
 
   const [courses, setCourses] = useState([]);
@@ -95,7 +98,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         </div>
       </div>
 
-      {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
+      {isSidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r flex flex-col shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -109,9 +112,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             { name: "Overview", icon: LayoutDashboard },
             { name: "Course Management", icon: BookOpen },
             { name: "Assessments", icon: FileText },
-            { name: "Certification", icon: Award },
-            { name: "Marketing", icon: Megaphone },
             { name: "Virtual Classroom", icon: Video },
+            { name: "Reviews", icon: Star },
             { name: "Messages", icon: MessageSquare },
           ].map((item) => (
             <button
@@ -350,6 +352,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         )}
 
         {activeTab === "Messages" && <TeacherChat />}
+        {activeTab === "Reviews" && <TeacherReviews />}
+        {activeTab === "Virtual Classroom" && <VirtualClassroom />}
       </main>
     </div>
   );
