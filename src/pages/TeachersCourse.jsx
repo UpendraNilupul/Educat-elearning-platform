@@ -17,13 +17,19 @@ import {
   Eye,
   EyeOff,
   ClipboardList,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  CheckCircle,
+  Flag,
+  RefreshCw
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse }) => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [finalSummary, setFinalSummary] = useState('');
+  const [isCompleting, setIsCompleting] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1068,6 +1074,26 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     }
   };
 
+  const handleReopenCourse = async () => {
+    if (window.confirm("Are you sure you want to reopen this course? Students will no longer see the 'Rate Class' option, and you can edit modules again.")) {
+      try {
+        await api.put(`/courses/${selectedCourse.id}/reopen`);
+        setCourses(courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            const updatedCourse = { ...course, status: 'active' };
+            setSelectedCourse(updatedCourse);
+            return updatedCourse;
+          }
+          return course;
+        }));
+        alert("Course successfully reopened!");
+      } catch (err) {
+        console.error(err);
+        alert("Failed to reopen course.");
+      }
+    }
+  };
+
   return (
     <React.Fragment>
       {selectedCourse ? (
@@ -1083,16 +1109,33 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
               <span className="text-purple-600 font-semibold mb-1 block">Course Structure</span>
               <h1 className="text-3xl font-extrabold text-gray-900">{selectedCourse.title}</h1>
             </div>
-            <button
-              onClick={() => {
-                setEditingChapterId(null);
-                setChapterTitle("");
-                setIsChapterModalOpen(true);
-              }}
-              className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-            >
-              <Plus size={18} /> Add Module
-            </button>
+            <div className="flex items-center gap-3">
+              {selectedCourse.status !== 'completed' ? (
+                  <button 
+                      onClick={() => setIsCompletionModalOpen(true)} 
+                      className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+                  >
+                      <Flag className="w-4 h-4" /> Mark Course as Complete
+                  </button>
+              ) : (
+                  <button 
+                      onClick={handleReopenCourse} 
+                      className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
+                  >
+                      <RefreshCw className="w-4 h-4" /> Reopen Course
+                  </button>
+              )}
+              <button
+                onClick={() => {
+                  setEditingChapterId(null);
+                  setChapterTitle("");
+                  setIsChapterModalOpen(true);
+                }}
+                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
+              >
+                <Plus size={18} /> Add Module
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-4 mt-2">
             {selectedCourse.chapters?.map((chapter, index) => {
@@ -1657,6 +1700,80 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
             </form>
           </div>
         </div>
+      )}
+
+      {/* Completion Modal */}
+      {isCompletionModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+                  
+                  {/* Header */}
+                  <div className="p-6 bg-green-600 text-white flex justify-between items-center">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                          <CheckCircle size={20} /> Complete Course
+                      </h3>
+                      <button onClick={() => setIsCompletionModalOpen(false)} className="text-white hover:text-green-200 text-2xl leading-none">&times;</button>
+                  </div>
+                  
+                  <div className="p-6">
+                      <div className="mb-6 p-4 bg-yellow-50 text-yellow-800 rounded-xl text-sm border border-yellow-200">
+                          <strong>Warning:</strong> Marking this course as complete will lock the syllabus. Students will still have access to the materials, but you will not be able to add new modules.
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-2">Teacher's Final Wrap-up Note</label>
+                          <textarea 
+                              rows="5" 
+                              placeholder="Congratulate your students, summarize the journey, or wish them luck on their exams!"
+                              value={finalSummary}
+                              onChange={(e) => setFinalSummary(e.target.value)}
+                              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                          ></textarea>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="mt-6 flex gap-3 justify-end">
+                          <button 
+                              onClick={() => setIsCompletionModalOpen(false)} 
+                              className="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                          >
+                              Cancel
+                          </button>
+                          <button 
+                              disabled={isCompleting}
+                              onClick={async () => {
+                                  setIsCompleting(true);
+                                  try {
+                                      // Defaulting to the courses endpoint based on TeachersCourse conventions
+                                      await api.put(`/courses/${selectedCourse.id}/complete`, { final_summary: finalSummary });
+                                      setIsCompletionModalOpen(false);
+                                      // Update local state so the button disappears
+                                      setCourses(courses.map(course => {
+                                        if (course.id === selectedCourse.id) {
+                                          const updatedCourse = { ...course, status: 'completed', final_summary: finalSummary };
+                                          setSelectedCourse(updatedCourse);
+                                          return updatedCourse;
+                                        }
+                                        return course;
+                                      }));
+                                      alert("Course successfully marked as complete!");
+                                  } catch (err) {
+                                      console.error(err);
+                                      alert("Failed to complete course.");
+                                  } finally {
+                                      setIsCompleting(false);
+                                  }
+                              }}
+                              className={`px-6 py-2.5 font-bold rounded-xl text-white transition-colors flex items-center gap-2 ${
+                                  isCompleting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                              }`}
+                          >
+                              {isCompleting ? 'Saving...' : 'Complete Course'}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
 
       {/* Course Modal */}

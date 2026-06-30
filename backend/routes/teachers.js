@@ -113,13 +113,11 @@ router.get('/teachers/:userId/reviews', async (req, res) => {
         const teacherId = teacherRes[0].id;
 
         const reviewsRes = await query(`
-            SELECT r.id, r.title, r.description, r.rating, r.survey_responses, r.c_id, cc.title as course_name, u.name as student_name
+            SELECT r.id, r.title, r.description, r.rating, r.survey_responses, r.created_at, r.is_read, cc.title as course_name, 'Anonymous Student' as student_name
             FROM reviews r
             JOIN classes_courses cc ON r.c_id = cc.id
-            LEFT JOIN students s ON r.s_id = s.id
-            LEFT JOIN users u ON s.user_id = u.id
             WHERE cc.t_id = ?
-            ORDER BY r.id DESC
+            ORDER BY r.created_at DESC
         `, [teacherId]);
 
         res.json({
@@ -129,6 +127,16 @@ router.get('/teachers/:userId/reviews', async (req, res) => {
     } catch (err) {
         console.error('Error fetching teacher reviews:', err);
         res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
+
+// Mark review as read
+router.put('/reviews/:reviewId/read', async (req, res) => {
+    try {
+        await query('UPDATE reviews SET is_read = TRUE WHERE id = ?', [req.params.reviewId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update status" });
     }
 });
 
