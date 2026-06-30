@@ -32,16 +32,16 @@ const getYouTubeEmbedUrl = (url) => {
 };
 
 const feedbackQuestions = [
-  { id: 'q1', text: "1. How clear was the teacher's explanation during the class?", options: ['Very Clear', 'Clear', 'Average', 'Not Clear'] },
-  { id: 'q2', text: "2. How engaging was the lesson?", options: ['Very Engaging', 'Engaging', 'Somewhat Engaging', 'Not Engaging'] },
-  { id: 'q3', text: "3. Did the teacher answer students' questions effectively?", options: ['Always', 'Most of the Time', 'Sometimes', 'Rarely'] },
-  { id: 'q4', text: "4. How useful were the class materials?", options: ['Very Useful', 'Useful', 'Average', 'Not Useful'] },
-  { id: 'q5', text: "5. Would you recommend this class to other students?", options: ['Definitely', 'Probably', 'Maybe', 'No'] },
-  { id: 'q6', text: "6. How difficult was today's lesson?", options: ['Very Easy', 'Easy', 'Moderate', 'Difficult'] },
-  { id: 'q7', text: "7. How satisfied are you with the class overall?", options: ['Very Satisfied', 'Satisfied', 'Neutral', 'Unsatisfied'] },
-  { id: 'q8', text: "8. Was the class conducted on time?", options: ['Always', 'Usually', 'Sometimes', 'Never'] },
-  { id: 'q9', text: "9. How confident do you feel about the topic after this class?", options: ['Very Confident', 'Confident', 'Somewhat Confident', 'Not Confident'] },
-  { id: 'q10', text: "10. Which aspect of the class was the best?", options: ['Teacher Explanation', 'Class Activities', 'Assignments/Quizzes', 'Study Materials'] }
+    { id: 'q1', text: "1. How clear was the teacher's explanation during the class?", options: ['Very Clear', 'Clear', 'Average', 'Not Clear'] },
+    { id: 'q2', text: "2. How engaging was the lesson?", options: ['Very Engaging', 'Engaging', 'Somewhat Engaging', 'Not Engaging'] },
+    { id: 'q3', text: "3. Did the teacher answer students' questions effectively?", options: ['Always', 'Most of the Time', 'Sometimes', 'Rarely'] },
+    { id: 'q4', text: "4. How useful were the class materials?", options: ['Very Useful', 'Useful', 'Average', 'Not Useful'] },
+    { id: 'q5', text: "5. Would you recommend this class to other students?", options: ['Definitely', 'Probably', 'Maybe', 'No'] },
+    { id: 'q6', text: "6. How difficult was today's lesson?", options: ['Very Easy', 'Easy', 'Moderate', 'Difficult'] },
+    { id: 'q7', text: "7. How satisfied are you with the class overall?", options: ['Very Satisfied', 'Satisfied', 'Neutral', 'Unsatisfied'] },
+    { id: 'q8', text: "8. Was the class conducted on time?", options: ['Always', 'Usually', 'Sometimes', 'Never'] },
+    { id: 'q9', text: "9. How confident do you feel about the topic after this class?", options: ['Very Confident', 'Confident', 'Somewhat Confident', 'Not Confident'] },
+    { id: 'q10', text: "10. Which aspect of the class was the best?", options: ['Teacher Explanation', 'Class Activities', 'Assignments/Quizzes', 'Study Materials'] }
 ];
 
 const TuitionClass = () => {
@@ -58,6 +58,8 @@ const TuitionClass = () => {
     const [expandedLessons, setExpandedLessons] = useState([]);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const [feedbackForm, setFeedbackForm] = useState({ rating: 5, title: '', description: '', survey_responses: {} });
+    const [hasReviewed, setHasReviewed] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const toggleLesson = (lessonId) => {
         setExpandedLessons(prev =>
@@ -182,6 +184,23 @@ const TuitionClass = () => {
         }
     };
 
+    useEffect(() => {
+        setHasReviewed(false);
+        const checkReviewStatus = async () => {
+            try {
+                const userId = localStorage.getItem('userId');
+                if (!userId) return;
+                const response = await api.get(`/reviews/check/${selectedClassId}/${userId}`);
+                setHasReviewed(response.data.hasReviewed);
+            } catch (error) {
+                console.error("Failed to check review status", error);
+            }
+        };
+        if (selectedClassId) {
+            checkReviewStatus();
+        }
+    }, [selectedClassId]);
+
     if (isLoading) {
         return (
             <div className="flex h-[600px] items-center justify-center">
@@ -217,7 +236,13 @@ const TuitionClass = () => {
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                             {paidClasses.map((cls) => (
                                 <div key={cls.id} className="relative flex flex-col overflow-hidden transition-all bg-white border-2 shadow-sm rounded-2xl border-emerald-100 hover:shadow-lg">
-                                    <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded uppercase">Unlocked</div>
+                                    {cls.status === 'completed' ? (
+                                        <div className="absolute top-4 right-4 bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded uppercase flex items-center gap-1">
+                                            <CheckCircle className="w-3 h-3" /> Completed
+                                        </div>
+                                    ) : (
+                                        <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded uppercase">Unlocked</div>
+                                    )}
                                     <div className="flex items-center gap-4 p-6 border-b border-gray-50 bg-gradient-to-r from-emerald-50/30 to-white">
                                         <img src={cls.thumbnail || cls.teacher.image} alt={cls.subject} className="object-cover w-16 h-16 shadow-sm rounded-xl animate-in fade-in" />
                                         <div>
@@ -416,6 +441,8 @@ const TuitionClass = () => {
     // ==========================================
     // VIEW 3: COURSE STRUCTURE 
     // ==========================================
+    const classData = currentClass;
+    console.log("Database Status Check:", classData?.status);
     return (
         <div className="p-8 max-w-[1200px] mx-auto animate-in slide-in-from-right-4 duration-300">
             {/* Header: Back Button */}
@@ -444,9 +471,23 @@ const TuitionClass = () => {
                         <p className="font-medium text-gray-500">By {currentClass.teacher.name}</p>
                     </div>
                 </div>
-                <button onClick={() => setIsFeedbackModalOpen(true)} className="flex items-center gap-2 px-4 py-2 font-bold text-yellow-600 transition-colors border border-yellow-200 bg-yellow-50 rounded-xl hover:bg-yellow-100">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" /> Rate Class
-                </button>
+                {/* Only show feedback if backend explicitly says 'completed' */}
+                {classData?.status?.toLowerCase() === 'completed' && (
+                    <div className="flex items-center">
+                        {hasReviewed ? (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 cursor-default">
+                                <CheckCircle className="w-4 h-4" /> Class Reviewed
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={() => setIsFeedbackModalOpen(true)} 
+                                className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-600 font-bold rounded-xl hover:bg-yellow-100 transition-colors border border-yellow-200"
+                            >
+                                <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" /> Rate Class
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* SINGLE COLUMN LAYOUT */}
@@ -600,8 +641,8 @@ const TuitionClass = () => {
                                                     }
 
                                                     return (
-                                                        <div 
-                                                            key={quiz.id} 
+                                                        <div
+                                                            key={quiz.id}
                                                             onClick={() => !isLocked && !isPastDeadline && navigate('/student', { state: { section: 'Assessments', startQuizId: quiz.id } })}
                                                             className={`border rounded-xl p-4 transition-all relative ${isLocked || isPastDeadline ? 'opacity-70 cursor-not-allowed bg-gray-50' : 'bg-blue-50/50 hover:bg-white border-blue-100 hover:border-blue-300 hover:shadow-md cursor-pointer group/quiz'}`}
                                                         >
@@ -686,21 +727,21 @@ const TuitionClass = () => {
                             </h3>
                             <button onClick={() => setIsFeedbackModalOpen(false)} className="text-2xl leading-none text-white/80 hover:text-white">&times;</button>
                         </div>
-                        
+
                         <div className="p-6">
                             <p className="mb-4 text-sm text-center text-gray-600">Your feedback helps the teacher improve!</p>
-                            
+
                             {/* Scrollable Form Area */}
                             <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-6 custom-scrollbar">
-                                
+
                                 {/* 1. Star Rating */}
                                 <div className="text-center">
                                     <label className="block mb-2 text-sm font-bold text-gray-700">Overall Rating</label>
                                     <div className="flex justify-center gap-2">
                                         {[1, 2, 3, 4, 5].map((star) => (
-                                            <button 
+                                            <button
                                                 key={star} type="button"
-                                                onClick={() => setFeedbackForm({...feedbackForm, rating: star})}
+                                                onClick={() => setFeedbackForm({ ...feedbackForm, rating: star })}
                                                 className="p-1 transition-transform focus:outline-none hover:scale-110"
                                             >
                                                 <Star size={32} fill={star <= feedbackForm.rating ? "#EAB308" : "transparent"} color={star <= feedbackForm.rating ? "#EAB308" : "#CBD5E1"} />
@@ -722,14 +763,13 @@ const TuitionClass = () => {
                                                         key={opt}
                                                         type="button"
                                                         onClick={() => setFeedbackForm({
-                                                            ...feedbackForm, 
+                                                            ...feedbackForm,
                                                             survey_responses: { ...feedbackForm.survey_responses, [q.id]: opt }
                                                         })}
-                                                        className={`p-2 text-sm text-left rounded-lg border transition-colors ${
-                                                            feedbackForm.survey_responses[q.id] === opt 
-                                                            ? 'bg-purple-100 border-purple-500 text-purple-800 font-bold' 
-                                                            : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300'
-                                                        }`}
+                                                        className={`p-2 text-sm text-left rounded-lg border transition-colors ${feedbackForm.survey_responses[q.id] === opt
+                                                                ? 'bg-purple-100 border-purple-500 text-purple-800 font-bold'
+                                                                : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300'
+                                                            }`}
                                                     >
                                                         {opt}
                                                     </button>
@@ -745,42 +785,63 @@ const TuitionClass = () => {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block mb-1 text-sm font-bold text-gray-700">Headline (Optional)</label>
-                                        <input 
-                                            type="text" placeholder="e.g., Excellent teaching style!" 
-                                            value={feedbackForm.title} onChange={(e) => setFeedbackForm({...feedbackForm, title: e.target.value})}
+                                        <input
+                                            type="text" placeholder="e.g., Excellent teaching style!"
+                                            value={feedbackForm.title} onChange={(e) => setFeedbackForm({ ...feedbackForm, title: e.target.value })}
                                             className="w-full p-3 border border-gray-200 outline-none rounded-xl focus:border-purple-500"
                                         />
                                     </div>
                                     <div>
                                         <label className="block mb-1 text-sm font-bold text-gray-700">Detailed Review (Optional)</label>
-                                        <textarea 
+                                        <textarea
                                             rows="3" placeholder="What did you like the most?"
-                                            value={feedbackForm.description} onChange={(e) => setFeedbackForm({...feedbackForm, description: e.target.value})}
+                                            value={feedbackForm.description} onChange={(e) => setFeedbackForm({ ...feedbackForm, description: e.target.value })}
                                             className="w-full p-3 border border-gray-200 outline-none resize-none rounded-xl focus:border-purple-500"
                                         ></textarea>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Actions */}
                             <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-100">
                                 <button onClick={() => setIsFeedbackModalOpen(false)} className="px-5 py-2 font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancel</button>
-                                <button 
+                                <button
                                     onClick={async () => {
                                         if (Object.keys(feedbackForm.survey_responses).length < 10) {
                                             alert("Please answer all 10 questions before submitting.");
                                             return;
                                         }
+
+                                        setIsSubmitting(true);
+
                                         try {
-                                            const userId = localStorage.getItem('userId') || 1;
+                                            const userId = localStorage.getItem('userId');
+                                            if (!userId) {
+                                                alert("You must be logged in to submit a review.");
+                                                setIsSubmitting(false);
+                                                return;
+                                            }
                                             await api.post('/reviews', { ...feedbackForm, c_id: currentClass.id, s_id: userId });
                                             setIsFeedbackModalOpen(false);
+                                            setHasReviewed(true);
                                             alert("Feedback submitted!");
-                                        } catch (err) { alert("Failed to submit review."); }
+                                        } catch (err) {
+                                            if (err.response?.status === 409 || err.response?.data?.error?.includes('Duplicate')) {
+                                                alert("You have already submitted a review for this class.");
+                                                setHasReviewed(true);
+                                                setIsFeedbackModalOpen(false);
+                                            } else {
+                                                alert("Failed to submit review.");
+                                            }
+                                        } finally {
+                                            setIsSubmitting(false);
+                                        }
                                     }}
-                                    className="px-6 py-2 font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl"
+                                    disabled={isSubmitting}
+                                    className={`px-6 py-2 font-bold rounded-xl text-white transition-colors ${isSubmitting ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-md shadow-purple-200'
+                                        }`}
                                 >
-                                    Submit Review
+                                    {isSubmitting ? 'Submitting...' : 'Submit Review'}
                                 </button>
                             </div>
                         </div>

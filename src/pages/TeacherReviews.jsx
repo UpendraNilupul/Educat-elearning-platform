@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Star, MessageSquare, User, ChevronDown, ChevronUp, ClipboardList } from 'lucide-react';
 import api from '../api';
 
@@ -18,8 +18,8 @@ const feedbackQuestions = [
 const TeacherReviews = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ average: 0, total: 0 });
   const [expandedReview, setExpandedReview] = useState(null);
+  const [selectedClass, setSelectedClass] = useState('All Classes');
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -27,16 +27,7 @@ const TeacherReviews = () => {
         const userId = localStorage.getItem('userId');
         const response = await api.get(`/teachers/${userId}/reviews`);
         if (response.data.success) {
-          const fetchedReviews = response.data.reviews;
-          setReviews(fetchedReviews);
-          
-          if (fetchedReviews.length > 0) {
-            const totalRating = fetchedReviews.reduce((sum, review) => sum + Number(review.rating), 0);
-            setStats({
-              average: (totalRating / fetchedReviews.length).toFixed(1),
-              total: fetchedReviews.length
-            });
-          }
+          setReviews(response.data.reviews);
         }
       } catch (error) {
         console.error('Error fetching reviews:', error);
@@ -48,6 +39,36 @@ const TeacherReviews = () => {
     fetchReviews();
   }, []);
 
+  const uniqueClasses = useMemo(() => {
+    const classes = new Set(reviews.map(r => r.course_name).filter(Boolean));
+    return ['All Classes', ...Array.from(classes)];
+  }, [reviews]);
+
+  const filteredReviews = useMemo(() => {
+    if (selectedClass === 'All Classes') return reviews;
+    return reviews.filter(r => r.course_name === selectedClass);
+  }, [reviews, selectedClass]);
+
+  const stats = useMemo(() => {
+    if (filteredReviews.length === 0) return { average: 0, total: 0 };
+    const totalRating = filteredReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0);
+    return { average: (totalRating / filteredReviews.length).toFixed(1), total: filteredReviews.length };
+  }, [filteredReviews]);
+
+  const handleMarkAsRead = async (reviewId, isCurrentlyRead) => {
+      if (isCurrentlyRead) return; // Do nothing if it's already read
+      
+      try {
+          await api.put(`/reviews/${reviewId}/read`);
+          // Update local state to instantly remove the bold styling
+          setReviews(prevReviews => prevReviews.map(r => 
+              r.id === reviewId ? { ...r, is_read: 1 } : r
+          ));
+      } catch (error) {
+          console.error("Failed to mark as read", error);
+      }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -58,9 +79,27 @@ const TeacherReviews = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Student Reviews</h1>
-        <p className="text-gray-500 mt-2">See what your students are saying about your classes.</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Student Reviews</h1>
+          <p className="text-gray-500 mt-2">See what your students are saying about your classes.</p>
+        </div>
+        
+        {/* Class Filter Dropdown */}
+        <div className="relative min-w-[250px]">
+          <select 
+            value={selectedClass} 
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="w-full appearance-none bg-white border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-purple-500 font-medium shadow-sm transition-colors cursor-pointer"
+          >
+            {uniqueClasses.map(cls => (
+              <option key={cls} value={cls}>{cls}</option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        </div>
       </div>
 
       {/* Stats Section */}
@@ -92,10 +131,10 @@ const TeacherReviews = () => {
       {/* Reviews List */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-800">Recent Feedback</h2>
+          <h2 className="text-xl font-bold text-gray-800">Recent Feedback {selectedClass !== 'All Classes' && `for ${selectedClass}`}</h2>
         </div>
         
-        {reviews.length === 0 ? (
+        {filteredReviews.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <MessageSquare className="text-gray-300 w-8 h-8" />
@@ -105,22 +144,24 @@ const TeacherReviews = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {reviews.map((review) => {
+            {filteredReviews.map((review) => {
               let surveyResponses = review.survey_responses;
               if (typeof surveyResponses === 'string') {
                 try { surveyResponses = JSON.parse(surveyResponses); } catch(e) {}
               }
 
+              const isRead = !!review.is_read;
+
               return (
-                <div key={review.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div key={review.id} className={`p-6 transition-colors ${isRead ? 'bg-white' : 'bg-purple-50/30'} hover:bg-gray-50`}>
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-bold shrink-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${isRead ? 'bg-gray-100 text-gray-500' : 'bg-purple-200 text-purple-700'}`}>
                         {review.student_name ? review.student_name.charAt(0).toUpperCase() : <User size={20} />}
                       </div>
                       <div>
-                        <h4 className="font-bold text-gray-900">{review.student_name || 'Anonymous Student'}</h4>
-                        <p className="text-xs text-purple-600 font-semibold">{review.course_name || 'Course'}</p>
+                        <h4 className={`text-sm ${isRead ? 'font-medium text-gray-700' : 'font-extrabold text-gray-900'}`}>{review.student_name || 'Anonymous Student'}</h4>
+                        <p className={`text-xs ${isRead ? 'text-gray-500' : 'font-semibold text-purple-600'}`}>{review.course_name || 'Course'}</p>
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -134,15 +175,18 @@ const TeacherReviews = () => {
                     </div>
                   </div>
                   <div className="ml-13 mt-2">
-                    <h5 className="font-bold text-gray-800 text-sm mb-1">{review.title}</h5>
-                    <p className="text-gray-600 text-sm">{review.description}</p>
+                    <h5 className={`text-sm mb-1 ${isRead ? 'text-gray-600 font-medium' : 'text-gray-900 font-bold'}`}>{review.title}</h5>
+                    <p className={`text-sm ${isRead ? 'text-gray-600' : 'text-gray-800 font-medium'}`}>{review.description}</p>
                     
                     {/* Survey Responses Section */}
                     {surveyResponses && Object.keys(surveyResponses).length > 0 && (
                       <div className="mt-4">
                         <button 
-                          onClick={() => setExpandedReview(expandedReview === review.id ? null : review.id)}
-                          className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:text-purple-700 transition-colors"
+                          onClick={() => {
+                              handleMarkAsRead(review.id, isRead);
+                              setExpandedReview(expandedReview === review.id ? null : review.id);
+                          }}
+                          className={`flex items-center gap-2 text-sm font-bold transition-colors ${isRead ? 'text-purple-600 hover:text-purple-700' : 'text-purple-700 hover:text-purple-900'}`}
                         >
                           <ClipboardList size={16} />
                           {expandedReview === review.id ? 'Hide Survey Answers' : 'View Survey Answers'}
