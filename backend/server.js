@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
-import http from 'http'; 
-import { Server } from 'socket.io'; 
+import http from 'http';
+import { Server } from 'socket.io';
 import path from 'path';
 import cors from 'cors';
 import session from 'express-session';
@@ -26,6 +26,7 @@ import classRoutes from './routes/class.js';
 import assignmentRoutes from './routes/assignments.js';
 import quizRoutes from './routes/quizzes.js';
 import paymentRoute from './routes/paymentRoute.js'; 
+import advertisementRoutes from './routes/advertisements.js';
 import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
 // Chat Routes
@@ -40,11 +41,11 @@ const PORT = 3000;
 // ==========================================
 // 🌟 SERVER & SOCKET INITIALIZATION
 // ==========================================
-const server = http.createServer(app); 
+const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'http://localhost:5174'], 
+        origin: ['http://localhost:5173', 'http://localhost:5174'],
         methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
     }
@@ -53,7 +54,7 @@ const io = new Server(server, {
 // Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); 
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
@@ -61,24 +62,24 @@ app.use(express.static(path.join(__dirname, '..', 'dist')));
 const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || 'a_very_long_random_secret_string',
     resave: false,
-    saveUninitialized: false, 
-    cookie: { 
-        httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'lax', 
-        maxAge: 1000 * 60 * 60 * 24 
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24
     }
 });
 
 app.use(sessionMiddleware);
-io.engine.use(sessionMiddleware); 
+io.engine.use(sessionMiddleware);
 
 // Session-swapping middleware for tab-level role isolation on localhost
 app.use(async (req, res, next) => {
     if (req.session) {
         const reqRole = req.headers['x-user-role'];
         const reqUserId = req.headers['x-user-id'];
-        
+
         if (reqRole && reqUserId) {
             req.session.roles = req.session.roles || {};
             if (!req.session.roles[reqRole]) {
@@ -108,7 +109,7 @@ app.use(async (req, res, next) => {
                     console.error("Failed to reconstruct session roles:", err);
                 }
             }
-            
+
             if (req.session.roles[reqRole]) {
                 const roleData = req.session.roles[reqRole];
                 req.session.userId = roleData.userId;
@@ -146,6 +147,7 @@ app.use('/api', teacherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/forgot-password', forgotPasswordRoutes);
 app.use('/api', courseRoutes);
+app.use('/api', advertisementRoutes);
 app.use('/api/teacher', teacherProfileRoutes);
 app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
@@ -157,10 +159,10 @@ app.use('/api', paymentRoute);
 // ==========================================
 app.get('/api/public/stats', async (req, res) => {
     try {
-        console.log("🚀 Stats API hit una!"); 
-        
+        console.log("🚀 Stats API hit una!");
+
         const studentCount = await query('SELECT COUNT(*) AS count FROM students');
-        console.log("📦 Student Data:", studentCount); 
+        console.log("📦 Student Data:", studentCount);
 
         const teacherCount = await query('SELECT COUNT(*) AS count FROM teachers');
         const courseCount = await query('SELECT COUNT(*) AS count FROM classes_courses');
@@ -200,10 +202,10 @@ io.on("connection", (socket) => {
 
         try {
             const check = await query(
-                'SELECT id FROM conversations WHERE id = ? AND (participant1_id = ? OR participant2_id = ?)', 
+                'SELECT id FROM conversations WHERE id = ? AND (participant1_id = ? OR participant2_id = ?)',
                 [conversationId, session.userId, session.userId]
             );
-            
+
             if (check.length > 0) {
                 socket.join(conversationId);
                 console.log(`🔒 User ${session.userId} securely joined chat ${conversationId}`);

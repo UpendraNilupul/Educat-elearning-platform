@@ -414,35 +414,49 @@ const AssessmentsPage = () => {
 
             {/* Quiz Player Overlay */}
             {activeQuiz && (
-                <div className="fixed inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50 z-[100] flex flex-col items-center justify-center p-4 md:p-8 animate-in zoom-in duration-300 overflow-y-auto">
-                    <button
-                        onClick={() => setActiveQuiz(null)}
-                        className="absolute top-6 right-6 p-3 bg-white/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gray-800 hover:bg-white shadow-sm transition-all z-50 hover:scale-110 active:scale-95"
-                    >
-                        <X size={24} />
-                    </button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4 md:p-6 animate-in fade-in duration-300 overflow-y-auto">
+                    
+                    {/* Top Bar for Quiz */}
+                    <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-50 bg-gradient-to-b from-slate-900/80 to-transparent">
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm text-white">
+                                 <BookOpen size={20} />
+                             </div>
+                             <div>
+                                 <h2 className="text-white font-bold text-lg leading-tight tracking-wide">{activeQuiz.title}</h2>
+                                 {isReviewMode && <span className="text-xs bg-blue-500/20 text-blue-200 px-2 py-0.5 rounded-full border border-blue-500/30">Review Mode</span>}
+                             </div>
+                         </div>
+                         <button
+                             onClick={() => setActiveQuiz(null)}
+                             className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-white transition-all shadow-sm"
+                         >
+                             <X size={20} />
+                         </button>
+                    </div>
 
-                    <div className="w-full max-w-4xl bg-white/70 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] border border-white/50 p-6 md:p-10 flex flex-col my-auto max-h-[90vh] overflow-y-auto relative">
-                        <header className="mb-10">
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                                <h2 className="text-2xl md:text-3xl font-black text-gray-900 flex items-center gap-4">
-                                    <div className={`p-3.5 rounded-2xl shadow-sm ${isReviewMode ? 'bg-blue-100 text-blue-600' : 'bg-gradient-to-br from-purple-100 to-purple-50 text-purple-600'}`}>
-                                        <BookOpen size={24} />
-                                    </div>
-                                    <span className="leading-tight">{activeQuiz.title} {isReviewMode && <span className="text-lg text-gray-400 font-bold ml-2 bg-gray-100 px-3 py-1 rounded-xl">(Review)</span>}</span>
-                                </h2>
+                    <div className="w-full max-w-4xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col mt-12 relative max-h-[85vh]">
+                        {/* Progress Header */}
+                        <header className="bg-gray-50 border-b border-gray-100 px-6 py-5 md:px-10 flex flex-col gap-4">
+                            <div className="flex justify-between items-end">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Question {currentQuestionIdx + 1} of {activeQuiz.questions?.length}</p>
+                                    <p className="text-xl font-black text-gray-800">
+                                        {Math.round(quizProgress)}% <span className="text-gray-400 font-bold text-base">Completed</span>
+                                    </p>
+                                </div>
                                 
                                 <div className="flex items-center gap-3">
                                     {isReviewMode && activeQuiz.score !== undefined && (
-                                        <div className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 text-green-700 shadow-sm">
-                                            <Trophy size={20} className="text-green-500" />
-                                            <span>Score: {activeQuiz.score} Marks</span>
+                                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                            <Trophy size={18} />
+                                            <span>Score: {activeQuiz.score}</span>
                                         </div>
                                     )}
                                     {timeLeft !== null && !quizResult && !isReviewMode && (
-                                        <div className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black shadow-sm transition-all duration-300 ${timeLeft <= 60 ? 'bg-red-50 text-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse border border-red-200' : 'bg-white text-gray-700 border border-gray-100'}`}>
-                                            <Clock size={20} className={timeLeft <= 60 ? 'text-red-500' : 'text-purple-500'} />
-                                            <span className="tracking-widest text-lg">
+                                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black shadow-sm transition-all duration-300 border ${timeLeft <= 60 ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-white text-gray-700 border-gray-200'}`}>
+                                            <Clock size={18} className={timeLeft <= 60 ? 'text-red-500' : 'text-blue-500'} />
+                                            <span className="tracking-widest">
                                                 {Math.floor(timeLeft / 3600).toString().padStart(2, '0')}:
                                                 {Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0')}:
                                                 {(timeLeft % 60).toString().padStart(2, '0')}
@@ -452,186 +466,200 @@ const AssessmentsPage = () => {
                                 </div>
                             </div>
                             
-                            <div className="w-full bg-gray-200/60 h-3.5 rounded-full overflow-hidden shadow-inner relative">
+                            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                                 <div
-                                    className={`${isReviewMode ? 'bg-gradient-to-r from-blue-400 to-blue-600' : 'bg-gradient-to-r from-purple-400 via-purple-500 to-indigo-500'} h-full transition-all duration-500 ease-out rounded-full relative`}
+                                    className={`h-full transition-all duration-500 ease-out rounded-full ${isReviewMode ? 'bg-blue-500' : 'bg-blue-600'}`}
                                     style={{ width: `${quizProgress}%` }}
-                                >
-                                    <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-l from-white/40 to-transparent"></div>
-                                </div>
-                            </div>
-                            <div className="flex justify-between mt-3 text-xs font-black text-gray-400 uppercase tracking-widest">
-                                <span>Question {currentQuestionIdx + 1} of {activeQuiz.questions?.length}</span>
-                                <span className={isReviewMode ? 'text-blue-500' : 'text-purple-600'}>{Math.round(quizProgress)}% Complete</span>
+                                ></div>
                             </div>
                         </header>
 
-                        {!quizResult ? (
-                            <main className="flex-1 flex flex-col relative z-10">
-                                {activeQuiz.questions?.[currentQuestionIdx] && (
-                                    <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col">
-                                        <div className="mb-8 bg-white/60 p-6 md:p-8 rounded-3xl border border-white shadow-[0_2px_10px_rgb(0,0,0,0.02)] backdrop-blur-sm">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-black text-sm">
-                                                    {currentQuestionIdx + 1}
-                                                </span>
-                                                <span className="px-3 py-1 bg-gray-100/80 text-gray-500 font-bold text-xs uppercase tracking-widest rounded-lg">
-                                                    {activeQuiz.questions[currentQuestionIdx].marks} Marks
-                                                </span>
-                                            </div>
-                                            <h3 className="text-2xl md:text-3xl font-black text-gray-800 leading-snug">
-                                                {activeQuiz.questions[currentQuestionIdx].question}
-                                            </h3>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 content-start">
-                                            {activeQuiz.questions[currentQuestionIdx].type === 'dropdown' ? (
-                                                <div className="md:col-span-2">
-                                                    <select
-                                                        disabled={isReviewMode}
-                                                        className={`w-full p-5 rounded-2xl border-2 outline-none transition-all text-lg font-bold bg-white disabled:opacity-90 appearance-none cursor-pointer shadow-sm ${isReviewMode ? 'border-gray-200 text-gray-800' : 'border-gray-100 hover:border-purple-200 focus:border-purple-600 focus:ring-4 focus:ring-purple-100 text-gray-700'}`}
-                                                        value={studentAnswers[activeQuiz.questions[currentQuestionIdx].id] || ""}
-                                                        onChange={(e) => handleAnswerSelect(activeQuiz.questions[currentQuestionIdx].id, parseInt(e.target.value), 'dropdown')}
-                                                    >
-                                                        <option value="" disabled>Select your answer...</option>
-                                                        {activeQuiz.questions[currentQuestionIdx].options?.map((opt) => (
-                                                            <option key={opt.id} value={opt.id}>
-                                                                {opt.answer} {isReviewMode && opt.correct ? ' (✓ Correct Answer)' : ''}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                        <div className="overflow-y-auto flex-1 custom-scrollbar">
+                            {!quizResult ? (
+                                <main className="p-6 md:p-10 flex flex-col">
+                                    {activeQuiz.questions?.[currentQuestionIdx] && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                            
+                                            {/* Question Block */}
+                                            <div className="mb-8">
+                                                <div className="inline-block px-3 py-1 mb-4 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-widest rounded-lg border border-gray-200">
+                                                    {activeQuiz.questions[currentQuestionIdx].marks} Points
                                                 </div>
-                                            ) : (
-                                                activeQuiz.questions[currentQuestionIdx].options?.map((opt) => {
-                                                    const qId = activeQuiz.questions[currentQuestionIdx].id;
-                                                    const qType = activeQuiz.questions[currentQuestionIdx].type;
-                                                    const isSelected = qType === 'multiple'
-                                                        ? (studentAnswers[qId] || []).includes(opt.id)
-                                                        : studentAnswers[qId] === opt.id;
+                                                <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 leading-snug">
+                                                    {activeQuiz.questions[currentQuestionIdx].question}
+                                                </h3>
+                                            </div>
 
-                                                    let borderClass = 'border-white hover:border-purple-200 hover:shadow-md';
-                                                    let bgClass = 'bg-white hover:bg-purple-50/50';
-                                                    let textClass = 'text-gray-700 group-hover:text-purple-900';
-                                                    let iconClass = 'border-gray-200 group-hover:border-purple-300 bg-gray-50';
+                                            {/* Options Grid */}
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {activeQuiz.questions[currentQuestionIdx].type === 'dropdown' ? (
+                                                    <div className="w-full max-w-xl relative">
+                                                        {(() => {
+                                                            const qId = activeQuiz.questions[currentQuestionIdx].id;
+                                                            const selectedOptId = studentAnswers[qId];
+                                                            const selectedOpt = activeQuiz.questions[currentQuestionIdx].options?.find(o => o.id === selectedOptId);
+                                                            const isWrong = isReviewMode && selectedOpt && !selectedOpt.correct;
+                                                            const isCorrect = isReviewMode && selectedOpt && selectedOpt.correct;
+                                                            
+                                                            let borderClass = "border-gray-200 hover:border-blue-300 focus:border-blue-500 focus:ring-blue-50 text-gray-700 bg-white";
+                                                            if (isReviewMode) {
+                                                                if (isWrong) borderClass = "border-red-400 bg-red-50 text-red-900";
+                                                                else if (isCorrect) borderClass = "border-emerald-500 bg-emerald-50 text-emerald-900";
+                                                            }
 
-                                                    if (isReviewMode) {
-                                                        bgClass = 'bg-white';
-                                                        if (opt.correct) {
-                                                            borderClass = 'border-emerald-500 ring-4 ring-emerald-100 shadow-sm z-10';
-                                                            bgClass = 'bg-gradient-to-br from-emerald-50 to-white';
-                                                            textClass = 'text-emerald-900 font-black';
-                                                            iconClass = 'border-emerald-500 bg-emerald-500 shadow-sm';
-                                                        } else if (isSelected && !opt.correct) {
-                                                            borderClass = 'border-red-400 ring-2 ring-red-50';
-                                                            bgClass = 'bg-red-50/50';
-                                                            textClass = 'text-red-800 line-through opacity-80';
-                                                            iconClass = 'border-red-400 bg-red-400';
-                                                        } else {
-                                                            borderClass = 'border-gray-100 bg-gray-50/50 opacity-60';
-                                                            textClass = 'text-gray-400';
-                                                            iconClass = 'border-gray-200 bg-gray-100';
+                                                            return (
+                                                                <>
+                                                                    <select
+                                                                        disabled={isReviewMode}
+                                                                        className={`w-full p-4 rounded-xl border-2 outline-none transition-all text-lg font-bold shadow-sm appearance-none cursor-pointer disabled:opacity-90 ${borderClass}`}
+                                                                        value={selectedOptId || ""}
+                                                                        onChange={(e) => handleAnswerSelect(qId, parseInt(e.target.value), 'dropdown')}
+                                                                    >
+                                                                        <option value="" disabled>Select your answer...</option>
+                                                                        {activeQuiz.questions[currentQuestionIdx].options?.map((opt) => {
+                                                                            const isThisSelectedWrong = isReviewMode && !opt.correct && selectedOptId === opt.id;
+                                                                            return (
+                                                                                <option key={opt.id} value={opt.id}>
+                                                                                    {opt.answer} 
+                                                                                    {isReviewMode && opt.correct ? ' (✓ Correct)' : ''}
+                                                                                    {isThisSelectedWrong ? ' (✗ Incorrect)' : ''}
+                                                                                </option>
+                                                                            );
+                                                                        })}
+                                                                    </select>
+                                                                    
+                                                                    {isWrong && (
+                                                                        <div className="absolute -right-12 top-1/2 -translate-y-1/2 text-red-500 bg-red-100 p-2 rounded-full shadow-sm hidden md:flex">
+                                                                            <X size={24} strokeWidth={3} />
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                ) : (
+                                                    activeQuiz.questions[currentQuestionIdx].options?.map((opt, optIndex) => {
+                                                        const qId = activeQuiz.questions[currentQuestionIdx].id;
+                                                        const qType = activeQuiz.questions[currentQuestionIdx].type;
+                                                        const isSelected = qType === 'multiple'
+                                                            ? (studentAnswers[qId] || []).includes(opt.id)
+                                                            : studentAnswers[qId] === opt.id;
+
+                                                        const letter = String.fromCharCode(65 + optIndex); // A, B, C, D...
+
+                                                        let borderClass = 'border-gray-200 hover:border-blue-300 bg-white hover:bg-blue-50/30';
+                                                        let textClass = 'text-gray-700';
+                                                        let indicatorClass = 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600';
+
+                                                        if (isReviewMode) {
+                                                            if (opt.correct) {
+                                                                borderClass = 'border-emerald-500 bg-emerald-50 z-10';
+                                                                textClass = 'text-emerald-900 font-bold';
+                                                                indicatorClass = 'bg-emerald-500 text-white';
+                                                            } else if (isSelected && !opt.correct) {
+                                                                borderClass = 'border-red-300 bg-red-50';
+                                                                textClass = 'text-red-700 line-through opacity-70';
+                                                                indicatorClass = 'bg-red-400 text-white';
+                                                            } else {
+                                                                borderClass = 'border-gray-100 bg-gray-50/50 opacity-50';
+                                                                textClass = 'text-gray-400';
+                                                                indicatorClass = 'bg-gray-200 text-gray-400';
+                                                            }
+                                                        } else if (isSelected) {
+                                                            borderClass = 'border-blue-600 bg-blue-50 ring-2 ring-blue-100 shadow-sm z-10';
+                                                            textClass = 'text-blue-900 font-bold';
+                                                            indicatorClass = 'bg-blue-600 text-white shadow-sm';
                                                         }
-                                                    } else if (isSelected) {
-                                                        borderClass = 'border-purple-600 bg-gradient-to-br from-purple-50 to-white ring-4 ring-purple-100 shadow-md scale-[1.02] z-10';
-                                                        textClass = 'text-purple-900 font-black';
-                                                        iconClass = 'border-purple-600 bg-purple-600 shadow-sm';
-                                                        bgClass = ''; // Overridden by borderClass gradient
-                                                    }
 
-                                                    return (
-                                                        <button
-                                                            key={opt.id}
-                                                            disabled={isReviewMode}
-                                                            onClick={() => handleAnswerSelect(qId, opt.id, qType)}
-                                                            className={`w-full text-left p-5 md:p-6 rounded-2xl border-2 transition-all duration-300 flex items-center gap-4 group ${borderClass} ${bgClass} ${isReviewMode ? 'cursor-default' : 'hover:-translate-y-1'}`}
-                                                        >
-                                                            {qType === 'multiple' ? (
-                                                                <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors flex-shrink-0 ${iconClass}`}>
-                                                                    {(isSelected || (isReviewMode && opt.correct)) && <CheckCircle2 size={18} strokeWidth={3} className={isReviewMode && opt.correct && !isSelected ? "text-white" : "text-white"} />}
+                                                        return (
+                                                            <button
+                                                                key={opt.id}
+                                                                disabled={isReviewMode}
+                                                                onClick={() => handleAnswerSelect(qId, opt.id, qType)}
+                                                                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 group ${borderClass} ${isReviewMode ? 'cursor-default' : 'active:scale-[0.99]'}`}
+                                                            >
+                                                                <div className={`w-8 h-8 rounded flex items-center justify-center font-black text-sm transition-colors flex-shrink-0 ${indicatorClass}`}>
+                                                                    {letter}
                                                                 </div>
-                                                            ) : (
-                                                                <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${iconClass}`}>
-                                                                    {(isSelected || (isReviewMode && opt.correct)) && <div className={`w-3 h-3 rounded-full ${isReviewMode && opt.correct && !isSelected ? "bg-white" : "bg-white"}`} />}
-                                                                </div>
-                                                            )}
-                                                            <span className={`text-[1.05rem] leading-snug ${textClass}`}>
-                                                                {opt.answer}
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })
-                                            )}
+                                                                <span className={`text-[1.1rem] leading-snug flex-1 ${textClass}`}>
+                                                                    {opt.answer}
+                                                                </span>
+                                                                {isReviewMode && opt.correct && (
+                                                                     <div className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded tracking-widest hidden md:block">
+                                                                         Correct Answer
+                                                                     </div>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </main>
+                            ) : (
+                                <main className="flex-1 flex flex-col items-center justify-center text-center py-16 px-6 animate-in zoom-in duration-500">
+                                    <div className="w-24 h-24 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50">
+                                        <Trophy size={48} />
+                                    </div>
+                                    <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">Quiz Completed!</h2>
+                                    <p className="text-gray-500 mb-8 max-w-sm">
+                                        Awesome job! Your results have been securely saved.
+                                    </p>
+                                    
+                                    <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-xl w-full max-w-xs relative overflow-hidden group">
+                                        <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-500"></div>
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Final Score</p>
+                                        <div className="text-6xl font-black text-blue-600 mb-2">
+                                            {quizResult.score} <span className="text-lg text-gray-400 font-bold">Marks</span>
                                         </div>
                                     </div>
-                                )}
-                            </main>
-                        ) : (
-                            <main className="flex-1 flex flex-col items-center justify-center text-center animate-in zoom-in duration-700 delay-100 py-10">
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-yellow-400 blur-[40px] opacity-20 rounded-full"></div>
-                                    <div className="w-32 h-32 bg-gradient-to-br from-yellow-50 to-amber-100 border-4 border-white shadow-xl text-yellow-500 rounded-full flex items-center justify-center mb-8 relative z-10">
-                                        <Trophy size={64} className="drop-shadow-sm" />
-                                    </div>
-                                </div>
-                                <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-3 tracking-tight">Quiz Completed!</h2>
-                                <p className="text-gray-500 mb-10 max-w-sm text-lg">
-                                    Awesome job! Your results have been calculated and securely saved.
-                                </p>
+                                </main>
+                            )}
+                        </div>
 
-                                <div className="bg-white/80 backdrop-blur-sm border border-gray-100 rounded-[2rem] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] w-full max-w-sm relative overflow-hidden group">
-                                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-500 to-indigo-500"></div>
-                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Final Score</p>
-                                    <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-600 to-indigo-600 filter drop-shadow-sm transition-transform group-hover:scale-110 duration-500">
-                                        {quizResult.score} <span className="text-2xl text-gray-300 font-bold tracking-normal">Marks</span>
-                                    </div>
-                                    <div className="mt-8 flex items-center justify-center gap-2 text-emerald-600 font-black bg-emerald-50/80 border border-emerald-100 py-3 px-6 rounded-xl w-max mx-auto shadow-sm">
-                                        <CheckCircle2 size={18} strokeWidth={3} /> Submitted Successfully
-                                    </div>
-                                </div>
-                            </main>
-                        )}
-
+                        {/* Footer Controls */}
                         {!quizResult && (
-                            <footer className="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center bg-transparent relative z-10">
+                            <footer className="border-t border-gray-100 bg-gray-50 px-6 py-4 md:px-10 flex justify-between items-center z-20">
                                 <button
                                     disabled={currentQuestionIdx === 0}
                                     onClick={() => setCurrentQuestionIdx(prev => prev - 1)}
-                                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white text-gray-600 font-black hover:bg-gray-50 hover:text-gray-900 shadow-sm border border-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-gray-600 font-bold hover:bg-gray-100 hover:text-gray-900 shadow-sm border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <ChevronLeft size={20} /> <span className="hidden sm:inline">Previous</span>
+                                    <ChevronLeft size={18} /> <span className="hidden sm:inline">Previous</span>
                                 </button>
 
                                 {isReviewMode ? (
                                     currentQuestionIdx === (activeQuiz.questions?.length || 0) - 1 ? (
                                         <button
                                             onClick={() => { setActiveQuiz(null); setIsReviewMode(false); }}
-                                            className="bg-gray-900 text-white px-8 md:px-10 py-3.5 rounded-2xl font-black hover:bg-gray-800 transition-all shadow-xl hover:shadow-2xl active:scale-95 hover:-translate-y-1"
+                                            className="bg-gray-800 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-900 transition-all shadow-md active:scale-95"
                                         >
                                             Close Review
                                         </button>
                                     ) : (
                                         <button
                                             onClick={() => setCurrentQuestionIdx(prev => prev + 1)}
-                                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 md:px-10 py-3.5 rounded-2xl font-black hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xl hover:shadow-2xl active:scale-95 flex items-center gap-2 hover:-translate-y-1"
+                                            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center gap-2"
                                         >
-                                            Next <ChevronRight size={20} />
+                                            Next <ChevronRight size={18} />
                                         </button>
                                     )
                                 ) : currentQuestionIdx === (activeQuiz.questions?.length || 0) - 1 ? (
                                     <button
                                         onClick={handleSubmitQuiz}
                                         disabled={isSubmitting || !studentAnswers[activeQuiz.questions[currentQuestionIdx]?.id]}
-                                        className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-8 md:px-10 py-3.5 rounded-2xl font-black hover:from-emerald-600 hover:to-green-700 transition-all shadow-xl hover:shadow-2xl active:scale-95 flex items-center gap-2 disabled:from-gray-300 disabled:to-gray-400 disabled:shadow-none disabled:cursor-not-allowed hover:-translate-y-1"
+                                        className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
                                     >
-                                        {isSubmitting ? 'Submitting...' : 'Submit Quiz'} <CheckCircle2 size={20} />
+                                        {isSubmitting ? 'Submitting...' : 'Submit Quiz'} <CheckCircle2 size={18} />
                                     </button>
                                 ) : (
                                     <button
                                         onClick={() => setCurrentQuestionIdx(prev => prev + 1)}
                                         disabled={!studentAnswers[activeQuiz.questions[currentQuestionIdx]?.id]}
-                                        className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 md:px-10 py-3.5 rounded-2xl font-black hover:from-purple-700 hover:to-indigo-700 transition-all shadow-xl hover:shadow-2xl active:scale-95 flex items-center gap-2 disabled:from-gray-300 disabled:to-gray-400 disabled:shadow-none disabled:cursor-not-allowed hover:-translate-y-1"
+                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
                                     >
-                                        Next <ChevronRight size={20} />
+                                        Next <ChevronRight size={18} />
                                     </button>
                                 )}
                             </footer>
