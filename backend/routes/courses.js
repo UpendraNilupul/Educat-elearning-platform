@@ -68,6 +68,7 @@ router.get('/courses', async (req, res) => {
                 const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
                 mod.quizzes = quizzes.map(q => ({
                     id: q.id,
+                    title: q.title || `Quiz #${q.number}`,
                     number: q.number,
                     timeLimit: q.time_limit,
                     isPeerReviewed: q.is_peer_reviewed === 1,
@@ -147,6 +148,51 @@ router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) =
         res.status(200).json({ id: parseInt(id), name, title, type, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// PUT mark a course as complete
+router.put('/courses/:id/complete', requireRole(['teacher', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    const { final_summary } = req.body;
+    try {
+        const updateQuery = `
+            UPDATE classes_courses 
+            SET status = 'completed', final_summary = ?
+            WHERE id = ?
+        `;
+        const result = await query(updateQuery, [final_summary || null, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        
+        res.status(200).json({ success: true, message: 'Course marked as complete' });
+    } catch (err) {
+        console.error('Error completing course:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// PUT reopen a completed course
+router.put('/courses/:id/reopen', requireRole(['teacher', 'admin']), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const updateQuery = `
+            UPDATE classes_courses 
+            SET status = 'active'
+            WHERE id = ?
+        `;
+        const result = await query(updateQuery, [id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        
+        res.status(200).json({ success: true, message: 'Course reopened successfully' });
+    } catch (err) {
+        console.error('Error reopening course:', err);
         return res.status(500).json({ message: 'Server error' });
     }
 });
@@ -459,7 +505,7 @@ router.get('/courses/student/:userId', requireAuth, async (req, res) => {
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
             LEFT JOIN reviews r ON r.c_id = c.id AND r.s_id = ?
-            WHERE e.s_id = ? AND c.status = 'active'
+            WHERE e.s_id = ? AND c.status IN ('active', 'completed')
         `, [studentId, studentId, studentId]);
 
         // Calculate percentage progress
@@ -511,14 +557,14 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN assignment_submissions sub ON a.id = sub.a_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
             GROUP BY a.id, a.title, a.deadline, a.publish_at, a.max_marks, c.title, c.id
         `, [studentId, studentId]);
 
         // 2. Fetch ALL Quizzes in one query (checks submission status)
         const quizzes = await query(`
             SELECT 
-                q.id, CONCAT('Quiz #', q.number) as title, q.time_limit, q.publish_at,
+                q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
                 IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
             FROM quizes q
@@ -526,7 +572,7 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
-            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status = 'active'
+            WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
             GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
         `, [studentId, studentId]);
 
@@ -567,7 +613,7 @@ router.get('/student/liveclasses', requireAuth, async (req, res) => {
             JOIN enrollments e ON c.id = e.c_id
             JOIN teachers t ON c.t_id = t.id
             JOIN users u ON t.user_id = u.id
-            WHERE e.s_id = ? AND lc.status = 'scheduled' AND c.status = 'active'
+            WHERE e.s_id = ? AND lc.status = 'scheduled' AND c.status IN ('active', 'completed')
             ORDER BY lc.scheduled_date ASC, lc.start_time ASC
         `, [studentId]);
 

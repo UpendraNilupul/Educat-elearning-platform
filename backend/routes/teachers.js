@@ -69,7 +69,7 @@ router.get('/teachers/:userId/dashboard-stats', async (req, res) => {
 
         // Total Students (Distinct)
         const studentsRes = await query(
-            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)', 
+            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)',
             [teacherId]
         );
         const totalStudents = studentsRes[0].total || 0;
@@ -102,6 +102,41 @@ router.get('/teachers/:userId/dashboard-stats', async (req, res) => {
     } catch (err) {
         console.error('Error fetching teacher stats:', err);
         res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+});
+// Get Reviews for a specific teacher
+router.get('/teachers/:userId/reviews', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const teacherRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+        if (teacherRes.length === 0) return res.status(404).json({ error: 'Teacher not found' });
+        const teacherId = teacherRes[0].id;
+
+        const reviewsRes = await query(`
+            SELECT r.id, r.title, r.description, r.rating, r.survey_responses, r.created_at, r.is_read, cc.title as course_name, 'Anonymous Student' as student_name
+            FROM reviews r
+            JOIN classes_courses cc ON r.c_id = cc.id
+            WHERE cc.t_id = ?
+            ORDER BY r.created_at DESC
+        `, [teacherId]);
+
+        res.json({
+            success: true,
+            reviews: reviewsRes
+        });
+    } catch (err) {
+        console.error('Error fetching teacher reviews:', err);
+        res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
+
+// Mark review as read
+router.put('/reviews/:reviewId/read', async (req, res) => {
+    try {
+        await query('UPDATE reviews SET is_read = TRUE WHERE id = ?', [req.params.reviewId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update status" });
     }
 });
 
