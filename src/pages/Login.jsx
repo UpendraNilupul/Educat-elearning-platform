@@ -38,9 +38,6 @@ const Login = ({ setUserRole, setUserName, setUserPicture, setAdminLevel }) => {
             localStorage.setItem('verificationStatus', data.verificationStatus || '');
             localStorage.setItem('userPicture', data.userPicture || ''); // 🌟 MERGED from Dev
 
-            // Save to sessionStorage for tab-level isolation on localhost
-            sessionStorage.setItem('userId', data.userId);
-            sessionStorage.setItem('userRole', safeRole);
 
             if (setUserRole) setUserRole(safeRole);
             if (setUserName) setUserName(data.userName);
