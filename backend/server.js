@@ -74,6 +74,8 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 
+<<<<<<< HEAD
+=======
 // Session-swapping middleware for tab-level role isolation on localhost
 app.use(async (req, res, next) => {
     if (req.session) {
@@ -122,6 +124,7 @@ app.use(async (req, res, next) => {
     }
     next();
 });
+>>>>>>> a4e713f4c11f221839a5e723a009a464e295b13c
 
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
