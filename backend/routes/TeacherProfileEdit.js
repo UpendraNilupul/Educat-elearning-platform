@@ -10,7 +10,7 @@ const upload = multer({ storage: profileStorage });
 // ==========================
 // GET teacher info (current data)
 // ==========================
-router.get('/:id', (req, res) => {
+router.get(/^\/(?<id>\d+)$/, (req, res) => {
   const id = req.params.id;
   const query = `
     SELECT u.id, u.name, u.email, u.phone_number, u.address, DATE_FORMAT(u.dob, '%Y-%m-%d') as dob, u.gender, u.picture, u.\`2fa_enabled\`,
@@ -31,7 +31,7 @@ router.get('/:id', (req, res) => {
 // ==========================
 // UPDATE teacher info with validation
 // ==========================
-router.put('/:id', upload.single('picture'), (req, res) => {
+router.put(/^\/(?<id>\d+)$/, upload.single('picture'), (req, res) => {
   const id = req.params.id;
   
   // Security check: ensure only logged in user can edit their profile

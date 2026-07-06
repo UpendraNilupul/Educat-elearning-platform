@@ -69,7 +69,7 @@ router.get('/teachers/:userId/dashboard-stats', async (req, res) => {
 
         // Total Students (Distinct)
         const studentsRes = await query(
-            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)', 
+            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)',
             [teacherId]
         );
         const totalStudents = studentsRes[0].total || 0;

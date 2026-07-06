@@ -60,15 +60,6 @@ router.post('/login', async (req, res) => {
         req.session.adminLevel = user.admin_level || null;
         req.session.userPicture = user.picture;
 
-        // Initialize session roles and store role-specific details for tab isolation on localhost
-        req.session.roles = req.session.roles || {};
-        req.session.roles[normalizedRole] = {
-            userId: user.id,
-            userRole: normalizedRole,
-            userName: user.name,
-            adminLevel: user.admin_level || null,
-            userPicture: user.picture
-        };
         
         res.status(200).json({ 
             message: 'Logged in successfully!', 

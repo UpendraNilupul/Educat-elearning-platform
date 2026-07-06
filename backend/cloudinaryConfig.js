@@ -55,4 +55,13 @@ const submissionStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage };
+// Storage for Teacher Advertisements
+const advertisementStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'teacher_advertisements',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+  },
+});
+
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, advertisementStorage };
