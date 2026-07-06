@@ -96,10 +96,11 @@ router.get('/public/advertisements/top', async (req, res) => {
             SELECT a.id as ad_id, a.ad_link, t.id as teacher_id, u.name as teacher_name, 
                    COALESCE(AVG(r.rating), 0) as avg_rating
             FROM advertisements a
-            JOIN teachers t ON a.t_id = t.id
-            JOIN users u ON t.user_id = u.id
+            LEFT JOIN teachers t ON a.t_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN classes_courses c ON c.t_id = t.id
             LEFT JOIN reviews r ON r.c_id = c.id
+            WHERE a.is_published = TRUE
             GROUP BY a.id, a.ad_link, t.id, u.name
             ORDER BY avg_rating DESC, a.id DESC
             LIMIT 4
@@ -110,6 +111,65 @@ router.get('/public/advertisements/top', async (req, res) => {
     } catch (err) {
         console.error('Error fetching top advertisements:', err);
         res.status(500).json({ error: 'Failed to fetch top advertisements' });
+    }
+});
+
+// GET /api/admin/advertisements
+router.get('/admin/advertisements', requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+        const sql = `
+            SELECT a.id, a.ad_link, a.is_published, a.t_id, u.name as teacher_name
+            FROM advertisements a
+            LEFT JOIN teachers t ON a.t_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
+            ORDER BY a.id DESC
+        `;
+        const ads = await query(sql);
+        res.status(200).json(ads);
+    } catch (err) {
+        console.error('Error fetching admin ads:', err);
+        res.status(500).json({ error: 'Failed to fetch advertisements' });
+    }
+});
+
+// POST /api/admin/advertisements
+router.post('/admin/advertisements', requireAuth, requireRole(['admin']), upload.single('advertisement'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+        
+        const adLink = req.file.path;
+        const result = await query(
+            'INSERT INTO advertisements (t_id, ad_link, is_published) VALUES (?, ?, ?)',
+            [null, adLink, true]
+        );
+
+        res.status(201).json({ success: true, message: 'Admin advertisement uploaded successfully' });
+    } catch (err) {
+        console.error('Error uploading admin ad:', err);
+        res.status(500).json({ error: 'Failed to upload admin advertisement' });
+    }
+});
+
+// PUT /api/admin/advertisements/:id/toggle
+router.put('/admin/advertisements/:id/toggle', requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+        const { is_published } = req.body;
+        await query('UPDATE advertisements SET is_published = ? WHERE id = ?', [is_published, req.params.id]);
+        res.status(200).json({ success: true, message: 'Status updated' });
+    } catch (err) {
+        console.error('Error toggling publish status:', err);
+        res.status(500).json({ error: 'Failed to update status' });
+    }
+});
+
+// DELETE /api/admin/advertisements/:id
+router.delete('/admin/advertisements/:id', requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+        await query('DELETE FROM advertisements WHERE id = ?', [req.params.id]);
+        res.status(200).json({ success: true, message: 'Advertisement deleted' });
+    } catch (err) {
+        console.error('Error deleting admin ad:', err);
+        res.status(500).json({ error: 'Failed to delete advertisement' });
     }
 });
 

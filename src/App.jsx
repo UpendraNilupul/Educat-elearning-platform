@@ -29,6 +29,7 @@ import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
+import Admin_Advertisements from './pages/Admin_Advertisements';
 import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
@@ -270,6 +271,11 @@ function App() {
           <Route
             path="/admin/promos"
             element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/advertisements"
+            element={userRole === 'admin' ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           <Route

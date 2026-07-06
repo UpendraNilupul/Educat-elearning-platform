@@ -156,9 +156,9 @@ const AssessmentsPage = () => {
 
     const isPastDeadline = (item) => {
         if (item.type === 'Assignment') {
-            return new Date(item.time_limit) < new Date();
-        } else if (item.type === 'Quiz' && item.publish_at) {
-            const publishDate = new Date(item.publish_at);
+            return item.deadline ? new Date(item.deadline) < new Date() : false;
+        } else if (item.type === 'Quiz') {
+            const publishDate = item.publish_at ? new Date(item.publish_at) : (item.created_at ? new Date(item.created_at) : new Date(0));
             let timeLimitMs = 0;
             if (item.time_limit) {
                 const parts = item.time_limit.split(':');
@@ -277,7 +277,7 @@ const AssessmentsPage = () => {
                         </button>
                     ) : isPastDeadline(item) ? (
                         <button disabled className="w-full bg-red-50 text-red-400 py-2.5 rounded-xl mt-6 font-bold cursor-not-allowed border border-red-100 flex items-center justify-center gap-2 text-xs">
-                            <AlertCircle size={14} /> Missed Deadline
+                            <AlertCircle size={14} /> {item.type === 'Quiz' ? 'Time Out' : 'Missed Deadline'}
                         </button>
                     ) : (
                         <button
@@ -289,12 +289,31 @@ const AssessmentsPage = () => {
                     )
                 ) : (
                     item.type === 'Quiz' ? (
-                        <button
-                            onClick={() => handleReviewQuiz(item.id)}
-                            className="w-full bg-blue-100 text-blue-700 py-2.5 rounded-xl mt-6 font-bold hover:bg-blue-200 transition shadow-sm flex items-center justify-center gap-2"
-                        >
-                            <BookOpen size={18} /> Review Quiz
-                        </button>
+                        <div className="mt-6">
+                            {item.allow_review === 0 || item.allow_review === false ? (
+                                <button
+                                    disabled
+                                    className="w-full bg-gray-100 text-gray-400 py-2.5 rounded-xl font-bold cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+                                >
+                                    <Clock size={18} /> Review Disabled
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => handleReviewQuiz(item.id)}
+                                    className="w-full bg-blue-100 text-blue-700 py-2.5 rounded-xl font-bold hover:bg-blue-200 transition shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <BookOpen size={18} /> Review Quiz
+                                </button>
+                            )}
+                            {item.grade !== null && item.grade !== undefined && (
+                                <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100 animate-in fade-in">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Final Quiz Score</span>
+                                        <span className="text-lg font-black text-purple-700">{item.grade}%</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ) : item.type !== 'Quiz' && new Date(item.deadline) > new Date() && item.sub_status !== 'graded' ? (
                         <button
                             onClick={() => navigate(`/student/assignment/${item.id}`)}
@@ -482,8 +501,15 @@ const AssessmentsPage = () => {
                                             
                                             {/* Question Block */}
                                             <div className="mb-8">
-                                                <div className="inline-block px-3 py-1 mb-4 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-widest rounded-lg border border-gray-200">
-                                                    {activeQuiz.questions[currentQuestionIdx].marks} Points
+                                                <div className="flex flex-wrap gap-2 mb-4">
+                                                    <div className="inline-block px-3 py-1 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-widest rounded-lg border border-gray-200">
+                                                        {activeQuiz.questions[currentQuestionIdx].marks} Points
+                                                    </div>
+                                                    <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 font-bold text-xs uppercase tracking-widest rounded-lg border border-indigo-100">
+                                                        {activeQuiz.questions[currentQuestionIdx].type === 'multiple' ? 'Multiple Choice (Select all that apply)' :
+                                                         activeQuiz.questions[currentQuestionIdx].type === 'dropdown' ? 'Dropdown (Select one)' :
+                                                         'Single Choice (Select one)'}
+                                                    </div>
                                                 </div>
                                                 <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 leading-snug">
                                                     {activeQuiz.questions[currentQuestionIdx].question}
