@@ -340,6 +340,15 @@ CREATE TABLE notifications (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE class_announcements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE certificates (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     link VARCHAR(200) NOT NULL,

@@ -24,12 +24,12 @@ const upload = multer({ storage });
 // GET all courses
 router.get('/courses', async (req, res) => {
     try {
-        let q = 'SELECT * FROM classes_courses ORDER BY id DESC';
+        let q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c ORDER BY c.id DESC';
         let params = [];
         if (req.query.teacherId) {
             const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [req.query.teacherId]);
             if (tRes.length > 0) {
-                q = 'SELECT * FROM classes_courses WHERE t_id = ? ORDER BY id DESC';
+                q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c WHERE c.t_id = ? ORDER BY c.id DESC';
                 params.push(tRes[0].id);
             } else {
                 return res.status(200).json([]);
