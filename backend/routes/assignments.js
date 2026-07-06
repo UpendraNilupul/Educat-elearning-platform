@@ -217,10 +217,10 @@ router.post('/assignments/:aId/submit', requireRole(['student']), submissionUplo
         const assignmentRes = await query('SELECT deadline FROM assignments WHERE id = ?', [aId]);
         if (assignmentRes.length === 0) return res.status(404).json({ error: 'Assignment not found' });
 
-        let submissionStatus = 'submitted';
         if (new Date() > new Date(assignmentRes[0].deadline)) {
-            submissionStatus = 'late_submitted';
+            return res.status(400).json({ error: 'Submissions are locked. The deadline has passed.' });
         }
+        let submissionStatus = 'submitted';
 
         // Check if already submitted
         const existing = await query('SELECT id FROM assignment_submissions WHERE a_id = ? AND s_id = ?', [aId, sId]);

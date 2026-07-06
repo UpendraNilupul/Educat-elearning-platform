@@ -566,14 +566,15 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status,
+                MAX(sub.score) as grade, q.allow_review
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
-            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, q.allow_review, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array
