@@ -505,11 +505,6 @@ const AssessmentsPage = () => {
                                                     <div className="inline-block px-3 py-1 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-widest rounded-lg border border-gray-200">
                                                         {activeQuiz.questions[currentQuestionIdx].marks} Points
                                                     </div>
-                                                    <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 font-bold text-xs uppercase tracking-widest rounded-lg border border-indigo-100">
-                                                        {activeQuiz.questions[currentQuestionIdx].type === 'multiple' ? 'Multiple Choice (Select all that apply)' :
-                                                         activeQuiz.questions[currentQuestionIdx].type === 'dropdown' ? 'Dropdown (Select one)' :
-                                                         'Single Choice (Select one)'}
-                                                    </div>
                                                 </div>
                                                 <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 leading-snug">
                                                     {activeQuiz.questions[currentQuestionIdx].question}
@@ -604,8 +599,13 @@ const AssessmentsPage = () => {
                                                                 onClick={() => handleAnswerSelect(qId, opt.id, qType)}
                                                                 className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 group ${borderClass} ${isReviewMode ? 'cursor-default' : 'active:scale-[0.99]'}`}
                                                             >
-                                                                <div className={`w-8 h-8 rounded flex items-center justify-center font-black text-sm transition-colors flex-shrink-0 ${indicatorClass}`}>
-                                                                    {letter}
+                                                                <div className="flex items-center justify-center flex-shrink-0 pl-1 pr-2">
+                                                                    <input 
+                                                                        type={qType === 'multiple' ? 'checkbox' : 'radio'} 
+                                                                        checked={isSelected}
+                                                                        readOnly
+                                                                        className="w-5 h-5 pointer-events-none transition-all accent-blue-600"
+                                                                    />
                                                                 </div>
                                                                 <span className={`text-[1.1rem] leading-snug flex-1 ${textClass}`}>
                                                                     {opt.answer}
