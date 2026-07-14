@@ -20,7 +20,8 @@ import {
   Calendar as CalendarIcon,
   CheckCircle,
   Flag,
-  RefreshCw
+  RefreshCw,
+  Megaphone
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
@@ -28,6 +29,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '' });
   const [finalSummary, setFinalSummary] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -1172,6 +1175,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                       <RefreshCw className="w-4 h-4" /> Reopen Course
                   </button>
               )}
+              <button onClick={() => setIsAnnouncementModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm"><Megaphone className="w-4 h-4" /> Post Announcement</button>
               <button
                 onClick={() => {
                   setEditingChapterId(null);
@@ -1542,7 +1546,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-xl text-gray-800 line-clamp-2">{course.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.students} Students • {course.modules} Modules</p>
+                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.real_student_count || 0} Students • {course.modules} Modules</p>
                     <p className="text-sm font-bold text-purple-600 mt-1">LKR {course.monthly_fee ? parseFloat(course.monthly_fee).toFixed(2) : '0.00'}</p>
                   </div>
                 </div>
@@ -2343,6 +2347,61 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
             
           </div>
         </div>
+      )}
+      {isAnnouncementModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+                  <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                          <Megaphone size={20} /> Class Announcement
+                      </h3>
+                      <button onClick={() => setIsAnnouncementModalOpen(false)} className="text-white hover:text-blue-200 text-2xl leading-none">&times;</button>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-1">Subject / Title</label>
+                          <input 
+                              type="text" 
+                              placeholder="e.g., Change in tomorrow's schedule!" 
+                              value={announcementForm.title}
+                              onChange={(e) => setAnnouncementForm({...announcementForm, title: e.target.value})}
+                              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-1">Message</label>
+                          <textarea 
+                              rows="5" 
+                              placeholder="Type your announcement here..."
+                              value={announcementForm.message}
+                              onChange={(e) => setAnnouncementForm({...announcementForm, message: e.target.value})}
+                              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                          ></textarea>
+                      </div>
+                      
+                      <div className="mt-6 flex gap-3 justify-end">
+                          <button onClick={() => setIsAnnouncementModalOpen(false)} className="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                          <button 
+                              onClick={async () => {
+                                  try {
+                                      await api.post(`/teacher/classes/${selectedCourse.id}/announcements`, {
+                                          ...announcementForm,
+                                          t_id: 1 // Replace with actual logged-in teacher ID
+                                      });
+                                      setIsAnnouncementModalOpen(false);
+                                      setAnnouncementForm({ title: '', message: '' });
+                                      alert("Announcement posted successfully!");
+                                  } catch (err) { alert("Failed to post announcement."); }
+                              }}
+                              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md"
+                          >
+                              Post Announcement
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
     </React.Fragment>
   );
