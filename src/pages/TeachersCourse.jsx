@@ -20,7 +20,10 @@ import {
   Calendar as CalendarIcon,
   CheckCircle,
   Flag,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Search,
+  Filter
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
@@ -143,6 +146,36 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     }
     setQuizErrors(errors);
   }, [quizData.publish_at, isQuizModalOpen]);
+
+  const [activeTab, setActiveTab] = useState('structure');
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+
+  React.useEffect(() => {
+    if (selectedCourse && activeTab === 'students') {
+      fetchEnrolledStudents();
+    }
+  }, [selectedCourse, activeTab]);
+
+  const fetchEnrolledStudents = async () => {
+    setIsLoadingStudents(true);
+    try {
+      const res = await api.get(`/courses/${selectedCourse.id}/students`);
+      if (Array.isArray(res.data)) {
+        setEnrolledStudents(res.data);
+      } else {
+        console.error("API returned non-array data:", res.data);
+        setEnrolledStudents([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch students", err);
+      setEnrolledStudents([]);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
 
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
@@ -1151,41 +1184,73 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
           >
             <ArrowLeft size={20} /> Back to Dashboard
           </button>
+          
           <div className="flex justify-between items-end border-b pb-6">
             <div>
-              <span className="text-purple-600 font-semibold mb-1 block">Course Structure</span>
+              <span className="text-purple-600 font-semibold mb-1 block">Course Details</span>
               <h1 className="text-3xl font-extrabold text-gray-900">{selectedCourse.title}</h1>
             </div>
+            
             <div className="flex items-center gap-3">
-              {selectedCourse.status !== 'completed' ? (
-                  <button 
-                      onClick={() => setIsCompletionModalOpen(true)} 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+              {/* Tab Navigation */}
+              <div className="flex bg-gray-100 p-1 rounded-xl mr-4">
+                <button
+                  onClick={() => setActiveTab('structure')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                    activeTab === 'structure' 
+                      ? 'bg-white text-purple-700 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <BookOpen size={16} className="inline mr-2" /> Structure
+                </button>
+                <button
+                  onClick={() => setActiveTab('students')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                    activeTab === 'students' 
+                      ? 'bg-white text-purple-700 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Users size={16} className="inline mr-2" /> Enrolled Students
+                </button>
+              </div>
+
+              {activeTab === 'structure' && (
+                <>
+                  {selectedCourse.status !== 'completed' ? (
+                      <button 
+                          onClick={() => setIsCompletionModalOpen(true)} 
+                          className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+                      >
+                          <Flag className="w-4 h-4" /> Mark Course as Complete
+                      </button>
+                  ) : (
+                      <button 
+                          onClick={handleReopenCourse} 
+                          className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
+                      >
+                          <RefreshCw className="w-4 h-4" /> Reopen Course
+                      </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setEditingChapterId(null);
+                      setChapterTitle("");
+                      setIsChapterModalOpen(true);
+                    }}
+                    className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
                   >
-                      <Flag className="w-4 h-4" /> Mark Course as Complete
+                    <Plus size={18} /> Add Module
                   </button>
-              ) : (
-                  <button 
-                      onClick={handleReopenCourse} 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
-                  >
-                      <RefreshCw className="w-4 h-4" /> Reopen Course
-                  </button>
+                </>
               )}
-              <button
-                onClick={() => {
-                  setEditingChapterId(null);
-                  setChapterTitle("");
-                  setIsChapterModalOpen(true);
-                }}
-                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Plus size={18} /> Add Module
-              </button>
             </div>
           </div>
-          <div className="flex flex-col gap-4 mt-2">
-            {selectedCourse.chapters?.map((chapter, index) => {
+
+          {activeTab === 'structure' && (
+            <div className="flex flex-col gap-4 mt-2">
+              {selectedCourse.chapters?.map((chapter, index) => {
               const isExpanded = expandedChapters.includes(chapter.id);
               return (
                 <div key={chapter.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -1519,7 +1584,86 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <p className="text-gray-500">No modules added yet. Start by adding your first module.</p>
               </div>
             )}
+            </div>
+          )}
+
+          {activeTab === 'students' && (
+            /* Enrolled Students Tab */
+            <div className="flex flex-col gap-6 mt-2">
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div className="relative flex-1 max-w-md">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              <Filter size={18} className="text-gray-400" />
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="date">Sort by Enrollment Date</option>
+              </select>
+            </div>
           </div>
+
+          {isLoadingStudents ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {enrolledStudents
+                .filter(s => 
+                  s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  s.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .sort((a, b) => {
+                  if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+                  if (sortBy === 'date') return new Date(b.enrolled_date) - new Date(a.enrolled_date);
+                  return 0;
+                })
+                .map(student => (
+                <div 
+                  key={student.id} 
+                  onClick={() => navigate(`/teacher/student-profile/${student.id}`)}
+                  className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={student.profile_image || "https://ui-avatars.com/api/?name=" + encodeURIComponent(student.name) + "&background=random"} 
+                      alt={student.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-gray-100 group-hover:border-purple-200 transition-colors"
+                    />
+                    <div className="overflow-hidden">
+                      <h3 className="font-bold text-gray-900 truncate group-hover:text-purple-600 transition-colors">{student.name}</h3>
+                      <p className="text-sm text-gray-500 truncate">{student.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex sm:flex-row flex-col sm:items-center gap-3 sm:gap-6 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                    <div className="text-gray-500 font-medium text-xs">
+                      Enrolled: <span className="text-gray-700">{new Date(student.enrolled_date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {enrolledStudents.length === 0 && (
+                <div className="col-span-full py-12 text-center text-gray-500 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                  No students enrolled in this course yet.
+                </div>
+              )}
+            </div>
+          )}
+          </div>
+        )}
         </div>
       ) : (
         <div className="animate-in fade-in duration-500 flex flex-col gap-8">

@@ -28,6 +28,7 @@ import Admin_Teachers from './pages/Admin_Teachers';
 import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Teacher_StudentProfile from './pages/Teacher_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
 import Admin_Advertisements from './pages/Admin_Advertisements';
 import VerifyTeacher from './pages/VerifyTeacher';
@@ -331,6 +332,13 @@ function App() {
           <Route path="/teacher/assignments/:id/submissions" element={
             (userRole === 'teacher' || userRole === 'admin')
               ? <AssignmentSubmissions />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Student Profile */}
+          <Route path="/teacher/student-profile/:id" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <Teacher_StudentProfile />
               : <Navigate to="/" />
           } />
 

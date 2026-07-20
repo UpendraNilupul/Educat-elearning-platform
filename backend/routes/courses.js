@@ -624,5 +624,30 @@ router.get('/student/liveclasses', requireAuth, async (req, res) => {
         res.status(500).json({ error: "Failed to fetch live classes" });
     }
 });
+// GET enrolled students for a specific course
+router.get('/courses/:id/students', requireAuth, async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const students = await query(`
+            SELECT 
+                u.id, 
+                u.name, 
+                u.email, 
+                u.picture AS profile_image,
+                e.enrolled_date, 
+                e.status
+            FROM enrollments e
+            JOIN students s ON e.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            WHERE e.c_id = ? AND u.role_id = 3
+            ORDER BY e.enrolled_date DESC
+        `, [courseId]);
+        
+        res.status(200).json(students);
+    } catch (err) {
+        console.error("Error fetching enrolled students:", err);
+        res.status(500).json({ error: "Failed to fetch enrolled students" });
+    }
+});
 
 export default router;
