@@ -19,7 +19,8 @@ import {
     Star,
     MessageSquare,
     Clock,
-    AlertCircle
+    AlertCircle,
+    Megaphone
 } from 'lucide-react';
 import api from '../api';
 import axios from 'axios';
@@ -74,6 +75,7 @@ const TuitionClass = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [suggestedClasses, setSuggestedClasses] = useState([]);
+    const [announcements, setAnnouncements] = useState([]);
 
     useEffect(() => {
         const fetchClasses = async () => {
@@ -200,6 +202,23 @@ const TuitionClass = () => {
             checkReviewStatus();
         }
     }, [selectedClassId]);
+
+    useEffect(() => {
+        const fetchAnnouncements = async () => {
+            try {
+                // Ensure classData.id is available dynamically
+                const response = await api.get(`/classes/${selectedClassId}/announcements`);
+                setAnnouncements(response.data);
+            } catch (error) {
+                console.error("Failed to fetch announcements", error);
+            }
+        };
+        
+        if (selectedClassId) {
+            fetchAnnouncements();
+        }
+    }, [selectedClassId]);
+
 
     if (isLoading) {
         return (
@@ -489,6 +508,55 @@ const TuitionClass = () => {
                     </div>
                 )}
             </div>
+
+            {/* Announcements Board */}
+            {announcements && announcements.length > 0 && (
+                <div className="mb-8 bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden animate-in fade-in">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                <Megaphone className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-blue-900 text-lg">Class Announcements</h3>
+                        </div>
+                        <span className="text-xs font-bold bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                            {announcements.length} New
+                        </span>
+                    </div>
+                    
+                    {/* Scrollable List */}
+                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-4 bg-gray-50/50">
+                        <div className="space-y-3">
+                            {announcements.map((announcement) => (
+                                <div 
+                                    key={announcement.id} 
+                                    className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-blue-200 hover:shadow-md transition-all"
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-gray-800 text-md">{announcement.title}</h4>
+                                        <div className="flex items-center gap-1 text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-1 border border-gray-100 rounded-md">
+                                            <Clock className="w-3 h-3" />
+                                            {new Date(announcement.created_at).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                                        {announcement.message}
+                                    </p>
+                                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                            {announcement.teacher_name ? announcement.teacher_name.charAt(0) : 'T'}
+                                        </div>
+                                        <p className="text-xs text-blue-700 font-semibold">
+                                            Posted by {announcement.teacher_name}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* SINGLE COLUMN LAYOUT */}
             <div className="w-full mt-4">
