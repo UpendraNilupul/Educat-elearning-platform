@@ -28,7 +28,9 @@ import Admin_Teachers from './pages/Admin_Teachers';
 import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Teacher_StudentProfile from './pages/Teacher_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
+import Admin_Advertisements from './pages/Admin_Advertisements';
 import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
@@ -69,11 +71,22 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || localStorage.getItem('userRole') || null);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
   const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [userPicture, setUserPicture] = useState(localStorage.getItem('userPicture') || '');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Synchronize state across tabs when localStorage auth details change
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'userId' || e.key === 'userRole') {
+        window.location.reload();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     api.get('/status')
@@ -88,17 +101,30 @@ function App() {
             setUserPicture(data.userPicture);
             localStorage.setItem('userPicture', data.userPicture);
           }
-          
-          // Populate sessionStorage to maintain tab-level context
-          if (!sessionStorage.getItem('userRole')) {
-            sessionStorage.setItem('userRole', safeRole);
-          }
-          if (data.userId && !sessionStorage.getItem('userId')) {
-            sessionStorage.setItem('userId', data.userId);
-          }
+        } else {
+          setUserRole(null);
+          setUserName('');
+          setUserPicture('');
+          setAdminLevel('super');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userPicture');
+          localStorage.removeItem('adminLevel');
+          localStorage.removeItem('verificationStatus');
         }
       })
-      .catch(err => console.log("User is likely not logged in yet."))
+      .catch(err => {
+        console.log("User is likely not logged in yet.");
+        setUserRole(null);
+        setUserName('');
+        setUserPicture('');
+        setAdminLevel('super');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userPicture');
+        localStorage.removeItem('adminLevel');
+        localStorage.removeItem('verificationStatus');
+      })
       .finally(() => {
         setIsLoading(false);
       });
@@ -148,9 +174,6 @@ function App() {
       localStorage.removeItem('userPicture');
       localStorage.removeItem('adminLevel');
       localStorage.removeItem('verificationStatus');
-      
-      sessionStorage.removeItem('userId');
-      sessionStorage.removeItem('userRole');
       
       setUserRole(null);
       setUserName('');
@@ -252,6 +275,11 @@ function App() {
           />
 
           <Route
+            path="/admin/advertisements"
+            element={userRole === 'admin' ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
             path="/admin/courses"
             element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
@@ -325,6 +353,13 @@ function App() {
           <Route path="/teacher/assignments/:id/submissions" element={
             (userRole === 'teacher' || userRole === 'admin')
               ? <AssignmentSubmissions />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Student Profile */}
+          <Route path="/teacher/student-profile/:id" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <Teacher_StudentProfile />
               : <Navigate to="/" />
           } />
 

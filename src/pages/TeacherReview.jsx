@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Clock, FileText, IdCard, ShieldAlert } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
+import { forceDownload } from '../utils/downloadHelper';
 
 const TeacherReview = ({ userName, onLogout }) => {
     const { id } = useParams();
@@ -159,28 +160,42 @@ const TeacherReview = ({ userName, onLogout }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
                             {/* Document 1: CV */}
-                            <a 
-                                href={teacher.resume_link ? (teacher.resume_link.startsWith('http') ? teacher.resume_link : `${baseURL}/uploads/verification/${teacher.resume_link}`) : '#'} 
-                                target="_blank" rel="noreferrer"
-                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all
+                            <button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (teacher.resume_link) {
+                                        const fileUrl = teacher.resume_link.startsWith('http') ? teacher.resume_link : `${baseURL}/uploads/verification/${teacher.resume_link}`;
+                                        const originalName = fileUrl.split('/').pop() || 'Teacher_CV';
+                                        forceDownload(fileUrl, originalName);
+                                    }
+                                }}
+                                disabled={!teacher.resume_link}
+                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all w-full text-center
                                     ${teacher.resume_link ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}
                             >
                                 <FileText className={`mb-2 ${teacher.resume_link ? 'text-[#4a0b59]' : 'text-gray-400'}`} size={32} />
                                 <span className="font-bold text-gray-800 text-center">Curriculum Vitae (CV)</span>
                                 <span className="text-xs text-gray-500 mt-1">{teacher.resume_link ? 'Click to view document' : 'No CV uploaded'}</span>
-                            </a>
+                            </button>
 
                             {/* Document 2: NIC */}
-                            <a 
-                                href={teacher.nic_path ? (teacher.nic_path.startsWith('http') ? teacher.nic_path : `${baseURL}/uploads/verification/${teacher.nic_path}`) : '#'} 
-                                target="_blank" rel="noreferrer"
-                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all
+                            <button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (teacher.nic_path) {
+                                        const fileUrl = teacher.nic_path.startsWith('http') ? teacher.nic_path : `${baseURL}/uploads/verification/${teacher.nic_path}`;
+                                        const originalName = fileUrl.split('/').pop() || 'Teacher_NIC';
+                                        forceDownload(fileUrl, originalName);
+                                    }
+                                }}
+                                disabled={!teacher.nic_path}
+                                className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all w-full text-center
                                     ${teacher.nic_path ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer' : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'}`}
                             >
                                 <IdCard className={`mb-2 ${teacher.nic_path ? 'text-[#4a0b59]' : 'text-gray-400'}`} size={32} />
                                 <span className="font-bold text-gray-800 text-center">National ID Card</span>
                                 <span className="text-xs text-gray-500 mt-1">{teacher.nic_path ? 'Click to view image' : 'No NIC uploaded'}</span>
-                            </a>
+                            </button>
 
                         </div>
                     </div>
