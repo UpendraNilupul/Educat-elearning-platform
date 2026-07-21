@@ -47,6 +47,7 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
+        { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
         { id: 'payouts', label: 'Payouts & Earnings', icon: DollarSign, path: '/admin/payouts' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
         { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },

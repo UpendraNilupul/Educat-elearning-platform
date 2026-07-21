@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import db from '../db.js'; 
 import util from 'util';
 import { sendEnrollmentEmail } from '../emailService.js';
+import multer from 'multer';
+import { slipStorage } from '../cloudinaryConfig.js';
+
+const uploadSlip = multer({ storage: slipStorage });
 
 const query = util.promisify(db.query).bind(db);
 const router = express.Router();
@@ -189,6 +193,63 @@ router.post('/payment/manual-success', async (req, res) => {
         console.log("\n❌❌ DATABASE ERROR EKAK AWA! ❌❌");
         console.error(error);
         res.status(500).send("Error");
+    }
+});
+// ==========================================
+// 4. BANK SLIP UPLOAD ROUTE
+// ==========================================
+router.post('/payment/slip-upload', uploadSlip.single('slip_image'), async (req, res) => {
+    console.log("🛠️ SLIP UPLOAD ROUTE HIT!");
+    try {
+        const { classId, userId, amount } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: "Slip image is required" });
+        }
+
+        const slipUrl = file.path; 
+
+        // Find student
+        const studentData = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        
+        if (studentData.length > 0) {
+            const actualStudentId = studentData[0].id;
+            
+            // Generate a dummy invoice link or reference for slip
+            const order_id = `SLIP_${classId}_${userId}_${Date.now()}`;
+
+            await query(`
+                INSERT INTO payments (invoice_link, amount, status, payment_method, slip_url, c_id, s_id) 
+                VALUES (?, ?, 'pending_approval', 'slip', ?, ?, ?)
+            `, [order_id, amount, slipUrl, classId, actualStudentId]);
+            
+            console.log(`✅ Slip Payment pending for Class ID: ${classId}, Student ID: ${actualStudentId}`);
+
+            // 🌟 Send notifications to all Admins and Moderators
+            try {
+                const admins = await query("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id WHERE r.role_name IN ('admin', 'moderator', 'subadmin')");
+                if (admins.length > 0) {
+                    const notifyPromises = admins.map(admin => 
+                        query(`
+                            INSERT INTO notifications (user_id, title, description, is_read)
+                            VALUES (?, 'New Slip Pending Approval', ?, 0)
+                        `, [admin.id, `A new bank slip payment (LKR ${amount}) was uploaded for Class ID ${classId} by Student ID ${actualStudentId}. Please review it in the dashboard.`])
+                    );
+                    await Promise.all(notifyPromises);
+                    console.log("✅ Admins/Moderators successfully notified of slip upload.");
+                }
+            } catch (notifyErr) {
+                console.error("⚠️ Failed to notify admins:", notifyErr);
+            }
+
+            res.status(200).json({ success: true, message: "Slip uploaded successfully. Pending admin approval." });
+        } else {
+            res.status(404).json({ error: "Student not found" });
+        }
+    } catch (error) {
+        console.error("❌ DB Error during slip upload:", error);
+        res.status(500).json({ error: "Server Error" });
     }
 });
 

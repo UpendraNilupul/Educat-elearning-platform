@@ -1376,5 +1376,91 @@ router.post('/payouts/process', async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to process payments." });
     }
 });
+// ==========================================
+// 21. BANK SLIP PAYMENTS APPROVAL
+// ==========================================
+
+// A. Get pending slip payments
+router.get('/pending-payments', async (req, res) => {
+    try {
+        const payments = await query(`
+            SELECT 
+                p.id, p.amount, p.slip_url, p.payment_date, p.invoice_link,
+                u.name as student_name, u.email as student_email,
+                c.title as course_title, c.id as class_id,
+                s.id as student_id
+            FROM payments p
+            JOIN students s ON p.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            JOIN classes_courses c ON p.c_id = c.id
+            WHERE p.status = 'pending_approval' AND p.payment_method = 'slip'
+            ORDER BY p.payment_date ASC
+        `);
+        res.status(200).json({ success: true, data: payments });
+    } catch (error) {
+        console.error("Pending payments error:", error);
+        res.status(500).json({ success: false, message: "Failed to load pending payments." });
+    }
+});
+
+// B. Approve slip payment
+router.put('/payments/:id/approve', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        
+        // Find payment details
+        const paymentDetails = await query('SELECT * FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length === 0) {
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+        
+        const { c_id, s_id } = paymentDetails[0];
+
+        // Update payment status
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['completed', paymentId]);
+
+        // Enroll student
+        await query('INSERT IGNORE INTO enrollments (s_id, c_id) VALUES (?, ?)', [s_id, c_id]);
+
+        // Add Notification
+        const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [s_id]);
+        if (studentUser.length > 0) {
+            await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, 'Payment Approved', 'Your bank slip payment was approved and you have been enrolled.', 0)
+            `, [studentUser[0].user_id]);
+        }
+
+        res.status(200).json({ success: true, message: "Payment approved successfully." });
+    } catch (error) {
+        console.error("Payment approve error:", error);
+        res.status(500).json({ success: false, message: "Failed to approve payment." });
+    }
+});
+
+// C. Reject slip payment
+router.put('/payments/:id/reject', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['rejected', paymentId]);
+        
+        // Optionally notify student
+        const paymentDetails = await query('SELECT s_id FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length > 0) {
+            const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [paymentDetails[0].s_id]);
+            if (studentUser.length > 0) {
+                await query(`
+                    INSERT INTO notifications (user_id, title, description, is_read)
+                    VALUES (?, 'Payment Rejected', 'Your bank slip payment was rejected. Please contact support.', 0)
+                `, [studentUser[0].user_id]);
+            }
+        }
+
+        res.status(200).json({ success: true, message: "Payment rejected successfully." });
+    } catch (error) {
+        console.error("Payment reject error:", error);
+        res.status(500).json({ success: false, message: "Failed to reject payment." });
+    }
+});
 
 export default router;

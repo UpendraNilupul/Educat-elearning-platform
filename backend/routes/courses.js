@@ -2,24 +2,13 @@ import express from 'express';
 import db from '../db.js';
 import util from 'util';
 import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { resourceStorage } from '../cloudinaryConfig.js';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/resources';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage });
+const upload = multer({ storage: resourceStorage });
 
 // GET all courses
 router.get('/courses', async (req, res) => {
@@ -297,7 +286,7 @@ router.post('/lessons/:l_id/resources', upload.single('file'), requireRole(['tea
     let url = req.body.url || '';
 
     if (req.file) {
-        url = `http://localhost:3000/uploads/resources/${req.file.filename}`;
+        url = req.file.path; // Cloudinary URL
     }
 
     try {

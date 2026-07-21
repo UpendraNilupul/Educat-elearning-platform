@@ -62,6 +62,7 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Review Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teacher Directory', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Student Directory', icon: Users, path: '/admin/students' },
+        { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
        { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'settings', label: 'My Settings', icon: Settings, path: '/admin/settings' },
     ];

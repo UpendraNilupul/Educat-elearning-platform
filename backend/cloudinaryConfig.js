@@ -55,4 +55,23 @@ const submissionStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage };
+// Storage for Payment Slips
+const slipStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'payment_slips',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+    resource_type: 'auto',
+  },
+});
+
+// Storage for Course Resources (PDFs, Videos, etc)
+const resourceStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'course_resources',
+    resource_type: 'auto',
+  },
+});
+
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, slipStorage, resourceStorage };
