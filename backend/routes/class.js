@@ -86,6 +86,7 @@ router.get('/student/classes', async (req, res) => {
                             title: a.title,
                             description: a.description,
                             deadline: a.deadline,
+                            publish_at: a.publish_at,
                             maxMarks: a.max_marks,
                             attachments: attachments.map(att => att.file_url),
                             submission: a.submissionStatus ? {

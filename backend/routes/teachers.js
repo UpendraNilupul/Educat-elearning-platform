@@ -315,6 +315,46 @@ router.delete('/teacher/liveclasses/:id', requireAuth, requireRole(['teacher']),
         res.status(500).json({ error: 'Failed to delete live class' });
     }
 });
+// GET student profile for teacher
+router.get('/teacher/student-profile/:id', async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        
+        // Basic student info
+        const studentQuery = await query(`
+            SELECT 
+                u.id, u.name, u.email, u.phone_number, u.address, u.gender, u.join_date, u.picture AS profile_image, u.created_at, u.status,
+                s.grade_level, s.guardian_name
+            FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
+            WHERE u.id = ?
+        `, [studentId]);
+        
+        if (studentQuery.length === 0) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+        
+        const profile = studentQuery[0];
+        
+        // Enrollments info
+        const enrollmentsQuery = await query(`
+            SELECT c.id, c.title, e.enrolled_date, e.status
+            FROM enrollments e
+            JOIN classes_courses c ON e.c_id = c.id
+            JOIN students s ON e.s_id = s.id
+            WHERE s.user_id = ?
+            ORDER BY e.enrolled_date DESC
+        `, [studentId]);
+
+        res.status(200).json({
+            success: true,
+            profile,
+            enrollments: enrollmentsQuery
+        });
+
+    } catch (err) {
+        console.error('Error fetching student profile:', err);
+        res.status(500).json({ error: 'Failed to fetch student profile' });
 // POST a class announcement
 router.post('/teacher/classes/:id/announcements', requireAuth, requireRole(['teacher']), async (req, res) => {
     const classId = req.params.id;
