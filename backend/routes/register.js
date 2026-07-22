@@ -79,15 +79,6 @@ router.post('/register', async (req, res) => {
         req.session.userRole = normalizedRole;
         req.session.userName = name;
 
-        // Initialize session roles and store role-specific details for tab isolation on localhost
-        req.session.roles = req.session.roles || {};
-        req.session.roles[normalizedRole] = {
-            userId: newUserId,
-            userRole: normalizedRole,
-            userName: name,
-            adminLevel: null,
-            userPicture: null
-        };
  
         res.status(201).json({ 
             message: 'User registered successfully!',

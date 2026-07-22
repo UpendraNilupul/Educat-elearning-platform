@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
 
@@ -30,31 +31,92 @@ const profileStorage = new CloudinaryStorage({
 // Storage for Verification Docs (NIC, Resume)
 const verificationStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'teacher_verification',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
-    resource_type: 'auto', // Important for PDFs
+  params: async (req, file) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = file.mimetype === 'application/pdf' || ext === '.pdf';
+    const isZip = file.mimetype === 'application/zip' || ext === '.zip';
+    const resource_type = (isPdf || isZip) ? 'raw' : 'auto';
+    
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+    const uniqueId = `${cleanName}-${Date.now()}`;
+    
+    let public_id = uniqueId;
+    if (isPdf) {
+      public_id = `${uniqueId}.pdftemp`;
+    } else if (isZip) {
+      public_id = `${uniqueId}.ziptemp`;
+    } else if (resource_type === 'raw') {
+      public_id = `${uniqueId}${ext}`;
+    }
+    
+    return {
+      folder: 'teacher_verification',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+      resource_type: resource_type,
+      public_id: public_id,
+    };
   },
 });
 
 // Storage for Assignment Attachments
 const assignmentStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'course_assignments',
-    resource_type: 'auto',
+  params: async (req, file) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = file.mimetype === 'application/pdf' || ext === '.pdf';
+    const isZip = file.mimetype === 'application/zip' || ext === '.zip';
+    const resource_type = (isPdf || isZip) ? 'raw' : 'auto';
+    
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+    const uniqueId = `${cleanName}-${Date.now()}`;
+    
+    let public_id = uniqueId;
+    if (isPdf) {
+      public_id = `${uniqueId}.pdftemp`;
+    } else if (isZip) {
+      public_id = `${uniqueId}.ziptemp`;
+    } else if (resource_type === 'raw') {
+      public_id = `${uniqueId}${ext}`;
+    }
+    
+    return {
+      folder: 'course_assignments',
+      resource_type: resource_type,
+      public_id: public_id,
+    };
   },
 });
 
 // Storage for Student Submissions
 const submissionStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'student_submissions',
-    resource_type: 'auto',
+  params: async (req, file) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = file.mimetype === 'application/pdf' || ext === '.pdf';
+    const isZip = file.mimetype === 'application/zip' || ext === '.zip';
+    const resource_type = (isPdf || isZip) ? 'raw' : 'auto';
+    
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+    const uniqueId = `${cleanName}-${Date.now()}`;
+    
+    let public_id = uniqueId;
+    if (isPdf) {
+      public_id = `${uniqueId}.pdftemp`;
+    } else if (isZip) {
+      public_id = `${uniqueId}.ziptemp`;
+    } else if (resource_type === 'raw') {
+      public_id = `${uniqueId}${ext}`;
+    }
+    
+    return {
+      folder: 'student_submissions',
+      resource_type: resource_type,
+      public_id: public_id,
+    };
   },
 });
 
+<<<<<<< HEAD
 // Storage for Payment Slips
 const slipStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -75,3 +137,15 @@ const resourceStorage = new CloudinaryStorage({
 });
 
 export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, slipStorage, resourceStorage };
+=======
+// Storage for Teacher Advertisements
+const advertisementStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'teacher_advertisements',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+  },
+});
+
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, advertisementStorage };
+>>>>>>> 4f38bbf7ad37aefa928db85e600a35e34c21d0de

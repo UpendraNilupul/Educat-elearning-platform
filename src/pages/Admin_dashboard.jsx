@@ -7,6 +7,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 
+// Admin Sub-pages
+import Admin_Advertisements from './Admin_Advertisements';
+
 const Admin = ({ userName, onLogout }) => {
     const navigate = useNavigate();
 
@@ -50,6 +53,7 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
         { id: 'payouts', label: 'Payouts & Earnings', icon: DollarSign, path: '/admin/payouts' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
+        { id: 'advertisements', label: 'Advertisements', icon: Megaphone, path: '/admin/advertisements' },
         { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'escalations', label: 'Escalation Inbox', icon: ShieldAlert, path: '/admin/escalations' },
         { id: 'team', label: 'Team Management', icon: ShieldCheck, path: '/admin/team' },

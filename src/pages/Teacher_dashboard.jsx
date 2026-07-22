@@ -9,6 +9,7 @@ import TeachersCourse from "./TeachersCourse";
 import TeacherChat from "./Teacher_Chat";
 import TeacherReviews from "./TeacherReviews";
 import VirtualClassroom from "./Teacher_liveClass";
+import TeacherAdvertisements from "./TeacherAdvertisements";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
 
@@ -25,7 +26,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
     { name: "Course Management", icon: BookOpen },
     { name: "Assessments", icon: FileText },
     { name: "Certification", icon: Award },
-    { name: "Marketing", icon: Megaphone },
+    { name: "Advertisements", icon: Megaphone },
     { name: "Virtual Classroom", icon: Video },
     { name: "Reviews", icon: Star }
   ];
@@ -115,6 +116,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             { name: "Virtual Classroom", icon: Video },
             { name: "Reviews", icon: Star },
             { name: "Messages", icon: MessageSquare },
+            { name: "Advertisements", icon: Megaphone },
           ].map((item) => (
             <button
               key={item.name}
@@ -333,7 +335,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                   {courses.slice(0, 3).map((course) => (
                     <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
                       <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{course.title}</h3>
-                      <p className="text-xs text-gray-500 mt-1 mb-4">{course.students} Students enrolled</p>
+                      <p className="text-xs text-gray-500 mt-1 mb-4">{course.real_student_count || 0} Students enrolled</p>
                     </div>
                   ))}
                 </div>
@@ -354,6 +356,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
         {activeTab === "Messages" && <TeacherChat />}
         {activeTab === "Reviews" && <TeacherReviews />}
         {activeTab === "Virtual Classroom" && <VirtualClassroom />}
+        {activeTab === "Advertisements" && <TeacherAdvertisements />}
       </main>
     </div>
   );
