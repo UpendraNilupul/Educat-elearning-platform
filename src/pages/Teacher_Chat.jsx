@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import {
   MessageSquare, ArrowLeft, Send, ShieldAlert, 
-  Search, Plus, X, UserCircle
+  Search, Plus, X, UserCircle, Paperclip, FileIcon
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
@@ -18,10 +18,33 @@ const TeacherChat = () => {
   const messagesEndRef = useRef(null);
   const [socket, setSocket] = useState(null);
 
+  // Attachment States
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const fileInputRef = useRef(null);
+
   // Composing States
   const [isComposing, setIsComposing] = useState(false);
   const [contacts, setContacts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const getFileUrl = (url) => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+      return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const handleFileChange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      setSelectedFile(file);
+      if (file.type.startsWith('image/')) {
+          setFilePreview(URL.createObjectURL(file));
+      } else {
+          setFilePreview(null);
+      }
+  };
 
   // ==========================================
   // 🌟 INITIALIZE SOCKET CONNECTION
@@ -121,21 +144,48 @@ const TeacherChat = () => {
 
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!chatMessage.trim() || !activeChat) return;
+    if ((!chatMessage.trim() && !selectedFile) || !activeChat) return;
     setIsSending(true);
 
     try {
+        let fileUrl = null;
+        let fileType = null;
+
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            const uploadRes = await api.post('/chat/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            if (uploadRes.data.success) {
+                fileUrl = uploadRes.data.fileUrl;
+                fileType = uploadRes.data.fileType;
+            } else {
+                throw new Error("File upload failed");
+            }
+        }
+
         // 🌟 THE FIX: Use api.post()
         const response = await api.post('/teacher-chat/send-message', {
             senderId: teacherId,
             receiverId: activeChat.other_user_id,
-            message: chatMessage
+            message: chatMessage,
+            fileUrl,
+            fileType
         });
 
         const result = response.data;
         
         if (result.success) {
-            const newMessage = { sender_id: teacherId, body: chatMessage, created_at: new Date().toISOString() };
+            const newMessage = { 
+                sender_id: teacherId, 
+                body: chatMessage, 
+                file_url: fileUrl,
+                file_type: fileType,
+                created_at: new Date().toISOString() 
+            };
             setMessages((prev) => [...prev, newMessage]);
             
             if (socket && !activeChat.conversation_id.toString().startsWith('temp_')) {
@@ -143,12 +193,14 @@ const TeacherChat = () => {
             }
 
             setChatMessage('');
+            setSelectedFile(null);
+            setFilePreview(null);
             fetchConversations(); // Refresh inbox silently
         } else {
             alert("Backend blocked it: " + result.message);
         }
     } catch (error) {
-        alert(error.response?.data?.message || "Failed to send message.");
+        alert(error.response?.data?.message || error.message || "Failed to send message.");
     } finally {
         setIsSending(false);
     }
@@ -301,7 +353,35 @@ const TeacherChat = () => {
                         return (
                             <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[75%] md:max-w-[60%] p-4 rounded-2xl shadow-sm ${isMe ? 'bg-[#4a0b59] text-white rounded-br-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'}`}>
-                                    <p className="text-[15px] leading-relaxed">{msg.body}</p>
+                                    {msg.file_url && (
+                                        <div className="mb-2">
+                                            {msg.file_type?.startsWith('image/') ? (
+                                                <a href={getFileUrl(msg.file_url)} target="_blank" rel="noopener noreferrer">
+                                                    <img 
+                                                        src={getFileUrl(msg.file_url)} 
+                                                        alt="Attachment" 
+                                                        className="max-w-xs md:max-w-md rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                                                    />
+                                                </a>
+                                            ) : (
+                                                <a 
+                                                    href={getFileUrl(msg.file_url)} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className={`flex items-center gap-2 p-3 rounded-xl border ${isMe ? 'bg-purple-900/40 border-purple-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'} hover:bg-opacity-80 transition-all`}
+                                                >
+                                                    <FileIcon size={20} className={isMe ? 'text-purple-200' : 'text-purple-600'} />
+                                                    <div className="text-left overflow-hidden">
+                                                        <p className="text-xs font-bold truncate max-w-[200px]">
+                                                            {msg.file_url.split('/').pop().replace(/^\d+-/, '')}
+                                                        </p>
+                                                        <p className={`text-[10px] ${isMe ? 'text-purple-200' : 'text-gray-400'}`}>Click to download</p>
+                                                    </div>
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+                                    {msg.body && <p className="text-[15px] leading-relaxed">{msg.body}</p>}
                                     <p className={`text-[10px] mt-2 font-bold ${isMe ? 'text-purple-200' : 'text-gray-400'}`}>
                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
@@ -314,27 +394,68 @@ const TeacherChat = () => {
 
                 {/* Input Area */}
                 <div className="p-4 md:p-6 bg-white border-t border-gray-200 shrink-0">
-                    <form onSubmit={handleSendMessage} className="flex items-end gap-3 max-w-4xl mx-auto">
-                        <textarea 
-                            className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
-                            rows="2"
-                            placeholder="Type a message..."
-                            value={chatMessage}
-                            onChange={(e) => setChatMessage(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault(); 
-                                    handleSendMessage();
-                                }
-                            }}
-                        ></textarea>
-                        <button 
-                            type="submit"
-                            disabled={!chatMessage.trim() || isSending}
-                            className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
-                        >
-                            <Send size={24} />
-                        </button>
+                    <form onSubmit={handleSendMessage} className="flex flex-col gap-3 max-w-4xl mx-auto">
+                        {filePreview && (
+                            <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
+                                <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
+                                <button 
+                                    type="button" 
+                                    onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                                    className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                        {!filePreview && selectedFile && (
+                            <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
+                                <FileIcon size={16} className="text-purple-600" />
+                                <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                                <button 
+                                    type="button" 
+                                    onClick={() => { setSelectedFile(null); }}
+                                    className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                        <div className="flex items-end gap-3 w-full">
+                            <button 
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-4 bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                                title="Attach file or image"
+                            >
+                                <Paperclip size={24} />
+                            </button>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                className="hidden" 
+                            />
+                            <textarea 
+                                className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
+                                rows="2"
+                                placeholder="Type a message..."
+                                value={chatMessage}
+                                onChange={(e) => setChatMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault(); 
+                                        handleSendMessage();
+                                    }
+                                }}
+                            ></textarea>
+                            <button 
+                                type="submit"
+                                disabled={(!chatMessage.trim() && !selectedFile) || isSending}
+                                className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
+                            >
+                                <Send size={24} />
+                            </button>
+                        </div>
                     </form>
                 </div>
               </>
