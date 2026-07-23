@@ -167,6 +167,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
         { name: 'Virtual Classroom', icon: Video },
+        { name: 'Messages', icon: MessageSquare },
     ];
 
     return (

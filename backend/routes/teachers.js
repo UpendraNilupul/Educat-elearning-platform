@@ -355,6 +355,9 @@ router.get('/teacher/student-profile/:id', async (req, res) => {
     } catch (err) {
         console.error('Error fetching student profile:', err);
         res.status(500).json({ error: 'Failed to fetch student profile' });
+    }
+});
+
 // POST a class announcement
 router.post('/teacher/classes/:id/announcements', requireAuth, requireRole(['teacher']), async (req, res) => {
     const classId = req.params.id;
