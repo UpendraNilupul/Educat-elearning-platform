@@ -1,9 +1,43 @@
 import express from 'express';
 import db from '../db.js';
 import util from 'util';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
+
+const chatStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/chats';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
+    }
+});
+const uploadChat = multer({ storage: chatStorage });
+
+// Common file upload route for chat attachments
+router.post('/chat/upload', uploadChat.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file uploaded.' });
+        }
+        const fileUrl = `/uploads/chats/${req.file.filename}`;
+        res.status(200).json({
+            success: true,
+            fileUrl,
+            fileName: req.file.originalname,
+            fileType: req.file.mimetype
+        });
+    } catch (error) {
+        console.error("Chat upload error:", error);
+        res.status(500).json({ success: false, message: 'File upload failed.' });
+    }
+});
 
 // 1. Fetch all active conversations for the logged-in Student
 router.get('/student-chat/conversations', async (req, res) => {
@@ -37,7 +71,7 @@ router.get('/student-chat/conversations', async (req, res) => {
 router.get('/student-chat/conversations/:id/messages', async (req, res) => {
     try {
         const messages = await query(`
-            SELECT sender_id, body, created_at 
+            SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 
             WHERE conversation_id = ? 
             ORDER BY created_at ASC
@@ -52,9 +86,9 @@ router.get('/student-chat/conversations/:id/messages', async (req, res) => {
 // 3. Send a message
 router.post('/student-chat/send-message', async (req, res) => {
     try {
-        const { senderId, receiverId, message } = req.body;
+        const { senderId, receiverId, message, fileUrl, fileType } = req.body;
 
-        if (!senderId || !receiverId || !message) {
+        if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
@@ -77,9 +111,9 @@ router.post('/student-chat/send-message', async (req, res) => {
         }
 
         await query(`
-            INSERT INTO messages (conversation_id, sender_id, body) 
-            VALUES (?, ?, ?)
-        `, [conversationId, senderId, message]);
+            INSERT INTO messages (conversation_id, sender_id, body, file_url, file_type) 
+            VALUES (?, ?, ?, ?, ?)
+        `, [conversationId, senderId, message || '', fileUrl || null, fileType || null]);
 
         await query(`
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?

@@ -437,6 +437,8 @@ CREATE TABLE messages (
     conversation_id INT NOT NULL,
     sender_id INT NOT NULL,
     body TEXT NOT NULL,
+    file_url VARCHAR(255) DEFAULT NULL,
+    file_type VARCHAR(50) DEFAULT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,

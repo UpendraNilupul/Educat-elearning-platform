@@ -37,7 +37,7 @@ router.get('/teacher-chat/conversations', async (req, res) => {
 router.get('/teacher-chat/conversations/:id/messages', async (req, res) => {
     try {
         const messages = await query(`
-            SELECT sender_id, body, created_at 
+            SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 
             WHERE conversation_id = ? 
             ORDER BY created_at ASC
@@ -52,9 +52,9 @@ router.get('/teacher-chat/conversations/:id/messages', async (req, res) => {
 // 3. Send a message
 router.post('/teacher-chat/send-message', async (req, res) => {
     try {
-        const { senderId, receiverId, message } = req.body;
+        const { senderId, receiverId, message, fileUrl, fileType } = req.body;
 
-        if (!senderId || !receiverId || !message) {
+        if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
@@ -77,9 +77,9 @@ router.post('/teacher-chat/send-message', async (req, res) => {
         }
 
         await query(`
-            INSERT INTO messages (conversation_id, sender_id, body) 
-            VALUES (?, ?, ?)
-        `, [conversationId, senderId, message]);
+            INSERT INTO messages (conversation_id, sender_id, body, file_url, file_type) 
+            VALUES (?, ?, ?, ?, ?)
+        `, [conversationId, senderId, message || '', fileUrl || null, fileType || null]);
 
         await query(`
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
