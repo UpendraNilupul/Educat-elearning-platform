@@ -86,6 +86,7 @@ router.get('/student/classes', async (req, res) => {
                             title: a.title,
                             description: a.description,
                             deadline: a.deadline,
+                            publish_at: a.publish_at,
                             maxMarks: a.max_marks,
                             attachments: attachments.map(att => att.file_url),
                             submission: a.submissionStatus ? {
@@ -241,6 +242,28 @@ router.get('/reviews/check/:classId/:userId', async (req, res) => {
         res.status(200).json({ hasReviewed: existingReview.length > 0 });
     } catch (error) {
         console.error("Error checking review status:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. GET CLASS ANNOUNCEMENTS
+router.get('/classes/:id/announcements', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const announcements = await query(`
+            SELECT ca.id, ca.c_id, ca.title, ca.message, ca.created_at, u.name as teacher_name
+            FROM class_announcements ca
+            JOIN classes_courses c ON ca.c_id = c.id
+            JOIN teachers t ON c.t_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE ca.c_id = ?
+            ORDER BY ca.created_at DESC
+        `, [id]);
+        
+        res.status(200).json(announcements);
+    } catch (error) {
+        console.error("Error fetching class announcements:", error);
         res.status(500).json({ error: error.message });
     }
 });

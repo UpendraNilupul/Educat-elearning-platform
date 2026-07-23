@@ -111,18 +111,17 @@ CREATE TABLE todos (
 
 CREATE TABLE advertisements (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    t_id INT NOT NULL,
+    t_id INT DEFAULT NULL,
     ad_link VARCHAR(300),
+    is_published BOOLEAN DEFAULT FALSE,
     FOREIGN KEY(t_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
--- UPDATED: Added grade column to map courses/classes to specific educational levels
 CREATE TABLE classes_courses (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL,
-    grade VARCHAR(50) DEFAULT NULL,
     t_id INT NOT NULL, 
     teacher_id INT DEFAULT 1,          
     students INT DEFAULT 0,            
@@ -258,14 +257,15 @@ CREATE TABLE quizes (
     is_peer_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
     m_id INT NOT NULL,
     publish_at DATETIME DEFAULT NULL,        
-    notification_sent BOOLEAN DEFAULT FALSE, 
+    notification_sent BOOLEAN DEFAULT FALSE,
+    allow_review BOOLEAN DEFAULT TRUE,
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
 
 CREATE TABLE question_bank (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     type VARCHAR(20) NOT NULL,
-    marks DECIMAL(4,2) NOT NULL,
+    marks DECIMAL(5,2) NOT NULL,
     question VARCHAR(1000) NOT NULL,
     c_id INT NOT NULL,
     t_id INT NOT NULL,
@@ -298,9 +298,6 @@ CREATE TABLE quiz_submissions (
     started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     saved_state JSON DEFAULT NULL,
     submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'in_progress',
-    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    saved_state JSON DEFAULT NULL,
     FOREIGN KEY(qz_id) REFERENCES quizes(id) ON DELETE CASCADE,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE
 );
@@ -340,6 +337,15 @@ CREATE TABLE notifications (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE class_announcements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE certificates (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     link VARCHAR(200) NOT NULL,
@@ -357,7 +363,6 @@ CREATE TABLE reviews (
     c_id INT NOT NULL,
     s_id INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    survey_responses JSON,
     FOREIGN KEY(s_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
@@ -406,8 +411,8 @@ CREATE TABLE admin_escalations (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     sub_admin_id INT NOT NULL,
     entity_type VARCHAR(50) NOT NULL, 
-    entity_id INT NOT NULL,            
-    reason TEXT NOT NULL,              
+    entity_id INT NOT NULL,           
+    reason TEXT NOT NULL,             
     status VARCHAR(20) DEFAULT 'pending', 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(sub_admin_id) REFERENCES users(id) ON DELETE CASCADE
@@ -436,6 +441,20 @@ CREATE TABLE messages (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE teacher_payouts (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    teacher_id INT NOT NULL,
+    month_year VARCHAR(7) NOT NULL, /* Format: YYYY-MM */
+    gross_earnings DECIMAL(10,2) DEFAULT 0.00,
+    platform_fee DECIMAL(10,2) DEFAULT 0.00,
+    adjustment DECIMAL(10,2) DEFAULT 0.00,
+    net_payable DECIMAL(10,2) DEFAULT 0.00,
+    status VARCHAR(20) DEFAULT 'pending',
+    paid_at DATETIME NULL,
+    UNIQUE KEY unique_month_teacher (teacher_id, month_year),
+    FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
 -- ==========================================
@@ -505,3 +524,15 @@ INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fe
 (2, '2026-05', 1200.00, 120.00, 0.00, 1080.00, 'paid', '2026-05-31 10:00:00'),
 (2, '2026-06', 1500.00, 150.00, 50.00, 1400.00, 'pending', NULL),
 (3, '2026-06', 300.00, 30.00, -10.00, 260.00, 'pending', NULL);
+
+ALTER TABLE notifications ADD COLUMN is_read BOOLEAN;
+
+ALTER TABLE classes_courses ADD COLUMN grade VARCHAR(50) DEFAULT NULL AFTER type;
+
+ALTER TABLE reviews ADD UNIQUE INDEX unique_student_class (s_id, c_id);
+
+ALTER TABLE classes_courses ADD COLUMN final_summary TEXT DEFAULT NULL;
+ALTER TABLE reviews ADD COLUMN survey_responses TEXT DEFAULT NULL;
+
+ALTER TABLE reviews ADD COLUMN is_read BOOLEAN DEFAULT FALSE;
+
