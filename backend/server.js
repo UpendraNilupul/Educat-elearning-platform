@@ -74,8 +74,6 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 
-<<<<<<< HEAD
-=======
 // Session-swapping middleware for tab-level role isolation on localhost
 app.use(async (req, res, next) => {
     if (req.session) {
@@ -124,7 +122,6 @@ app.use(async (req, res, next) => {
     }
     next();
 });
->>>>>>> a4e713f4c11f221839a5e723a009a464e295b13c
 
 // FOOTPRINT TRACKER
 app.use('/api', async (req, res, next) => {
@@ -162,11 +159,7 @@ app.use('/api', paymentRoute);
 // ==========================================
 app.get('/api/public/stats', async (req, res) => {
     try {
-        console.log("🚀 Stats API hit una!");
-
-        const studentCount = await query('SELECT COUNT(*) AS count FROM students');
-        console.log("📦 Student Data:", studentCount);
-
+        const studentCount = await query('SELECT COUNT(*) AS count FROM users WHERE role_id = (SELECT id FROM roles WHERE role_name = "student")');
         const teacherCount = await query('SELECT COUNT(*) AS count FROM teachers');
         const courseCount = await query('SELECT COUNT(*) AS count FROM classes_courses');
 
@@ -196,7 +189,6 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // ==========================================
 io.on("connection", (socket) => {
     const session = socket.request.session;
-    console.log(`🟢 User Connected to Chat: ${socket.id}`);
 
     // Join a specific conversation room
     socket.on("join_room", async (conversationId) => {
@@ -211,7 +203,6 @@ io.on("connection", (socket) => {
 
             if (check.length > 0) {
                 socket.join(conversationId);
-                console.log(`🔒 User ${session.userId} securely joined chat ${conversationId}`);
             } else {
                 console.warn(`⚠️ User ${session.userId} attempted to hack into unauthorized chat ${conversationId}`);
             }
@@ -229,11 +220,9 @@ io.on("connection", (socket) => {
     socket.on("join_notification_room", (userId) => {
         const roomName = `user_${userId}`;
         socket.join(roomName);
-        console.log(`User ${socket.id} joined notification room: ${roomName}`);
     });
 
     socket.on("disconnect", () => {
-        console.log(`🔴 User Disconnected: ${socket.id}`);
     });
 });
 

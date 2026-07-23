@@ -335,7 +335,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                   {courses.slice(0, 3).map((course) => (
                     <div key={course.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition-shadow">
                       <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{course.title}</h3>
-                      <p className="text-xs text-gray-500 mt-1 mb-4">{course.students} Students enrolled</p>
+                      <p className="text-xs text-gray-500 mt-1 mb-4">{course.real_student_count || 0} Students enrolled</p>
                     </div>
                   ))}
                 </div>

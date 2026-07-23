@@ -24,12 +24,12 @@ const upload = multer({ storage });
 // GET all courses
 router.get('/courses', async (req, res) => {
     try {
-        let q = 'SELECT * FROM classes_courses ORDER BY id DESC';
+        let q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c ORDER BY c.id DESC';
         let params = [];
         if (req.query.teacherId) {
             const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [req.query.teacherId]);
             if (tRes.length > 0) {
-                q = 'SELECT * FROM classes_courses WHERE t_id = ? ORDER BY id DESC';
+                q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c WHERE c.t_id = ? ORDER BY c.id DESC';
                 params.push(tRes[0].id);
             } else {
                 return res.status(200).json([]);
@@ -566,14 +566,15 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status,
+                MAX(sub.score) as grade, q.allow_review
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
-            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, q.allow_review, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array
@@ -621,6 +622,31 @@ router.get('/student/liveclasses', requireAuth, async (req, res) => {
     } catch (err) {
         console.error("Error fetching student live classes:", err);
         res.status(500).json({ error: "Failed to fetch live classes" });
+    }
+});
+// GET enrolled students for a specific course
+router.get('/courses/:id/students', requireAuth, async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const students = await query(`
+            SELECT 
+                u.id, 
+                u.name, 
+                u.email, 
+                u.picture AS profile_image,
+                e.enrolled_date, 
+                e.status
+            FROM enrollments e
+            JOIN students s ON e.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            WHERE e.c_id = ? AND u.role_id = 3
+            ORDER BY e.enrolled_date DESC
+        `, [courseId]);
+        
+        res.status(200).json(students);
+    } catch (err) {
+        console.error("Error fetching enrolled students:", err);
+        res.status(500).json({ error: "Failed to fetch enrolled students" });
     }
 });
 

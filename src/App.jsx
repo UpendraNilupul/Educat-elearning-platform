@@ -28,7 +28,9 @@ import Admin_Teachers from './pages/Admin_Teachers';
 import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Teacher_StudentProfile from './pages/Teacher_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
+import Admin_Advertisements from './pages/Admin_Advertisements';
 import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
@@ -273,6 +275,11 @@ function App() {
           />
 
           <Route
+            path="/admin/advertisements"
+            element={userRole === 'admin' ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
             path="/admin/courses"
             element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
@@ -346,6 +353,13 @@ function App() {
           <Route path="/teacher/assignments/:id/submissions" element={
             (userRole === 'teacher' || userRole === 'admin')
               ? <AssignmentSubmissions />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Student Profile */}
+          <Route path="/teacher/student-profile/:id" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <Teacher_StudentProfile />
               : <Navigate to="/" />
           } />
 
