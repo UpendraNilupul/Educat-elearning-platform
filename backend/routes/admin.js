@@ -6,6 +6,42 @@ import bcrypt from 'bcryptjs';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
+async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+    try {
+        const receiverQuery = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ?
+        `, [receiverId]);
+
+        if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
+            const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
+            const senderName = senderQuery[0]?.name || 'Someone';
+            const notifTitle = 'New Message';
+            const notifDesc = `New message from ${senderName}`;
+            
+            const insertRes = await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, ?, ?, FALSE)
+            `, [receiverId, notifTitle, notifDesc]);
+
+            if (req.io) {
+                req.io.to(`user_${receiverId}`).emit('new_notification', {
+                    id: insertRes.insertId,
+                    title: notifTitle,
+                    description: notifDesc,
+                    user_id: receiverId,
+                    is_read: 0,
+                    created_at: new Date()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error in checkAndCreateMessageNotification:", error);
+    }
+}
+
 // Helper function to safely get YYYY-MM-DD for past dates
 const getPastDateString = (daysAgo) => {
     const d = new Date();
@@ -982,6 +1018,8 @@ router.post('/send-message', async (req, res) => {
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
 
+        await checkAndCreateMessageNotification(req, senderId, receiverId);
+
         res.status(200).json({ success: true, message: "Message sent successfully!" });
 
     } catch (error) {
@@ -1143,7 +1181,11 @@ router.get('/conversations', async (req, res) => {
                 u.id as other_user_id, 
                 u.name as other_user_name, 
                 u.picture as other_user_picture,
-                r.role_name as other_user_role
+                r.role_name as other_user_role,
+                (SELECT COUNT(*) FROM messages m 
+                 WHERE m.conversation_id = c.id 
+                   AND m.sender_id = u.id 
+                   AND m.is_read = FALSE) as unread_count
             FROM conversations c
             JOIN users u ON (u.id = c.participant1_id OR u.id = c.participant2_id) AND u.id != ?
             JOIN roles r ON u.role_id = r.id
@@ -1161,6 +1203,15 @@ router.get('/conversations', async (req, res) => {
 // B. Fetch messages for a specific conversation
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
+        const userId = req.session.userId;
+        if (userId) {
+            await query(`
+                UPDATE messages 
+                SET is_read = TRUE 
+                WHERE conversation_id = ? AND sender_id != ? AND is_read = FALSE
+            `, [req.params.id, userId]);
+        }
+
         const messages = await query(`
             SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 

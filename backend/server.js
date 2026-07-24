@@ -90,6 +90,12 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
 
+// Expose io to req
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
+
 // Session-swapping middleware for tab-level role isolation on localhost
 app.use(async (req, res, next) => {
     if (req.session) {

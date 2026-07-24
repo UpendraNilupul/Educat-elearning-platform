@@ -3,7 +3,7 @@ import { Bell, Check, Circle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api';
 
-const NotificationBell = () => {
+const NotificationBell = ({ onOpenChat }) => {
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -131,11 +131,23 @@ const NotificationBell = () => {
                         ) : (
                             <div className="divide-y divide-gray-50">
                                 {filteredNotifications.map((notif) => (
-                                    <div 
-                                        key={notif.id} 
-                                        onClick={() => !notif.is_read && markAsRead(notif.id)}
-                                        className={`p-4 transition-colors hover:bg-gray-50 flex gap-3 ${!notif.is_read ? 'bg-purple-50/30 cursor-pointer' : ''}`}
-                                    >
+                                     <div 
+                                         key={notif.id} 
+                                         onClick={async () => {
+                                             if (!notif.is_read) {
+                                                 await markAsRead(notif.id);
+                                             }
+                                             const prefix = 'New message from ';
+                                             if (notif.title === 'New Message' && notif.description.startsWith(prefix)) {
+                                                 const senderName = notif.description.substring(prefix.length);
+                                                 if (onOpenChat) {
+                                                     onOpenChat(senderName);
+                                                 }
+                                                 setIsOpen(false);
+                                             }
+                                         }}
+                                         className={`p-4 transition-colors hover:bg-gray-50 flex gap-3 cursor-pointer ${!notif.is_read ? 'bg-purple-50/30' : ''}`}
+                                     >
                                         <div className="mt-1 flex-shrink-0">
                                             {!notif.is_read && <div className="w-2.5 h-2.5 bg-black rounded-full" title="Unread"></div>}
                                         </div>

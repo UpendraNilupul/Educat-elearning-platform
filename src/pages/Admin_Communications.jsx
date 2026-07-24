@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
     MessageSquare, Megaphone, ArrowLeft, Send, User, Clock, Users, Search, Paperclip, FileIcon, X
 } from 'lucide-react';
@@ -7,7 +7,9 @@ import api from '../api';
 
 const Admin_Communications = ({ userName, onLogout }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const adminId = parseInt(localStorage.getItem('userId'));
+    const autoOpenSenderName = location.state?.autoOpenSenderName || null;
 
     const [activeTab, setActiveTab] = useState('messages'); // 'messages' or 'announcements'
     
@@ -48,6 +50,9 @@ const Admin_Communications = ({ userName, onLogout }) => {
 
     useEffect(() => {
         fetchData();
+        if (activeTab === 'messages') {
+            api.put('/chat/mark-notifications-read').catch(err => {});
+        }
     }, [activeTab]);
 
     useEffect(() => {
@@ -58,6 +63,33 @@ const Admin_Communications = ({ userName, onLogout }) => {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    // Auto-open chat of a specific sender when navigating via notification
+    useEffect(() => {
+        if (autoOpenSenderName && conversations.length > 0) {
+            const chat = conversations.find(
+                c => c.other_user_name.toLowerCase() === autoOpenSenderName.toLowerCase()
+            );
+            if (chat) {
+                setActiveChat(chat);
+                fetchMessages(chat.conversation_id);
+            }
+            // Clear location state
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [autoOpenSenderName, conversations]);
+
+    // Auto-read messages when new messages are loaded/received in active chat
+    useEffect(() => {
+        if (activeChat && messages.length > 0) {
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg && lastMsg.sender_id !== adminId) {
+                api.put(`/chat/conversations/${activeChat.conversation_id}/read`).catch(err => {});
+                api.put('/chat/mark-notifications-read').catch(err => {});
+                window.dispatchEvent(new Event('chat_messages_read'));
+            }
+        }
+    }, [messages, activeChat, adminId]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -81,7 +113,13 @@ const Admin_Communications = ({ userName, onLogout }) => {
         try {
             // 🌟 THE FIX: Used api.get() and accessed .data
             const res = await api.get(`/admin/conversations/${conversationId}/messages`);
-            if (res.data.success) setMessages(res.data.data);
+            if (res.data.success) {
+                setMessages(res.data.data);
+                setConversations(prev => prev.map(c => 
+                    c.conversation_id === conversationId ? { ...c, unread_count: 0 } : c
+                ));
+                window.dispatchEvent(new Event('chat_messages_read'));
+            }
         } catch (error) {
             console.error("Failed to fetch messages");
         }
@@ -203,9 +241,16 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
                                                 {chat.other_user_picture ? <img src={`http://localhost:3000/uploads/${chat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chat.other_user_name.charAt(0)}
                                             </div>
-                                            <div className="flex-1 overflow-hidden">
-                                                <h4 className="font-bold text-gray-900 truncate">{chat.other_user_name}</h4>
-                                                <p className="text-xs text-gray-500 capitalize">{chat.other_user_role}</p>
+                                            <div className="flex-1 overflow-hidden flex items-center justify-between">
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-bold text-gray-900 truncate">{chat.other_user_name}</h4>
+                                                    <p className="text-xs text-gray-500 capitalize">{chat.other_user_role}</p>
+                                                </div>
+                                                {chat.unread_count > 0 && activeChat?.conversation_id !== chat.conversation_id && (
+                                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm shrink-0">
+                                                        {chat.unread_count}
+                                                    </span>
+                                                )}
                                             </div>
                                         </button>
                                     ))
