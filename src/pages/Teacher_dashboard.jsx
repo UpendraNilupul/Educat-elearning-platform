@@ -11,15 +11,60 @@ import TeacherReviews from "./TeacherReviews";
 import VirtualClassroom from "./Teacher_liveClass";
 import TeacherAdvertisements from "./TeacherAdvertisements";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
+import { io } from 'socket.io-client';
+import NotificationBell from '../components/NotificationBell';
 
 
 const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) => {
   const navigate = useNavigate();
-  const teacherId = parseInt(localStorage.getItem('userId'));
+  const teacherId = localStorage.getItem("userId") || 1;
 
+  // Navigation Tabs
   const [activeTab, setActiveTab] = useState("Overview");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [autoOpenSenderName, setAutoOpenSenderName] = useState(null);
+
+  const fetchUnreadMessagesCount = async () => {
+      try {
+          const response = await api.get('/chat/unread-count');
+          if (response.data && response.data.success) {
+              setUnreadMessagesCount(response.data.count);
+          }
+      } catch (error) {
+          console.error("Error fetching unread messages count:", error);
+      }
+  };
+
+  useEffect(() => {
+      fetchUnreadMessagesCount();
+  }, []);
+
+  useEffect(() => {
+      const userId = localStorage.getItem('userId');
+      window.addEventListener('chat_messages_read', fetchUnreadMessagesCount);
+
+      if (userId) {
+          const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+          const socket = io(SOCKET_URL);
+
+          socket.emit('join_notification_room', userId);
+
+          socket.on('new_notification', (data) => {
+              fetchUnreadMessagesCount();
+          });
+
+          return () => {
+              socket.disconnect();
+              window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+          };
+      }
+
+      return () => {
+          window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+      };
+  }, []);
 
   const navItems = [
     { name: "Overview", icon: LayoutDashboard },
@@ -120,9 +165,17 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
           ].map((item) => (
             <button
               key={item.name}
-              onClick={() => {
+              onClick={async () => {
                 setActiveTab(item.name);
                 setIsSidebarOpen(false);
+                if (item.name === "Messages") {
+                  setUnreadMessagesCount(0);
+                  try {
+                    await api.put('/chat/mark-notifications-read');
+                  } catch (error) {
+                    console.error("Failed to mark notifications read:", error);
+                  }
+                }
               }}
               className={`flex items-center text-left gap-4 w-full px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === item.name
                 ? "bg-[#4a0b59] text-white font-semibold shadow-md"
@@ -130,7 +183,12 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
                 }`}
             >
               <item.icon className="w-5 h-5" />
-              {item.name}
+              <span className="flex-1 text-left">{item.name}</span>
+              {item.name === "Messages" && unreadMessagesCount > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+                      {unreadMessagesCount}
+                  </span>
+              )}
             </button>
           ))}
         </nav>
@@ -167,6 +225,16 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 mt-16 lg:mt-0">
+        {/* Top Header */}
+        <div className="flex justify-between items-center bg-transparent shrink-0">
+            <h2 className="text-xl font-bold text-gray-800">
+                {activeTab === "Overview" ? "Teacher Dashboard" : activeTab}
+            </h2>
+            <NotificationBell onOpenChat={(senderName) => {
+                setActiveTab("Messages");
+                setAutoOpenSenderName(senderName);
+            }} />
+        </div>
 
         {activeTab === "Assessments" && (
           <div className="animate-in fade-in duration-500">
@@ -353,7 +421,12 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
           />
         )}
 
-        {activeTab === "Messages" && <TeacherChat />}
+        {activeTab === "Messages" && (
+            <TeacherChat 
+                autoOpenSenderName={autoOpenSenderName} 
+                clearAutoOpenSenderName={() => setAutoOpenSenderName(null)} 
+            />
+        )}
         {activeTab === "Reviews" && <TeacherReviews />}
         {activeTab === "Virtual Classroom" && <VirtualClassroom />}
         {activeTab === "Advertisements" && <TeacherAdvertisements />}
