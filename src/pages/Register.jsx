@@ -158,9 +158,6 @@ const Register = ({ setUserName, setUserRole }) => {
         localStorage.setItem('userRole', safeRole);
         localStorage.setItem('userName', safeName);
 
-        // Save to sessionStorage for tab-level isolation on localhost
-        sessionStorage.setItem('userId', data.userId);
-        sessionStorage.setItem('userRole', safeRole);
 
         if (setUserRole) setUserRole(safeRole);
         if (setUserName) setUserName(safeName);

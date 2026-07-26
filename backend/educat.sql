@@ -337,6 +337,15 @@ CREATE TABLE notifications (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE class_announcements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 CREATE TABLE certificates (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     link VARCHAR(200) NOT NULL,
@@ -428,6 +437,8 @@ CREATE TABLE messages (
     conversation_id INT NOT NULL,
     sender_id INT NOT NULL,
     body TEXT NOT NULL,
+    file_url VARCHAR(255) DEFAULT NULL,
+    file_type VARCHAR(50) DEFAULT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,

@@ -358,4 +358,45 @@ router.get('/teacher/student-profile/:id', async (req, res) => {
     }
 });
 
+// POST a class announcement
+router.post('/teacher/classes/:id/announcements', requireAuth, requireRole(['teacher']), async (req, res) => {
+    const classId = req.params.id;
+    const { title, message } = req.body;
+    const userId = req.session.userId;
+    
+    try {
+        // Verify teacher ownership of the class
+        const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+        if (tRes.length === 0) return res.status(403).json({ error: 'Teacher profile not found' });
+        const teacherId = tRes[0].id;
+        
+        const courseCheck = await query('SELECT id FROM classes_courses WHERE id = ? AND t_id = ?', [classId, teacherId]);
+        if (courseCheck.length === 0) return res.status(403).json({ error: 'Unauthorized: Course not found or not owned by you' });
+
+        // Get all students enrolled
+        const students = await query(`
+            SELECT s.user_id 
+            FROM enrollments e 
+            JOIN students s ON e.s_id = s.id 
+            WHERE e.c_id = ?
+        `, [classId]);
+
+        if (students.length > 0) {
+            const values = students.map(st => [st.user_id, title || 'Class Announcement', message]);
+            await query('INSERT INTO notifications (user_id, title, description) VALUES ?', [values]);
+        }
+
+        // Insert into class_announcements table
+        await query(
+            'INSERT INTO class_announcements (c_id, title, message) VALUES (?, ?, ?)',
+            [classId, title || 'Class Announcement', message]
+        );
+
+        res.status(200).json({ success: true, message: 'Announcement posted successfully' });
+    } catch (err) {
+        console.error('Error posting announcement:', err);
+        res.status(500).json({ error: 'Failed to post announcement' });
+    }
+});
+
 export default router;
