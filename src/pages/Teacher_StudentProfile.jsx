@@ -11,7 +11,8 @@ import {
     GraduationCap,
     Users,
     CalendarDays,
-    Mail
+    Mail,
+    MessageSquare
 } from 'lucide-react';
 import api from '../api';
 
@@ -63,13 +64,20 @@ const Teacher_StudentProfile = () => {
     return (
         <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Header & Navigation */}
-            <div className="max-w-6xl mx-auto mb-8">
+            <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between">
                 <button 
                     onClick={() => navigate(-1)}
                     className="group flex items-center text-gray-500 hover:text-indigo-600 font-bold transition-colors bg-white px-5 py-2.5 rounded-full shadow-sm border border-gray-200 w-fit"
                 >
                     <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 
                     Back to Course
+                </button>
+                <button 
+                    onClick={() => navigate('/teacher', { state: { activeTab: 'Messages', autoOpenContact: { user_id: profile.id, name: profile.name, picture: profile.profile_image, role_name: 'student' } } })}
+                    className="flex items-center gap-2 bg-[#4a0b59] hover:bg-[#380843] text-white px-6 py-2.5 rounded-full font-bold shadow-md transition-all"
+                >
+                    <MessageSquare size={18} />
+                    Message Student
                 </button>
             </div>
 
@@ -87,8 +95,7 @@ const Teacher_StudentProfile = () => {
                                     alt={profile.name}
                                     className="w-36 h-36 rounded-[2rem] mx-auto object-cover border-[6px] border-white shadow-xl bg-white rotate-3 group-hover:rotate-0 transition-transform duration-500"
                                 />
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full"></div>
-                            </div>
+                                </div>
                             
                             <h2 className="text-3xl font-black text-gray-900 mt-6 tracking-tight">{profile.name}</h2>
                             <p className="text-gray-500 font-medium mt-1 flex items-center justify-center gap-2">
