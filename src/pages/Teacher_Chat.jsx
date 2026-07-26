@@ -6,11 +6,12 @@ import {
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
-const TeacherChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
+const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
   const teacherId = parseInt(localStorage.getItem('userId'));
 
   // Chat States
   const [conversations, setConversations] = useState([]);
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [chatMessage, setChatMessage] = useState("");
@@ -82,21 +83,25 @@ const TeacherChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-open chat of a specific sender when navigating via notification
+  // Auto-open chat of a specific sender or contact when navigating via notification or profile
   useEffect(() => {
-      if (autoOpenSenderName && conversations.length > 0) {
+      if (autoOpenContact && conversationsLoaded) {
           const chat = conversations.find(
-              c => c.other_user_name.toLowerCase() === autoOpenSenderName.toLowerCase()
+              c => c.other_user_name.toLowerCase() === autoOpenContact.name.toLowerCase() || 
+                   c.other_user_id === autoOpenContact.user_id
           );
           if (chat) {
               setActiveChat(chat);
               fetchMessages(chat.conversation_id);
+          } else if (autoOpenContact.user_id) {
+              // It's a new chat!
+              startNewChat(autoOpenContact);
           }
-          if (clearAutoOpenSenderName) {
-              clearAutoOpenSenderName();
+          if (clearAutoOpenContact) {
+              clearAutoOpenContact();
           }
       }
-  }, [autoOpenSenderName, conversations, clearAutoOpenSenderName]);
+  }, [autoOpenContact, conversations, conversationsLoaded, clearAutoOpenContact]);
 
   // Auto-read messages when new messages are loaded/received in active chat
   useEffect(() => {
@@ -117,9 +122,13 @@ const TeacherChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
     try {
         // 🌟 THE FIX: Use api.get()
         const res = await api.get('/teacher-chat/conversations');
-        if (res.data.success) setConversations(res.data.data);
+        if (res.data.success) {
+            setConversations(res.data.data);
+        }
     } catch (error) {
         console.error("Failed to load inbox");
+    } finally {
+        setConversationsLoaded(true);
     }
   };
 

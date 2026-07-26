@@ -11,7 +11,8 @@ import {
     GraduationCap,
     Users,
     CalendarDays,
-    Mail
+    Mail,
+    MessageSquare
 } from 'lucide-react';
 import api from '../api';
 
@@ -63,13 +64,20 @@ const Teacher_StudentProfile = () => {
     return (
         <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans selection:bg-indigo-100 selection:text-indigo-900">
             {/* Header & Navigation */}
-            <div className="max-w-6xl mx-auto mb-8">
+            <div className="max-w-6xl mx-auto mb-8 flex items-center justify-between">
                 <button 
                     onClick={() => navigate(-1)}
                     className="group flex items-center text-gray-500 hover:text-indigo-600 font-bold transition-colors bg-white px-5 py-2.5 rounded-full shadow-sm border border-gray-200 w-fit"
                 >
                     <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 
                     Back to Course
+                </button>
+                <button 
+                    onClick={() => navigate('/teacher', { state: { activeTab: 'Messages', autoOpenContact: { user_id: profile.id, name: profile.name, picture: profile.profile_image, role_name: 'student' } } })}
+                    className="flex items-center gap-2 bg-[#4a0b59] hover:bg-[#380843] text-white px-6 py-2.5 rounded-full font-bold shadow-md transition-all"
+                >
+                    <MessageSquare size={18} />
+                    Message Student
                 </button>
             </div>
 

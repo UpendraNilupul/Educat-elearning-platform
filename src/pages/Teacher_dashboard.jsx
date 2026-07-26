@@ -1,6 +1,6 @@
 // Force Vite HMR reload
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, BookOpen, FileText, Award, Megaphone, Video,
   Users, Calendar, Edit2, Menu, X, MessageSquare, Bell, Star
@@ -17,6 +17,7 @@ import NotificationBell from '../components/NotificationBell';
 
 const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const teacherId = localStorage.getItem("userId") || 1;
 
   // Navigation Tabs
@@ -24,7 +25,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const [autoOpenSenderName, setAutoOpenSenderName] = useState(null);
+  const [autoOpenContact, setAutoOpenContact] = useState(null);
 
   const fetchUnreadMessagesCount = async () => {
       try {
@@ -40,6 +41,19 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
   useEffect(() => {
       fetchUnreadMessagesCount();
   }, []);
+
+  useEffect(() => {
+      if (location.state?.activeTab) {
+          setActiveTab(location.state.activeTab);
+      }
+      if (location.state?.autoOpenContact) {
+          setAutoOpenContact(location.state.autoOpenContact);
+      }
+      // Clear the state so it doesn't trigger again on reload
+      if (location.state) {
+          window.history.replaceState({}, document.title)
+      }
+  }, [location.state]);
 
   useEffect(() => {
       const userId = localStorage.getItem('userId');
@@ -232,7 +246,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
             </h2>
             <NotificationBell onOpenChat={(senderName) => {
                 setActiveTab("Messages");
-                setAutoOpenSenderName(senderName);
+                setAutoOpenContact({ name: senderName });
             }} />
         </div>
 
@@ -423,8 +437,8 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
 
         {activeTab === "Messages" && (
             <TeacherChat 
-                autoOpenSenderName={autoOpenSenderName} 
-                clearAutoOpenSenderName={() => setAutoOpenSenderName(null)} 
+                autoOpenContact={autoOpenContact} 
+                clearAutoOpenContact={() => setAutoOpenContact(null)} 
             />
         )}
         {activeTab === "Reviews" && <TeacherReviews />}
