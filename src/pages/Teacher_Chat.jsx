@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
-const TeacherChat = () => {
+const TeacherChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
   const teacherId = parseInt(localStorage.getItem('userId'));
 
   // Chat States
@@ -82,6 +82,34 @@ const TeacherChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Auto-open chat of a specific sender when navigating via notification
+  useEffect(() => {
+      if (autoOpenSenderName && conversations.length > 0) {
+          const chat = conversations.find(
+              c => c.other_user_name.toLowerCase() === autoOpenSenderName.toLowerCase()
+          );
+          if (chat) {
+              setActiveChat(chat);
+              fetchMessages(chat.conversation_id);
+          }
+          if (clearAutoOpenSenderName) {
+              clearAutoOpenSenderName();
+          }
+      }
+  }, [autoOpenSenderName, conversations, clearAutoOpenSenderName]);
+
+  // Auto-read messages when new messages are loaded/received in active chat
+  useEffect(() => {
+      if (activeChat && !activeChat.conversation_id.toString().startsWith('temp_') && messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg && lastMsg.sender_id !== teacherId) {
+              api.put(`/chat/conversations/${activeChat.conversation_id}/read`).catch(err => {});
+              api.put('/chat/mark-notifications-read').catch(err => {});
+              window.dispatchEvent(new Event('chat_messages_read'));
+          }
+      }
+  }, [messages, activeChat, teacherId]);
+
   // ==========================================
   // 🌟 DATA FETCHING
   // ==========================================
@@ -109,7 +137,13 @@ const TeacherChat = () => {
     try {
         // 🌟 THE FIX: Use api.get()
         const res = await api.get(`/teacher-chat/conversations/${conversationId}/messages`);
-        if (res.data.success) setMessages(res.data.data);
+        if (res.data.success) {
+            setMessages(res.data.data);
+            setConversations(prev => prev.map(c => 
+                c.conversation_id === conversationId ? { ...c, unread_count: 0 } : c
+            ));
+            window.dispatchEvent(new Event('chat_messages_read'));
+        }
     } catch (error) {
         console.error("Failed to load messages");
     }
@@ -295,14 +329,21 @@ const TeacherChat = () => {
                             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
                                 {chat.other_user_picture ? <img src={`http://localhost:3000/uploads/${chat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chat.other_user_name.charAt(0)}
                             </div>
-                            <div className="flex-1 overflow-hidden">
-                                <div className="flex justify-between items-baseline mb-0.5">
-                                    <h4 className="font-bold text-gray-900 truncate pr-2">{chat.other_user_name}</h4>
+                            <div className="flex-1 overflow-hidden flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex justify-between items-baseline mb-0.5">
+                                        <h4 className="font-bold text-gray-900 truncate pr-2">{chat.other_user_name}</h4>
+                                    </div>
+                                    <p className="text-xs text-purple-600 font-medium capitalize flex items-center">
+                                        {chat.other_user_role === 'admin' && <ShieldAlert size={12} className="mr-1" />}
+                                        {chat.other_user_role}
+                                    </p>
                                 </div>
-                                <p className="text-xs text-purple-600 font-medium capitalize flex items-center">
-                                    {chat.other_user_role === 'admin' && <ShieldAlert size={12} className="mr-1" />}
-                                    {chat.other_user_role}
-                                </p>
+                                {chat.unread_count > 0 && activeChat?.conversation_id !== chat.conversation_id && (
+                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm shrink-0">
+                                        {chat.unread_count}
+                                    </span>
+                                )}
                             </div>
                         </button>
                     ))
