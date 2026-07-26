@@ -31,6 +31,13 @@ const getYouTubeEmbedUrl = (url) => {
     return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
 };
 
+const getResourceDownloadUrl = (resource) => {
+    if (resource.link && resource.link.includes('res.cloudinary.com') && resource.link.includes('/raw/upload/')) {
+        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.link)}&name=${encodeURIComponent(resource.name)}`;
+    }
+    return resource.link;
+};
+
 const feedbackQuestions = [
     { id: 'q1', text: "1. How clear was the teacher's explanation during the class?", options: ['Very Clear', 'Clear', 'Average', 'Not Clear'] },
     { id: 'q2', text: "2. How engaging was the lesson?", options: ['Very Engaging', 'Engaging', 'Somewhat Engaging', 'Not Engaging'] },
@@ -556,7 +563,7 @@ const TuitionClass = () => {
                                                             }
 
                                                             return (
-                                                                <a key={resource.id} href={resource.link} target="_blank" rel="noreferrer" className="relative z-10 flex items-center justify-between p-3 ml-2 text-left transition-all bg-white border border-gray-200 shadow-sm cursor-pointer rounded-xl hover:border-blue-300 hover:bg-gray-50 group">
+                                                                <a key={resource.id} href={getResourceDownloadUrl(resource)} target="_blank" rel="noreferrer" className="relative z-10 flex items-center justify-between p-3 ml-2 text-left transition-all bg-white border border-gray-200 shadow-sm cursor-pointer rounded-xl hover:border-blue-300 hover:bg-gray-50 group">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="p-2 text-purple-600 rounded-lg bg-purple-50">
                                                                             {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}

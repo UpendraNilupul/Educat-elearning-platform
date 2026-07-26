@@ -87,8 +87,7 @@ const Teacher_StudentProfile = () => {
                                     alt={profile.name}
                                     className="w-36 h-36 rounded-[2rem] mx-auto object-cover border-[6px] border-white shadow-xl bg-white rotate-3 group-hover:rotate-0 transition-transform duration-500"
                                 />
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full"></div>
-                            </div>
+                                </div>
                             
                             <h2 className="text-3xl font-black text-gray-900 mt-6 tracking-tight">{profile.name}</h2>
                             <p className="text-gray-500 font-medium mt-1 flex items-center justify-center gap-2">

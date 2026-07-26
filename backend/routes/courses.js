@@ -4,22 +4,15 @@ import util from 'util';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/resources';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage });
+import { courseResourceStorage, courseThumbnailStorage } from '../cloudinaryConfig.js';
+
+const upload = multer({ storage: courseResourceStorage });
 
 // GET all courses
 router.get('/courses', async (req, res) => {
@@ -83,25 +76,14 @@ router.get('/courses', async (req, res) => {
     }
 });
 
-const thumbnailStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/thumbnails';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const uploadThumbnail = multer({ storage: thumbnailStorage });
+const uploadThumbnail = multer({ storage: courseThumbnailStorage });
 
 // POST upload course thumbnail
 router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uploadThumbnail.single('thumbnail'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
     }
-    const baseURL = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
-    const fileUrl = `${baseURL}/uploads/thumbnails/${req.file.filename}`;
+    const fileUrl = req.file.path; // Cloudinary URL returned by multer-storage-cloudinary
     res.status(200).json({ url: fileUrl });
 });
 
@@ -337,12 +319,53 @@ router.delete('/lessions/:id', requireRole(['teacher', 'admin']), async (req, re
 });
 
 // --- RESOURCES ---
+
+// Proxy Download Route for Cloudinary Raw Files
+router.get('/resources/download', (req, res) => {
+    let { url: fileUrl, name: originalName } = req.query;
+    if (!fileUrl) return res.status(400).send('URL is required');
+    
+    // Ensure https
+    if (fileUrl.startsWith('http://')) fileUrl = fileUrl.replace('http://', 'https://');
+    
+    let finalFileName = originalName || 'download';
+    
+    // Clean up .pdftemp and .ziptemp from Cloudinary raw workaround
+    if (fileUrl.toLowerCase().endsWith('.pdftemp') || finalFileName.toLowerCase().endsWith('.pdftemp')) {
+        finalFileName = finalFileName.replace(/\.pdftemp$/i, '');
+        if (!finalFileName.toLowerCase().endsWith('.pdf')) finalFileName += '.pdf';
+    } else if (fileUrl.toLowerCase().endsWith('.ziptemp') || finalFileName.toLowerCase().endsWith('.ziptemp')) {
+        finalFileName = finalFileName.replace(/\.ziptemp$/i, '');
+        if (!finalFileName.toLowerCase().endsWith('.zip')) finalFileName += '.zip';
+    } else if (!finalFileName.includes('.')) {
+        if (fileUrl.toLowerCase().endsWith('.pdf')) finalFileName += '.pdf';
+        if (fileUrl.toLowerCase().endsWith('.zip')) finalFileName += '.zip';
+    }
+    
+    res.setHeader('Content-Disposition', `attachment; filename="${finalFileName}"`);
+    
+    https.get(fileUrl, (cloudinaryRes) => {
+        const contentType = cloudinaryRes.headers['content-type'] || 'application/octet-stream';
+        // Try to infer extension from Content-Type if it still doesn't have one
+        if (!finalFileName.includes('.')) {
+            if (contentType.includes('pdf')) finalFileName += '.pdf';
+            else if (contentType.includes('zip') || contentType.includes('x-zip-compressed')) finalFileName += '.zip';
+            res.setHeader('Content-Disposition', `attachment; filename="${finalFileName}"`);
+        }
+        res.setHeader('Content-Type', contentType);
+        cloudinaryRes.pipe(res);
+    }).on('error', (err) => {
+        console.error('Proxy download error:', err);
+        res.status(500).send('Failed to download file');
+    });
+});
+
 router.post('/lessons/:l_id/resources', upload.single('file'), requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, type } = req.body;
     let url = req.body.url || '';
 
     if (req.file) {
-        url = `http://localhost:3000/uploads/resources/${req.file.filename}`;
+        url = req.file.path; // Cloudinary URL returned by multer-storage-cloudinary
     }
 
     try {
