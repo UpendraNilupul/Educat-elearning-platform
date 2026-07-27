@@ -146,11 +146,13 @@ function App() {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (userId && userRole) {
-      const socket = io('http://localhost:3000');
+      const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+      const socket = io(SOCKET_URL);
 
       socket.emit('join_notification_room', userId);
 
       socket.on('new_notification', (data) => {
+        if (!data || !data.title) return;
         toast.success(
           <div>
             <strong>{data.title}</strong>

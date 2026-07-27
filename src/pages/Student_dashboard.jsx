@@ -10,6 +10,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import StudentChat from './Student_Chat';
 import StudentVirtualClassroom from './StudentVirtualClassroom';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
+import { io } from 'socket.io-client';
 
 import {
     LayoutDashboard, BookOpen, PlayCircle, FileText, Trophy, Award, Briefcase,
@@ -23,6 +24,8 @@ const Student = ({ userName, onLogout }) => {
     const [profileData, setProfileData] = useState({ name: '', picture: '' });
     const [firstName, setFirstName] = useState('Student');
     const [pendingAssessmentsCount, setPendingAssessmentsCount] = useState(0);
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const [autoOpenSenderName, setAutoOpenSenderName] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -111,8 +114,52 @@ const Student = ({ userName, onLogout }) => {
             }
         };
 
+        const fetchUnreadMessagesCount = async () => {
+            try {
+                const response = await api.get('/chat/unread-count');
+                if (response.data && response.data.success) {
+                    setUnreadMessagesCount(response.data.count);
+                }
+            } catch (error) {
+                console.error("Error fetching unread messages count:", error);
+            }
+        };
+
         fetchBasicInfo();
         fetchAssessmentsCount();
+        fetchUnreadMessagesCount();
+    }, []);
+
+    useEffect(() => {
+        const userId = localStorage.getItem('userId');
+        const handleReadMessages = () => {
+            api.get('/chat/unread-count').then((response) => {
+                if (response.data && response.data.success) {
+                    setUnreadMessagesCount(response.data.count);
+                }
+            }).catch((err) => console.error(err));
+        };
+        window.addEventListener('chat_messages_read', handleReadMessages);
+
+        if (userId) {
+            const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+            const socket = io(SOCKET_URL);
+
+            socket.emit('join_notification_room', userId);
+
+            socket.on('new_notification', (data) => {
+                handleReadMessages();
+            });
+
+            return () => {
+                socket.disconnect();
+                window.removeEventListener('chat_messages_read', handleReadMessages);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('chat_messages_read', handleReadMessages);
+        };
     }, []);
 
     useEffect(() => {
@@ -167,6 +214,7 @@ const Student = ({ userName, onLogout }) => {
         { name: 'Lessons', label: 'Classes', icon: BookOpen },
         { name: 'Assessments', icon: FileText, hasBadge: pendingAssessmentsCount > 0 },
         { name: 'Virtual Classroom', icon: Video },
+        { name: 'Messages', icon: MessageSquare, hasBadge: unreadMessagesCount > 0, isRed: true },
     ];
 
     return (
@@ -190,14 +238,28 @@ const Student = ({ userName, onLogout }) => {
                                 ? 'bg-purple-50 text-brand-purple font-semibold shadow-sm ring-1 ring-purple-100'
                                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
-                            onClick={() => {
+                            onClick={async () => {
                                 setSelectedSection(item.name);
+                                if (item.name === 'Messages') {
+                                    setUnreadMessagesCount(0);
+                                    try {
+                                        await api.put('/chat/mark-notifications-read');
+                                    } catch (error) {
+                                        console.error("Failed to mark notifications read:", error);
+                                    }
+                                }
                             }}
                         >
                             <item.icon className={`w-5 h-5 ${selectedSection === item.name ? 'text-brand-purple' : 'text-gray-400 group-hover:text-gray-600'}`} />
                             <span className="text-sm flex-1 text-left">{item.label || item.name}</span>
-                            {item.hasBadge && (
-                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                            {item.name === 'Messages' && unreadMessagesCount > 0 ? (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+                                    {unreadMessagesCount}
+                                </span>
+                            ) : (
+                                item.hasBadge && (
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                                )
                             )}
                         </button>
                     ))}
@@ -234,7 +296,13 @@ const Student = ({ userName, onLogout }) => {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto relative bg-gray-50">
                 <div className="p-8 max-w-6xl mx-auto">
-                    <DashboardHeader userName={userName} />
+                    <DashboardHeader 
+                        userName={userName} 
+                        onOpenChat={(senderName) => {
+                            setSelectedSection('Messages');
+                            setAutoOpenSenderName(senderName);
+                        }}
+                    />
 
                     {selectedSection === 'Courses' ? (
                         <CoursesPage />
@@ -245,7 +313,10 @@ const Student = ({ userName, onLogout }) => {
                     ) : selectedSection === 'Calendar' ? (
                         <StudentCalendar studentId={1} />
                     ) : selectedSection === 'Messages' ? (
-                        <StudentChat />
+                        <StudentChat 
+                            autoOpenSenderName={autoOpenSenderName} 
+                            clearAutoOpenSenderName={() => setAutoOpenSenderName(null)} 
+                        />
                     ) : selectedSection === 'Virtual Classroom' ? (
                         <StudentVirtualClassroom />
                     ) : (
