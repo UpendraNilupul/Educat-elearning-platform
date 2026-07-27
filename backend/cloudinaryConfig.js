@@ -182,4 +182,4 @@ const courseResourceStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, advertisementStorage, courseThumbnailStorage, courseResourceStorage };
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage,  slipStorage, resourceStorage, advertisementStorage, courseThumbnailStorage, courseResourceStorage };

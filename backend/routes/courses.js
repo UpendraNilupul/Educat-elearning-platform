@@ -7,7 +7,7 @@ import path from 'path';
 import https from 'https';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { resourceStorage } from '../cloudinaryConfig.js';
-import path from 'path';
+
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
