@@ -182,14 +182,7 @@ CREATE TABLE timetables (
     FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
--- ==========================================
--- LEVEL 5: FINANCIAL RECORDS
--- ==========================================
 
-
--- ==========================================
--- LEVEL 6: ASSETS, CURRICULUM, AND ASSESSMENTS
--- ==========================================
 
 CREATE TABLE lessons (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -319,7 +312,9 @@ CREATE TABLE student_quiz_answers (
 CREATE TABLE payments (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     invoice_link VARCHAR(200) NOT NULL,
+    slip_url VARCHAR(300) DEFAULT NULL,
     amount DECIMAL(6,2) NOT NULL,
+    payment_method VARCHAR(20) DEFAULT 'card',
     status VARCHAR(20) NOT NULL,
     c_id INT NOT NULL,
     s_id INT NOT NULL,
@@ -335,15 +330,6 @@ CREATE TABLE notifications (
     user_id INT NOT NULL, 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE class_announcements (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    c_id INT NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    message TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE certificates (
@@ -442,6 +428,9 @@ CREATE TABLE messages (
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 );
+ALTER TABLE messages
+ADD COLUMN file_url VARCHAR(255) DEFAULT NULL AFTER body,
+ADD COLUMN file_type VARCHAR(50) DEFAULT NULL AFTER file_url;
 
 CREATE TABLE teacher_payouts (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -525,6 +514,17 @@ INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fe
 (2, '2026-06', 1500.00, 150.00, 50.00, 1400.00, 'pending', NULL),
 (3, '2026-06', 300.00, 30.00, -10.00, 260.00, 'pending', NULL);
 
+
+
+CREATE TABLE class_announcements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    c_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
+);
+
 ALTER TABLE notifications ADD COLUMN is_read BOOLEAN;
 
 ALTER TABLE classes_courses ADD COLUMN grade VARCHAR(50) DEFAULT NULL AFTER type;
@@ -535,4 +535,3 @@ ALTER TABLE classes_courses ADD COLUMN final_summary TEXT DEFAULT NULL;
 ALTER TABLE reviews ADD COLUMN survey_responses TEXT DEFAULT NULL;
 
 ALTER TABLE reviews ADD COLUMN is_read BOOLEAN DEFAULT FALSE;
-

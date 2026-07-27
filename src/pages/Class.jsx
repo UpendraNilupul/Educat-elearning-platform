@@ -191,7 +191,6 @@ const TuitionClass = () => {
         }
     };
 
-<<<<<<< HEAD
     const handleSlipUpload = async (classId, amount) => {
         if (!slipFile) {
             alert("Please select a slip image to upload.");
@@ -218,7 +217,7 @@ const TuitionClass = () => {
             setIsUploadingSlip(false);
         }
     };
-=======
+
     useEffect(() => {
         setHasReviewed(false);
         const checkReviewStatus = async () => {
@@ -251,8 +250,6 @@ const TuitionClass = () => {
             fetchAnnouncements();
         }
     }, [selectedClassId]);
-
->>>>>>> 4f38bbf7ad37aefa928db85e600a35e34c21d0de
 
     if (isLoading) {
         return (

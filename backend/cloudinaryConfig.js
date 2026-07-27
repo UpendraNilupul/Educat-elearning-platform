@@ -116,7 +116,6 @@ const submissionStorage = new CloudinaryStorage({
   },
 });
 
-<<<<<<< HEAD
 // Storage for Payment Slips
 const slipStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -136,8 +135,6 @@ const resourceStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, slipStorage, resourceStorage };
-=======
 // Storage for Teacher Advertisements
 const advertisementStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -147,5 +144,4 @@ const advertisementStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, advertisementStorage };
->>>>>>> 4f38bbf7ad37aefa928db85e600a35e34c21d0de
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, slipStorage, resourceStorage, advertisementStorage };
