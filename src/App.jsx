@@ -43,6 +43,7 @@ import AssessmentsPage from './pages/AssessmentsPage';
 import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
 import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
+import Admin_SlipApprovals from './pages/Admin_SlipApprovals';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -259,6 +260,11 @@ function App() {
           <Route
             path="/admin/payouts"
             element={userRole === 'admin' ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/slips"
+            element={userRole === 'admin' ? <Admin_SlipApprovals /> : <Navigate to="/" />}
           />
 
           <Route
