@@ -1404,27 +1404,61 @@ router.put('/payouts/:id/adjust', async (req, res) => {
     }
 });
 
-// C. Bulk Process Payments for a Month
-router.post('/payouts/process', async (req, res) => {
+// ==========================================
+// NEW LEDGER ROUTES: Process Payment & View History
+// ==========================================
+
+// A. Process an Individual Payment (Full or Partial)
+router.post('/payouts/:id/pay', async (req, res) => {
     try {
-        const { monthYear } = req.body;
+        const payoutId = req.params.id;
+        const { amount, referenceNote, teacherId } = req.body;
+        const adminId = req.session.userId;
 
-        if (!monthYear) return res.status(400).json({ success: false, message: "Month is required." });
+        // 1. Insert the transaction into the ledger
+        await query(`
+            INSERT INTO payout_transactions (payout_id, teacher_id, admin_id, amount, reference_note)
+            VALUES (?, ?, ?, ?, ?)
+        `, [payoutId, teacherId, adminId, amount, referenceNote]);
 
+        // 2. Update the running total on the main payout record
         await query(`
             UPDATE teacher_payouts 
-            SET status = 'paid', paid_at = NOW() 
-            WHERE month_year = ? AND status = 'pending'
-        `, [monthYear]);
+            SET amount_paid = amount_paid + ? 
+            WHERE id = ?
+        `, [amount, payoutId]);
 
-        await query(
-            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
-            [req.session.userId, `Processed all teacher payouts for ${monthYear}`]
-        );
+        // 3. Recalculate status (Paid vs Partial)
+        await query(`
+            UPDATE teacher_payouts 
+            SET payment_status = CASE 
+                WHEN amount_paid >= net_payable THEN 'completed'
+                ELSE 'partial'
+            END
+            WHERE id = ?
+        `, [payoutId]);
 
-        res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
+        res.status(200).json({ success: true, message: "Payment recorded successfully in the ledger." });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to process payments." });
+        console.error("Payment Transaction Error:", error);
+        res.status(500).json({ success: false, message: "Failed to process payment transaction." });
+    }
+});
+
+// B. Fetch Transaction History for a Payout
+router.get('/payouts/:id/history', async (req, res) => {
+    try {
+        const history = await query(`
+            SELECT pt.*, u.name as admin_name 
+            FROM payout_transactions pt
+            JOIN users u ON pt.admin_id = u.id
+            WHERE pt.payout_id = ?
+            ORDER BY pt.payment_date DESC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load transaction history." });
     }
 });
 // ==========================================

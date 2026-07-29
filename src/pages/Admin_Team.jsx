@@ -4,7 +4,7 @@ import {
     ShieldCheck, Lock, UserPlus, ArrowLeft, 
     AlertTriangle, CheckCircle, Mail, Phone, MapPin, Calendar, Users
 } from 'lucide-react';
-import api from '../api'; // 🌟 THE FIX: Import the API instance
+import api from '../api';
 
 const Admin_Team = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -18,10 +18,8 @@ const Admin_Team = ({ userName, onLogout }) => {
         address: '', dob: '', gender: ''
     });
     
-    // 🌟 ADDED: State to track form validation errors
     const [errors, setErrors] = useState({});
 
-    // 🌟 SECURITY CHECK: Ask the backend if we are a Super Admin
     useEffect(() => {
         const verifyAccess = async () => {
             try {
@@ -42,59 +40,76 @@ const Admin_Team = ({ userName, onLogout }) => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        // Clear the specific error when the user starts typing again
         if (errors[e.target.name]) {
             setErrors({ ...errors, [e.target.name]: null });
         }
     };
 
-    // 🌟 ADDED: Custom validation logic
+    // 🌟 UPGRADED: Robust validation logic
     const validateForm = () => {
         let newErrors = {};
         
-        if (!formData.name.trim()) newErrors.name = "Full name is required.";
+        // Name: Letters and spaces only, 2-50 characters
+        if (!/^[a-zA-Z\s]{2,50}$/.test(formData.name.trim())) {
+            newErrors.name = "Name must be 2-50 characters and contain only letters.";
+        }
         
+        // Email: Standard email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) newErrors.email = "Please enter a valid email address.";
+        if (!emailRegex.test(formData.email)) {
+            newErrors.email = "Please enter a valid email address.";
+        }
         
-        if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters long.";
+        // Password: Minimum length
+        if (formData.password.length < 6) {
+            newErrors.password = "Password must be at least 6 characters long.";
+        }
         
-        const phoneRegex = /^\d{10}$/;
-        if (!phoneRegex.test(formData.phoneNumber)) newErrors.phoneNumber = "Phone number must be exactly 10 digits.";
+        // Phone Number: Allows optional '+', followed by 9-15 digits/spaces/dashes
+        if (!/^\+?[\d\s\-]{9,15}$/.test(formData.phoneNumber)) {
+            newErrors.phoneNumber = "Enter a valid phone number (9-15 digits).";
+        }
         
+        // DOB: Must be 18+ and past 1900
         if (!formData.dob) {
             newErrors.dob = "Date of birth is required.";
         } else {
-            // Check if they are at least 18 years old
             const birthDate = new Date(formData.dob);
             const today = new Date();
             const minDate = new Date('1900-01-01');
             let age = today.getFullYear() - birthDate.getFullYear();
             const monthDiff = today.getMonth() - birthDate.getMonth();
+            
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
+            
             if (age < 18) {
                 newErrors.dob = "Sub-Admins must be at least 18 years old.";
             } else if (birthDate < minDate) {
-                newErrors.dob = "Date of birth must be after 1900-01-01.";
+                newErrors.dob = "Date of birth must be after 1900.";
             } else if (formData.dob.split('-')[0].length !== 4) {
                 newErrors.dob = "Date of birth must have a valid 4-digit year.";
             }
         }
 
-        if (!formData.gender) newErrors.gender = "Please select a gender.";
-        if (!formData.address.trim()) newErrors.address = "Home address is required.";
+        // Gender: Cannot be empty
+        if (!formData.gender) {
+            newErrors.gender = "Please select a gender.";
+        }
+        
+        // Address: Minimum length
+        if (formData.address.trim().length < 5) {
+            newErrors.address = "Address must be at least 5 characters long.";
+        }
 
         setErrors(newErrors);
-        // Returns true if there are NO errors
         return Object.keys(newErrors).length === 0;
     };
 
     const handleCreateSubAdmin = async (e) => {
         e.preventDefault();
         
-        // Run validation before allowing submission
         if (!validateForm()) {
             return;
         }
@@ -109,7 +124,7 @@ const Admin_Team = ({ userName, onLogout }) => {
                 alert("🎉 Sub-Admin created successfully!");
                 setFormData({ name: '', email: '', password: '', phoneNumber: '', address: '', dob: '', gender: '' });
                 setErrors({});
-                navigate('/admin'); // Send them back to dashboard after success
+                navigate('/admin');
             } else {
                 alert(result.message);
             }
@@ -124,7 +139,6 @@ const Admin_Team = ({ userName, onLogout }) => {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-bold">Verifying Security Clearance...</div>;
     }
 
-    // 🛑 THE LOCKDOWN SCREEN
     if (adminLevel !== 'super') {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
@@ -144,7 +158,6 @@ const Admin_Team = ({ userName, onLogout }) => {
         );
     }
 
-    // ✅ THE SUPER ADMIN CREATOR SCREEN
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
             <div className="max-w-3xl mx-auto mb-8 flex justify-between items-end">
@@ -242,6 +255,7 @@ const Admin_Team = ({ userName, onLogout }) => {
                             {errors.phoneNumber && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.phoneNumber}</p>}
                         </div>
 
+                        {/* DOB & Gender */}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
                             <div className="relative">
@@ -270,6 +284,7 @@ const Admin_Team = ({ userName, onLogout }) => {
                                 <option value="">Select Gender...</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
+                                <option value="Other">Other</option>
                             </select>
                             {errors.gender && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.gender}</p>}
                         </div>
