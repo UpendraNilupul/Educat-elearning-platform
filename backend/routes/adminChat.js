@@ -5,6 +5,42 @@ import util from 'util';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
+async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+    try {
+        const receiverQuery = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ?
+        `, [receiverId]);
+
+        if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
+            const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
+            const senderName = senderQuery[0]?.name || 'Someone';
+            const notifTitle = 'New Message';
+            const notifDesc = `New message from ${senderName}`;
+            
+            const insertRes = await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, ?, ?, FALSE)
+            `, [receiverId, notifTitle, notifDesc]);
+
+            if (req.io) {
+                req.io.to(`user_${receiverId}`).emit('new_notification', {
+                    id: insertRes.insertId,
+                    title: notifTitle,
+                    description: notifDesc,
+                    user_id: receiverId,
+                    is_read: 0,
+                    created_at: new Date()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error in checkAndCreateMessageNotification:", error);
+    }
+}
+
 // 1. Fetch all active conversations for the logged-in Admin
 router.get('/admin-chat/conversations', async (req, res) => {
     try {
@@ -36,8 +72,17 @@ router.get('/admin-chat/conversations', async (req, res) => {
 // 2. Fetch messages for a specific conversation
 router.get('/admin-chat/conversations/:id/messages', async (req, res) => {
     try {
+        const userId = req.session.userId;
+        if (userId) {
+            await query(`
+                UPDATE messages 
+                SET is_read = TRUE 
+                WHERE conversation_id = ? AND sender_id != ? AND is_read = FALSE
+            `, [req.params.id, userId]);
+        }
+
         const messages = await query(`
-            SELECT sender_id, body, created_at 
+            SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 
             WHERE conversation_id = ? 
             ORDER BY created_at ASC
@@ -52,9 +97,9 @@ router.get('/admin-chat/conversations/:id/messages', async (req, res) => {
 // 3. Send a message
 router.post('/admin-chat/send-message', async (req, res) => {
     try {
-        const { senderId, receiverId, message } = req.body;
+        const { senderId, receiverId, message, fileUrl, fileType } = req.body;
 
-        if (!senderId || !receiverId || !message) {
+        if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
@@ -77,13 +122,15 @@ router.post('/admin-chat/send-message', async (req, res) => {
         }
 
         await query(`
-            INSERT INTO messages (conversation_id, sender_id, body) 
-            VALUES (?, ?, ?)
-        `, [conversationId, senderId, message]);
+            INSERT INTO messages (conversation_id, sender_id, body, file_url, file_type) 
+            VALUES (?, ?, ?, ?, ?)
+        `, [conversationId, senderId, message || '', fileUrl || null, fileType || null]);
 
         await query(`
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
+
+        await checkAndCreateMessageNotification(req, senderId, receiverId);
 
         res.status(200).json({ success: true, message: "Message sent successfully!" });
     } catch (error) {

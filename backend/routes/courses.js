@@ -4,32 +4,27 @@ import util from 'util';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { resourceStorage } from '../cloudinaryConfig.js';
+
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/resources';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage });
+import { courseResourceStorage, courseThumbnailStorage } from '../cloudinaryConfig.js';
+
+const upload = multer({ storage: courseResourceStorage });
 
 // GET all courses
 router.get('/courses', async (req, res) => {
     try {
-        let q = 'SELECT * FROM classes_courses ORDER BY id DESC';
+        let q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c ORDER BY c.id DESC';
         let params = [];
         if (req.query.teacherId) {
             const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [req.query.teacherId]);
             if (tRes.length > 0) {
-                q = 'SELECT * FROM classes_courses WHERE t_id = ? ORDER BY id DESC';
+                q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c WHERE c.t_id = ? ORDER BY c.id DESC';
                 params.push(tRes[0].id);
             } else {
                 return res.status(200).json([]);
@@ -83,25 +78,14 @@ router.get('/courses', async (req, res) => {
     }
 });
 
-const thumbnailStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads/thumbnails';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const uploadThumbnail = multer({ storage: thumbnailStorage });
+const uploadThumbnail = multer({ storage: courseThumbnailStorage });
 
 // POST upload course thumbnail
 router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uploadThumbnail.single('thumbnail'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
     }
-    const baseURL = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
-    const fileUrl = `${baseURL}/uploads/thumbnails/${req.file.filename}`;
+    const fileUrl = req.file.path; // Cloudinary URL returned by multer-storage-cloudinary
     res.status(200).json({ url: fileUrl });
 });
 
@@ -337,12 +321,53 @@ router.delete('/lessions/:id', requireRole(['teacher', 'admin']), async (req, re
 });
 
 // --- RESOURCES ---
+
+// Proxy Download Route for Cloudinary Raw Files
+router.get('/resources/download', (req, res) => {
+    let { url: fileUrl, name: originalName } = req.query;
+    if (!fileUrl) return res.status(400).send('URL is required');
+    
+    // Ensure https
+    if (fileUrl.startsWith('http://')) fileUrl = fileUrl.replace('http://', 'https://');
+    
+    let finalFileName = originalName || 'download';
+    
+    // Clean up .pdftemp and .ziptemp from Cloudinary raw workaround
+    if (fileUrl.toLowerCase().endsWith('.pdftemp') || finalFileName.toLowerCase().endsWith('.pdftemp')) {
+        finalFileName = finalFileName.replace(/\.pdftemp$/i, '');
+        if (!finalFileName.toLowerCase().endsWith('.pdf')) finalFileName += '.pdf';
+    } else if (fileUrl.toLowerCase().endsWith('.ziptemp') || finalFileName.toLowerCase().endsWith('.ziptemp')) {
+        finalFileName = finalFileName.replace(/\.ziptemp$/i, '');
+        if (!finalFileName.toLowerCase().endsWith('.zip')) finalFileName += '.zip';
+    } else if (!finalFileName.includes('.')) {
+        if (fileUrl.toLowerCase().endsWith('.pdf')) finalFileName += '.pdf';
+        if (fileUrl.toLowerCase().endsWith('.zip')) finalFileName += '.zip';
+    }
+    
+    res.setHeader('Content-Disposition', `attachment; filename="${finalFileName}"`);
+    
+    https.get(fileUrl, (cloudinaryRes) => {
+        const contentType = cloudinaryRes.headers['content-type'] || 'application/octet-stream';
+        // Try to infer extension from Content-Type if it still doesn't have one
+        if (!finalFileName.includes('.')) {
+            if (contentType.includes('pdf')) finalFileName += '.pdf';
+            else if (contentType.includes('zip') || contentType.includes('x-zip-compressed')) finalFileName += '.zip';
+            res.setHeader('Content-Disposition', `attachment; filename="${finalFileName}"`);
+        }
+        res.setHeader('Content-Type', contentType);
+        cloudinaryRes.pipe(res);
+    }).on('error', (err) => {
+        console.error('Proxy download error:', err);
+        res.status(500).send('Failed to download file');
+    });
+});
+
 router.post('/lessons/:l_id/resources', upload.single('file'), requireRole(['teacher', 'admin']), async (req, res) => {
     const { title, type } = req.body;
     let url = req.body.url || '';
 
     if (req.file) {
-        url = `http://localhost:3000/uploads/resources/${req.file.filename}`;
+        url = req.file.path; // Cloudinary URL returned by multer-storage-cloudinary
     }
 
     try {
@@ -566,14 +591,15 @@ router.get('/student/my-assessments', requireAuth, async (req, res) => {
             SELECT 
                 q.id, COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) as title, q.time_limit, q.publish_at,
                 c.title as subject, c.id as courseId, 'Quiz' as type,
-                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status
+                IF(MAX(sub.status) = 'submitted', 'completed', 'pending') as status,
+                MAX(sub.score) as grade, q.allow_review
             FROM quizes q
             JOIN modules m ON q.m_id = m.id
             JOIN classes_courses c ON m.c_id = c.id
             JOIN enrollments e ON c.id = e.c_id
             LEFT JOIN quiz_submissions sub ON q.id = sub.qz_id AND sub.s_id = ?
             WHERE e.s_id = ? AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
-            GROUP BY q.id, q.number, q.time_limit, q.publish_at, c.title, c.id
+            GROUP BY q.id, q.number, q.time_limit, q.publish_at, q.allow_review, c.title, c.id
         `, [studentId, studentId]);
 
         // Combine and send back as one clean array
@@ -621,6 +647,31 @@ router.get('/student/liveclasses', requireAuth, async (req, res) => {
     } catch (err) {
         console.error("Error fetching student live classes:", err);
         res.status(500).json({ error: "Failed to fetch live classes" });
+    }
+});
+// GET enrolled students for a specific course
+router.get('/courses/:id/students', requireAuth, async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const students = await query(`
+            SELECT 
+                u.id, 
+                u.name, 
+                u.email, 
+                u.picture AS profile_image,
+                e.enrolled_date, 
+                e.status
+            FROM enrollments e
+            JOIN students s ON e.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            WHERE e.c_id = ? AND u.role_id = 3
+            ORDER BY e.enrolled_date DESC
+        `, [courseId]);
+        
+        res.status(200).json(students);
+    } catch (err) {
+        console.error("Error fetching enrolled students:", err);
+        res.status(500).json({ error: "Failed to fetch enrolled students" });
     }
 });
 

@@ -6,6 +6,42 @@ import bcrypt from 'bcryptjs';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
+async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+    try {
+        const receiverQuery = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ?
+        `, [receiverId]);
+
+        if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
+            const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
+            const senderName = senderQuery[0]?.name || 'Someone';
+            const notifTitle = 'New Message';
+            const notifDesc = `New message from ${senderName}`;
+            
+            const insertRes = await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, ?, ?, FALSE)
+            `, [receiverId, notifTitle, notifDesc]);
+
+            if (req.io) {
+                req.io.to(`user_${receiverId}`).emit('new_notification', {
+                    id: insertRes.insertId,
+                    title: notifTitle,
+                    description: notifDesc,
+                    user_id: receiverId,
+                    is_read: 0,
+                    created_at: new Date()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error in checkAndCreateMessageNotification:", error);
+    }
+}
+
 // Helper function to safely get YYYY-MM-DD for past dates
 const getPastDateString = (daysAgo) => {
     const d = new Date();
@@ -945,9 +981,9 @@ router.put('/change-password/:id', async (req, res) => {
 // ==========================================
 router.post('/send-message', async (req, res) => {
     try {
-        const { senderId, receiverId, message } = req.body;
+        const { senderId, receiverId, message, fileUrl, fileType } = req.body;
 
-        if (!senderId || !receiverId || !message) {
+        if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
@@ -973,14 +1009,16 @@ router.post('/send-message', async (req, res) => {
 
         // 3. Insert the actual message
         await query(`
-            INSERT INTO messages (conversation_id, sender_id, body) 
-            VALUES (?, ?, ?)
-        `, [conversationId, senderId, message]);
+            INSERT INTO messages (conversation_id, sender_id, body, file_url, file_type) 
+            VALUES (?, ?, ?, ?, ?)
+        `, [conversationId, senderId, message || '', fileUrl || null, fileType || null]);
 
         // 4. Update the conversation's timestamp to bump it to the top of the inbox
         await query(`
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
+
+        await checkAndCreateMessageNotification(req, senderId, receiverId);
 
         res.status(200).json({ success: true, message: "Message sent successfully!" });
 
@@ -1143,7 +1181,11 @@ router.get('/conversations', async (req, res) => {
                 u.id as other_user_id, 
                 u.name as other_user_name, 
                 u.picture as other_user_picture,
-                r.role_name as other_user_role
+                r.role_name as other_user_role,
+                (SELECT COUNT(*) FROM messages m 
+                 WHERE m.conversation_id = c.id 
+                   AND m.sender_id = u.id 
+                   AND m.is_read = FALSE) as unread_count
             FROM conversations c
             JOIN users u ON (u.id = c.participant1_id OR u.id = c.participant2_id) AND u.id != ?
             JOIN roles r ON u.role_id = r.id
@@ -1161,8 +1203,17 @@ router.get('/conversations', async (req, res) => {
 // B. Fetch messages for a specific conversation
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
+        const userId = req.session.userId;
+        if (userId) {
+            await query(`
+                UPDATE messages 
+                SET is_read = TRUE 
+                WHERE conversation_id = ? AND sender_id != ? AND is_read = FALSE
+            `, [req.params.id, userId]);
+        }
+
         const messages = await query(`
-            SELECT sender_id, body, created_at 
+            SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 
             WHERE conversation_id = ? 
             ORDER BY created_at ASC
@@ -1374,6 +1425,92 @@ router.post('/payouts/process', async (req, res) => {
         res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
     } catch (error) {
         res.status(500).json({ success: false, message: "Failed to process payments." });
+    }
+});
+// ==========================================
+// 21. BANK SLIP PAYMENTS APPROVAL
+// ==========================================
+
+// A. Get pending slip payments
+router.get('/pending-payments', async (req, res) => {
+    try {
+        const payments = await query(`
+            SELECT 
+                p.id, p.amount, p.slip_url, p.payment_date, p.invoice_link,
+                u.name as student_name, u.email as student_email,
+                c.title as course_title, c.id as class_id,
+                s.id as student_id
+            FROM payments p
+            JOIN students s ON p.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            JOIN classes_courses c ON p.c_id = c.id
+            WHERE p.status = 'pending_approval' AND p.payment_method = 'slip'
+            ORDER BY p.payment_date ASC
+        `);
+        res.status(200).json({ success: true, data: payments });
+    } catch (error) {
+        console.error("Pending payments error:", error);
+        res.status(500).json({ success: false, message: "Failed to load pending payments." });
+    }
+});
+
+// B. Approve slip payment
+router.put('/payments/:id/approve', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        
+        // Find payment details
+        const paymentDetails = await query('SELECT * FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length === 0) {
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+        
+        const { c_id, s_id } = paymentDetails[0];
+
+        // Update payment status
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['completed', paymentId]);
+
+        // Enroll student
+        await query('INSERT IGNORE INTO enrollments (s_id, c_id) VALUES (?, ?)', [s_id, c_id]);
+
+        // Add Notification
+        const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [s_id]);
+        if (studentUser.length > 0) {
+            await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, 'Payment Approved', 'Your bank slip payment was approved and you have been enrolled.', 0)
+            `, [studentUser[0].user_id]);
+        }
+
+        res.status(200).json({ success: true, message: "Payment approved successfully." });
+    } catch (error) {
+        console.error("Payment approve error:", error);
+        res.status(500).json({ success: false, message: "Failed to approve payment." });
+    }
+});
+
+// C. Reject slip payment
+router.put('/payments/:id/reject', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['rejected', paymentId]);
+        
+        // Optionally notify student
+        const paymentDetails = await query('SELECT s_id FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length > 0) {
+            const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [paymentDetails[0].s_id]);
+            if (studentUser.length > 0) {
+                await query(`
+                    INSERT INTO notifications (user_id, title, description, is_read)
+                    VALUES (?, 'Payment Rejected', 'Your bank slip payment was rejected. Please contact support.', 0)
+                `, [studentUser[0].user_id]);
+            }
+        }
+
+        res.status(200).json({ success: true, message: "Payment rejected successfully." });
+    } catch (error) {
+        console.error("Payment reject error:", error);
+        res.status(500).json({ success: false, message: "Failed to reject payment." });
     }
 });
 

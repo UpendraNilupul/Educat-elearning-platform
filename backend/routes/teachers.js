@@ -69,7 +69,7 @@ router.get('/teachers/:userId/dashboard-stats', async (req, res) => {
 
         // Total Students (Distinct)
         const studentsRes = await query(
-            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)', 
+            'SELECT COUNT(DISTINCT s_id) as total FROM enrollments WHERE c_id IN (SELECT id FROM classes_courses WHERE t_id = ?)',
             [teacherId]
         );
         const totalStudents = studentsRes[0].total || 0;
@@ -313,6 +313,89 @@ router.delete('/teacher/liveclasses/:id', requireAuth, requireRole(['teacher']),
     } catch (err) {
         console.error('Error deleting live class:', err);
         res.status(500).json({ error: 'Failed to delete live class' });
+    }
+});
+// GET student profile for teacher
+router.get('/teacher/student-profile/:id', async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        
+        // Basic student info
+        const studentQuery = await query(`
+            SELECT 
+                u.id, u.name, u.email, u.phone_number, u.address, u.gender, u.join_date, u.picture AS profile_image, u.created_at, u.status,
+                s.grade_level, s.guardian_name
+            FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
+            WHERE u.id = ?
+        `, [studentId]);
+        
+        if (studentQuery.length === 0) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+        
+        const profile = studentQuery[0];
+        
+        // Enrollments info
+        const enrollmentsQuery = await query(`
+            SELECT c.id, c.title, e.enrolled_date, e.status
+            FROM enrollments e
+            JOIN classes_courses c ON e.c_id = c.id
+            JOIN students s ON e.s_id = s.id
+            WHERE s.user_id = ?
+            ORDER BY e.enrolled_date DESC
+        `, [studentId]);
+
+        res.status(200).json({
+            success: true,
+            profile,
+            enrollments: enrollmentsQuery
+        });
+
+    } catch (err) {
+        console.error('Error fetching student profile:', err);
+        res.status(500).json({ error: 'Failed to fetch student profile' });
+    }
+});
+
+// POST a class announcement
+router.post('/teacher/classes/:id/announcements', requireAuth, requireRole(['teacher']), async (req, res) => {
+    const classId = req.params.id;
+    const { title, message } = req.body;
+    const userId = req.session.userId;
+    
+    try {
+        // Verify teacher ownership of the class
+        const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
+        if (tRes.length === 0) return res.status(403).json({ error: 'Teacher profile not found' });
+        const teacherId = tRes[0].id;
+        
+        const courseCheck = await query('SELECT id FROM classes_courses WHERE id = ? AND t_id = ?', [classId, teacherId]);
+        if (courseCheck.length === 0) return res.status(403).json({ error: 'Unauthorized: Course not found or not owned by you' });
+
+        // Get all students enrolled
+        const students = await query(`
+            SELECT s.user_id 
+            FROM enrollments e 
+            JOIN students s ON e.s_id = s.id 
+            WHERE e.c_id = ?
+        `, [classId]);
+
+        if (students.length > 0) {
+            const values = students.map(st => [st.user_id, title || 'Class Announcement', message]);
+            await query('INSERT INTO notifications (user_id, title, description) VALUES ?', [values]);
+        }
+
+        // Insert into class_announcements table
+        await query(
+            'INSERT INTO class_announcements (c_id, title, message) VALUES (?, ?, ?)',
+            [classId, title || 'Class Announcement', message]
+        );
+
+        res.status(200).json({ success: true, message: 'Announcement posted successfully' });
+    } catch (err) {
+        console.error('Error posting announcement:', err);
+        res.status(500).json({ error: 'Failed to post announcement' });
     }
 });
 

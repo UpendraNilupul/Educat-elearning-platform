@@ -28,7 +28,9 @@ import Admin_Teachers from './pages/Admin_Teachers';
 import Admin_TeacherAnalytics from './pages/Admin_TeacherAnalytics';
 import Admin_Students from './pages/Admin_Students';
 import Admin_StudentProfile from './pages/Admin_StudentProfile';
+import Teacher_StudentProfile from './pages/Teacher_StudentProfile';
 import Admin_PromoCodes from './pages/Admin_PromoCodes';
+import Admin_Advertisements from './pages/Admin_Advertisements';
 import VerifyTeacher from './pages/VerifyTeacher';
 import Admin_Courses from './pages/Admin_Courses';
 import Admin_Announcements from './pages/Admin_Announcements';
@@ -41,6 +43,7 @@ import AssessmentsPage from './pages/AssessmentsPage';
 import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
 import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
+import Admin_SlipApprovals from './pages/Admin_SlipApprovals';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -69,11 +72,22 @@ const MainLayout = ({ children, userRole, userName, onLogout }) => {
 };
 
 function App() {
-  const [userRole, setUserRole] = useState(sessionStorage.getItem('userRole') || localStorage.getItem('userRole') || null);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
   const [adminLevel, setAdminLevel] = useState(localStorage.getItem('adminLevel') || 'super');
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [userPicture, setUserPicture] = useState(localStorage.getItem('userPicture') || '');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Synchronize state across tabs when localStorage auth details change
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'userId' || e.key === 'userRole') {
+        window.location.reload();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     api.get('/status')
@@ -88,17 +102,30 @@ function App() {
             setUserPicture(data.userPicture);
             localStorage.setItem('userPicture', data.userPicture);
           }
-          
-          // Populate sessionStorage to maintain tab-level context
-          if (!sessionStorage.getItem('userRole')) {
-            sessionStorage.setItem('userRole', safeRole);
-          }
-          if (data.userId && !sessionStorage.getItem('userId')) {
-            sessionStorage.setItem('userId', data.userId);
-          }
+        } else {
+          setUserRole(null);
+          setUserName('');
+          setUserPicture('');
+          setAdminLevel('super');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userPicture');
+          localStorage.removeItem('adminLevel');
+          localStorage.removeItem('verificationStatus');
         }
       })
-      .catch(err => console.log("User is likely not logged in yet."))
+      .catch(err => {
+        console.log("User is likely not logged in yet.");
+        setUserRole(null);
+        setUserName('');
+        setUserPicture('');
+        setAdminLevel('super');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userPicture');
+        localStorage.removeItem('adminLevel');
+        localStorage.removeItem('verificationStatus');
+      })
       .finally(() => {
         setIsLoading(false);
       });
@@ -119,11 +146,13 @@ function App() {
   useEffect(() => {
     const userId = localStorage.getItem('userId');
     if (userId && userRole) {
-      const socket = io('http://localhost:3000');
+      const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+      const socket = io(SOCKET_URL);
 
       socket.emit('join_notification_room', userId);
 
       socket.on('new_notification', (data) => {
+        if (!data || !data.title) return;
         toast.success(
           <div>
             <strong>{data.title}</strong>
@@ -148,9 +177,6 @@ function App() {
       localStorage.removeItem('userPicture');
       localStorage.removeItem('adminLevel');
       localStorage.removeItem('verificationStatus');
-      
-      sessionStorage.removeItem('userId');
-      sessionStorage.removeItem('userRole');
       
       setUserRole(null);
       setUserName('');
@@ -237,6 +263,11 @@ function App() {
           />
 
           <Route
+            path="/admin/slips"
+            element={userRole === 'admin' ? <Admin_SlipApprovals /> : <Navigate to="/" />}
+          />
+
+          <Route
             path="/admin/students"
             element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
@@ -249,6 +280,11 @@ function App() {
           <Route
             path="/admin/promos"
             element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
+          />
+
+          <Route
+            path="/admin/advertisements"
+            element={userRole === 'admin' ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
 
           <Route
@@ -325,6 +361,13 @@ function App() {
           <Route path="/teacher/assignments/:id/submissions" element={
             (userRole === 'teacher' || userRole === 'admin')
               ? <AssignmentSubmissions />
+              : <Navigate to="/" />
+          } />
+
+          {/* Teacher: View Student Profile */}
+          <Route path="/teacher/student-profile/:id" element={
+            (userRole === 'teacher' || userRole === 'admin')
+              ? <Teacher_StudentProfile />
               : <Navigate to="/" />
           } />
 

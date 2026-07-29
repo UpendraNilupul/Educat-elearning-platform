@@ -19,7 +19,8 @@ import {
     Star,
     MessageSquare,
     Clock,
-    AlertCircle
+    AlertCircle,
+    Megaphone
 } from 'lucide-react';
 import api from '../api';
 import axios from 'axios';
@@ -29,6 +30,13 @@ const getYouTubeEmbedUrl = (url) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+};
+
+const getResourceDownloadUrl = (resource) => {
+    if (resource.link && resource.link.includes('res.cloudinary.com') && resource.link.includes('/raw/upload/')) {
+        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.link)}&name=${encodeURIComponent(resource.name)}`;
+    }
+    return resource.link;
 };
 
 const feedbackQuestions = [
@@ -54,6 +62,11 @@ const TuitionClass = () => {
     // Gatekeeper state for the "Make a payment" dropdown
     const [expandedPaymentClassId, setExpandedPaymentClassId] = useState(null);
 
+    // Slip Upload States
+    const [paymentMode, setPaymentMode] = useState('select'); // 'select', 'card', 'slip'
+    const [slipFile, setSlipFile] = useState(null);
+    const [isUploadingSlip, setIsUploadingSlip] = useState(false);
+
     const [activeMonth, setActiveMonth] = useState(null);
     const [expandedLessons, setExpandedLessons] = useState([]);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -74,6 +87,7 @@ const TuitionClass = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [suggestedClasses, setSuggestedClasses] = useState([]);
+    const [announcements, setAnnouncements] = useState([]);
 
     useEffect(() => {
         const fetchClasses = async () => {
@@ -184,6 +198,33 @@ const TuitionClass = () => {
         }
     };
 
+    const handleSlipUpload = async (classId, amount) => {
+        if (!slipFile) {
+            alert("Please select a slip image to upload.");
+            return;
+        }
+        setIsUploadingSlip(true);
+        try {
+            const formData = new FormData();
+            formData.append('slip_image', slipFile);
+            formData.append('classId', classId);
+            formData.append('userId', localStorage.getItem('userId'));
+            formData.append('amount', amount);
+
+            await api.post('/payment/slip-upload', formData);
+            alert("Bank slip uploaded successfully! It is pending admin approval.");
+            setCheckoutClass(null);
+            setExpandedPaymentClassId(null);
+            setPaymentMode('select');
+            setSlipFile(null);
+        } catch (error) {
+            console.error("Slip upload error:", error);
+            alert("Could not upload slip. Please try again.");
+        } finally {
+            setIsUploadingSlip(false);
+        }
+    };
+
     useEffect(() => {
         setHasReviewed(false);
         const checkReviewStatus = async () => {
@@ -198,6 +239,22 @@ const TuitionClass = () => {
         };
         if (selectedClassId) {
             checkReviewStatus();
+        }
+    }, [selectedClassId]);
+
+    useEffect(() => {
+        const fetchAnnouncements = async () => {
+            try {
+                // Ensure classData.id is available dynamically
+                const response = await api.get(`/classes/${selectedClassId}/announcements`);
+                setAnnouncements(response.data);
+            } catch (error) {
+                console.error("Failed to fetch announcements", error);
+            }
+        };
+        
+        if (selectedClassId) {
+            fetchAnnouncements();
         }
     }, [selectedClassId]);
 
@@ -392,8 +449,13 @@ const TuitionClass = () => {
             <div className="p-8 max-w-[800px] mx-auto animate-in slide-in-from-bottom-4 duration-300">
                 <button
                     onClick={() => {
-                        setCheckoutClass(null);
-                        setExpandedPaymentClassId(null);
+                        if (paymentMode !== 'select') {
+                            setPaymentMode('select');
+                            setSlipFile(null);
+                        } else {
+                            setCheckoutClass(null);
+                            setExpandedPaymentClassId(null);
+                        }
                     }}
                     className="group mb-8 flex items-center gap-2 text-sm font-bold text-purple-700 bg-purple-100 px-5 py-2.5 rounded-xl shadow-sm hover:bg-purple-600 hover:text-white transition-all duration-300 w-fit"
                 >
@@ -424,14 +486,54 @@ const TuitionClass = () => {
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => handlePayment(checkoutClass.id, currentMonth.id, checkoutClass.monthlyFee)}
-                            disabled={isProcessing}
-                            className="flex items-center justify-center w-full max-w-sm gap-2 py-4 text-lg font-bold text-white transition-all bg-purple-600 shadow-xl rounded-xl hover:bg-purple-700 disabled:opacity-50 hover:-translate-y-1"
-                        >
-                            <CreditCard className="w-5 h-5" />
-                            {isProcessing ? "Processing Payment..." : "Make a Payment"}
-                        </button>
+                        {paymentMode === 'select' && (
+                            <div className="w-full max-w-sm flex flex-col gap-4">
+                                <button
+                                    onClick={() => handlePayment(checkoutClass.id, currentMonth.id, checkoutClass.monthlyFee)}
+                                    disabled={isProcessing}
+                                    className="flex items-center justify-center w-full gap-2 py-4 text-lg font-bold text-white transition-all bg-purple-600 shadow-md rounded-xl hover:bg-purple-700 disabled:opacity-50 hover:-translate-y-1"
+                                >
+                                    <CreditCard className="w-5 h-5" />
+                                    {isProcessing ? "Processing Payment..." : "Pay with Card (PayHere)"}
+                                </button>
+                                
+                                <div className="relative flex py-2 items-center">
+                                    <div className="flex-grow border-t border-gray-200"></div>
+                                    <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-bold uppercase">or</span>
+                                    <div className="flex-grow border-t border-gray-200"></div>
+                                </div>
+
+                                <button
+                                    onClick={() => setPaymentMode('slip')}
+                                    className="flex items-center justify-center w-full gap-2 py-4 text-lg font-bold text-purple-600 transition-all bg-purple-50 border border-purple-100 shadow-sm rounded-xl hover:bg-purple-100 hover:-translate-y-1"
+                                >
+                                    <FileText className="w-5 h-5" />
+                                    Upload Bank Slip
+                                </button>
+                            </div>
+                        )}
+
+                        {paymentMode === 'slip' && (
+                            <div className="w-full max-w-sm animate-in fade-in zoom-in duration-300">
+                                <div className="mb-4 text-left">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Upload your Bank Deposit Slip</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => setSlipFile(e.target.files[0])}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">Accepted formats: JPG, PNG. Max 5MB.</p>
+                                </div>
+                                <button
+                                    onClick={() => handleSlipUpload(checkoutClass.id, checkoutClass.monthlyFee)}
+                                    disabled={isUploadingSlip || !slipFile}
+                                    className="flex items-center justify-center w-full gap-2 py-4 text-lg font-bold text-white transition-all bg-purple-600 shadow-md rounded-xl hover:bg-purple-700 disabled:opacity-50 hover:-translate-y-1"
+                                >
+                                    {isUploadingSlip ? "Uploading..." : "Submit Bank Slip"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -489,6 +591,55 @@ const TuitionClass = () => {
                     </div>
                 )}
             </div>
+
+            {/* Announcements Board */}
+            {announcements && announcements.length > 0 && (
+                <div className="mb-8 bg-white border border-blue-100 rounded-2xl shadow-sm overflow-hidden animate-in fade-in">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                <Megaphone className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-blue-900 text-lg">Class Announcements</h3>
+                        </div>
+                        <span className="text-xs font-bold bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                            {announcements.length} New
+                        </span>
+                    </div>
+                    
+                    {/* Scrollable List */}
+                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-4 bg-gray-50/50">
+                        <div className="space-y-3">
+                            {announcements.map((announcement) => (
+                                <div 
+                                    key={announcement.id} 
+                                    className="p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-blue-200 hover:shadow-md transition-all"
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-gray-800 text-md">{announcement.title}</h4>
+                                        <div className="flex items-center gap-1 text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-1 border border-gray-100 rounded-md">
+                                            <Clock className="w-3 h-3" />
+                                            {new Date(announcement.created_at).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                                        {announcement.message}
+                                    </p>
+                                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                            {announcement.teacher_name ? announcement.teacher_name.charAt(0) : 'T'}
+                                        </div>
+                                        <p className="text-xs text-blue-700 font-semibold">
+                                            Posted by {announcement.teacher_name}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* SINGLE COLUMN LAYOUT */}
             <div className="w-full mt-4">
@@ -556,7 +707,7 @@ const TuitionClass = () => {
                                                             }
 
                                                             return (
-                                                                <a key={resource.id} href={resource.link} target="_blank" rel="noreferrer" className="relative z-10 flex items-center justify-between p-3 ml-2 text-left transition-all bg-white border border-gray-200 shadow-sm cursor-pointer rounded-xl hover:border-blue-300 hover:bg-gray-50 group">
+                                                                <a key={resource.id} href={getResourceDownloadUrl(resource)} target="_blank" rel="noreferrer" className="relative z-10 flex items-center justify-between p-3 ml-2 text-left transition-all bg-white border border-gray-200 shadow-sm cursor-pointer rounded-xl hover:border-blue-300 hover:bg-gray-50 group">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="p-2 text-purple-600 rounded-lg bg-purple-50">
                                                                             {resource.type === 'link' ? <LinkIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}

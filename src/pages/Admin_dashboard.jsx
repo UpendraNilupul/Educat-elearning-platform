@@ -6,6 +6,11 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import { io } from 'socket.io-client';
+import NotificationBell from '../components/NotificationBell';
+
+// Admin Sub-pages
+import Admin_Advertisements from './Admin_Advertisements';
 
 const Admin = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -17,6 +22,47 @@ const Admin = ({ userName, onLogout }) => {
     // Time and Role Filters
     const [timeFilter, setTimeFilter] = useState('today');
     const [roleFilter, setRoleFilter] = useState('both');
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+    const fetchUnreadMessagesCount = async () => {
+        try {
+            const response = await api.get('/chat/unread-count');
+            if (response.data && response.data.success) {
+                setUnreadMessagesCount(response.data.count);
+            }
+        } catch (error) {
+            console.error("Error fetching unread messages count:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchUnreadMessagesCount();
+    }, []);
+
+    useEffect(() => {
+        const userId = localStorage.getItem('userId');
+        window.addEventListener('chat_messages_read', fetchUnreadMessagesCount);
+
+        if (userId) {
+            const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+            const socket = io(SOCKET_URL);
+
+            socket.emit('join_notification_room', userId);
+
+            socket.on('new_notification', (data) => {
+                fetchUnreadMessagesCount();
+            });
+
+            return () => {
+                socket.disconnect();
+                window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+        };
+    }, []);
 
     // Fetch dynamic database stats
     useEffect(() => {
@@ -47,8 +93,10 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
+        { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
         { id: 'payouts', label: 'Payouts & Earnings', icon: DollarSign, path: '/admin/payouts' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
+        { id: 'advertisements', label: 'Advertisements', icon: Megaphone, path: '/admin/advertisements' },
         { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'escalations', label: 'Escalation Inbox', icon: ShieldAlert, path: '/admin/escalations' },
         { id: 'team', label: 'Team Management', icon: ShieldCheck, path: '/admin/team' },
@@ -85,7 +133,12 @@ const Admin = ({ userName, onLogout }) => {
                                     }`}
                             >
                                 <Icon size={20} className={isActive ? 'text-[#4a0b59]' : ''} />
-                                <span>{item.label}</span>
+                                <span className="flex-1 text-left">{item.label}</span>
+                                {item.id === 'communications' && unreadMessagesCount > 0 && (
+                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+                                        {unreadMessagesCount}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
@@ -123,10 +176,9 @@ const Admin = ({ userName, onLogout }) => {
 
                     </div>
                     <div className="flex items-center space-x-4">
-                        <button className="relative p-2 text-gray-400 hover:text-[#4a0b59] transition-colors">
-                            <Bell size={22} />
-                            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-                        </button>
+                        <NotificationBell onOpenChat={(senderName) => {
+                            navigate('/admin/communications', { state: { autoOpenSenderName: senderName } });
+                        }} />
                     </div>
                 </header>
 

@@ -20,7 +20,11 @@ import {
   Calendar as CalendarIcon,
   CheckCircle,
   Flag,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Search,
+  Filter,
+  Megaphone
 } from "lucide-react";
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
@@ -28,6 +32,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '' });
   const [finalSummary, setFinalSummary] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -56,6 +62,13 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [activeChapterId, setActiveChapterId] = useState(null);
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null, isVisible: true });
+
+  const getResourceDownloadUrl = (resource) => {
+    if (resource.url && resource.url.includes('res.cloudinary.com') && resource.url.includes('/raw/upload/')) {
+        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.url)}&name=${encodeURIComponent(resource.title)}`;
+    }
+    return resource.url;
+  };
 
   const [expandedLessons, setExpandedLessons] = useState([]);
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
@@ -116,6 +129,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   }, [assignmentData.deadline, assignmentData.publish_at, assignmentData.files, assignmentData.existingAttachments, isAssignmentModalOpen]);
 
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editingQuizId, setEditingQuizId] = useState(null);
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [quizErrors, setQuizErrors] = useState({});
@@ -124,6 +138,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     number: 1,
     time_limit: "00:30:00",
     publish_at: "",
+    allow_review: true,
     questions: []
   });
 
@@ -141,6 +156,36 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     }
     setQuizErrors(errors);
   }, [quizData.publish_at, isQuizModalOpen]);
+
+  const [activeTab, setActiveTab] = useState('structure');
+  const [enrolledStudents, setEnrolledStudents] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+
+  React.useEffect(() => {
+    if (selectedCourse && activeTab === 'students') {
+      fetchEnrolledStudents();
+    }
+  }, [selectedCourse, activeTab]);
+
+  const fetchEnrolledStudents = async () => {
+    setIsLoadingStudents(true);
+    try {
+      const res = await api.get(`/courses/${selectedCourse.id}/students`);
+      if (Array.isArray(res.data)) {
+        setEnrolledStudents(res.data);
+      } else {
+        console.error("API returned non-array data:", res.data);
+        setEnrolledStudents([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch students", err);
+      setEnrolledStudents([]);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
 
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
@@ -562,16 +607,33 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   // ============================
   // QUIZ LOGIC (MERGED)
   // ============================
+  const recalculateMarks = (questions) => {
+    if (questions.length === 0) return questions;
+    const baseMark = Math.floor((100 / questions.length) * 100) / 100;
+    const totalBase = baseMark * questions.length;
+    const remainder = Math.round((100 - totalBase) * 100) / 100;
+    
+    return questions.map((q, idx) => ({
+      ...q,
+      marks: idx === questions.length - 1 ? parseFloat((baseMark + remainder).toFixed(2)) : baseMark
+    }));
+  };
+
   const addQuizQuestion = () => {
-    setQuizData(prev => ({
-      ...prev,
-      questions: [...prev.questions, {
+    setQuizData(prev => {
+      const newQuestions = [...prev.questions, {
         question: "",
         type: "single",
-        marks: 1,
-        options: [{ answer: "", correct: true }]
-      }]
-    }));
+        marks: 0,
+        options: [
+          { answer: "", correct: true },
+          { answer: "", correct: false },
+          { answer: "", correct: false },
+          { answer: "", correct: false }
+        ]
+      }];
+      return { ...prev, questions: recalculateMarks(newQuestions) };
+    });
   };
 
   const updateQuizQuestion = (index, field, value) => {
@@ -581,13 +643,10 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   };
 
   const removeQuizQuestion = (index) => {
-    setQuizData({ ...quizData, questions: quizData.questions.filter((_, i) => i !== index) });
-  };
-
-  const addQuizOption = (qIndex) => {
-    const updatedQuestions = [...quizData.questions];
-    updatedQuestions[qIndex].options.push({ answer: "", correct: false });
-    setQuizData({ ...quizData, questions: updatedQuestions });
+    setQuizData(prev => {
+      const newQuestions = prev.questions.filter((_, i) => i !== index);
+      return { ...prev, questions: recalculateMarks(newQuestions) };
+    });
   };
 
   const updateQuizOption = (qIndex, oIndex, field, value) => {
@@ -597,12 +656,6 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     } else {
       updatedQuestions[qIndex].options[oIndex][field] = value;
     }
-    setQuizData({ ...quizData, questions: updatedQuestions });
-  };
-
-  const removeQuizOption = (qIndex, oIndex) => {
-    const updatedQuestions = [...quizData.questions];
-    updatedQuestions[qIndex].options = updatedQuestions[qIndex].options.filter((_, i) => i !== oIndex);
     setQuizData({ ...quizData, questions: updatedQuestions });
   };
 
@@ -617,22 +670,29 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
         title: data.title || "",
         number: data.number,
         time_limit: data.time_limit,
+        allow_review: data.allow_review !== undefined ? Boolean(data.allow_review) : true,
         publish_at: data.publish_at ? (() => {
           const d = new Date(data.publish_at);
           if (isNaN(d.getTime())) return "";
           const pad = n => n.toString().padStart(2, '0');
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         })() : "",
-        questions: data.questions.map(q => ({
-          id: q.id,
-          question: q.question,
-          type: q.type,
-          marks: q.marks,
-          options: q.options.map(o => ({
+        questions: recalculateMarks(data.questions.map(q => {
+          let opts = q.options.map(o => ({
             id: o.id,
             answer: o.answer,
             correct: !!o.correct
-          }))
+          }));
+          while (opts.length < 4) opts.push({ answer: "", correct: false });
+          if (opts.length > 4) opts = opts.slice(0, 4);
+          
+          return {
+            id: q.id,
+            question: q.question,
+            type: q.type,
+            marks: q.marks,
+            options: opts
+          };
         }))
       });
       setIsQuizModalOpen(true);
@@ -673,6 +733,35 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       return;
     }
 
+    // Validation
+    for (let i = 0; i < quizData.questions.length; i++) {
+      const q = quizData.questions[i];
+      if (q.question.trim() === '') {
+        alert(`Question ${i + 1} text cannot be empty.`);
+        return;
+      }
+      const answerSet = new Set();
+      let hasCorrect = false;
+      for (let j = 0; j < q.options.length; j++) {
+        const opt = q.options[j];
+        const answerText = opt.answer.trim();
+        if (answerText === '') {
+          alert(`Question ${i + 1} has an empty answer option.`);
+          return;
+        }
+        if (answerSet.has(answerText)) {
+          alert(`Question ${i + 1} has duplicate answer options: "${answerText}".`);
+          return;
+        }
+        answerSet.add(answerText);
+        if (opt.correct) hasCorrect = true;
+      }
+      if (!hasCorrect) {
+        alert(`Question ${i + 1} must have at least one correct answer.`);
+        return;
+      }
+    }
+
     setIsSavingQuiz(true);
     try {
       let quizId = editingQuizId;
@@ -682,6 +771,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
         title: quizData.title,
         number: quizData.number,
         time_limit: quizData.time_limit,
+        allow_review: quizData.allow_review,
         publish_at: quizData.publish_at || null
       };
 
@@ -1104,41 +1194,75 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
           >
             <ArrowLeft size={20} /> Back to Dashboard
           </button>
+          
           <div className="flex justify-between items-end border-b pb-6">
             <div>
-              <span className="text-purple-600 font-semibold mb-1 block">Course Structure</span>
+              <span className="text-purple-600 font-semibold mb-1 block">Course Details</span>
               <h1 className="text-3xl font-extrabold text-gray-900">{selectedCourse.title}</h1>
             </div>
+            
             <div className="flex items-center gap-3">
-              {selectedCourse.status !== 'completed' ? (
-                  <button 
-                      onClick={() => setIsCompletionModalOpen(true)} 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+              {/* Tab Navigation */}
+              <div className="flex bg-gray-100 p-1 rounded-xl mr-4">
+                <button
+                  onClick={() => setActiveTab('structure')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                    activeTab === 'structure' 
+                      ? 'bg-white text-purple-700 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <BookOpen size={16} className="inline mr-2" /> Structure
+                </button>
+                <button
+                  onClick={() => setActiveTab('students')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                    activeTab === 'students' 
+                      ? 'bg-white text-purple-700 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Users size={16} className="inline mr-2" /> Enrolled Students
+                </button>
+              </div>
+
+              {activeTab === 'structure' && (
+                <>
+                  {selectedCourse.status !== 'completed' ? (
+                      <button 
+                          onClick={() => setIsCompletionModalOpen(true)} 
+                          className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+                      >
+                          <Flag className="w-4 h-4" /> Mark Course as Complete
+                      </button>
+                  ) : (
+                      <button 
+                          onClick={handleReopenCourse} 
+                          className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
+                      >
+                          <RefreshCw className="w-4 h-4" /> Reopen Course
+                      </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setEditingChapterId(null);
+                      setChapterTitle("");
+                      setIsChapterModalOpen(true);
+                    }}
+                    className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
                   >
-                      <Flag className="w-4 h-4" /> Mark Course as Complete
+                    <Plus size={18} /> Add Module
                   </button>
-              ) : (
-                  <button 
-                      onClick={handleReopenCourse} 
-                      className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 text-orange-700 font-bold rounded-xl border border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
-                  >
-                      <RefreshCw className="w-4 h-4" /> Reopen Course
-                  </button>
+                </>
               )}
-              <button
-                onClick={() => {
-                  setEditingChapterId(null);
-                  setChapterTitle("");
-                  setIsChapterModalOpen(true);
-                }}
-                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Plus size={18} /> Add Module
-              </button>
+              <button onClick={() => setIsAnnouncementModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm"><Megaphone className="w-4 h-4" /> Post Announcement</button>
+
             </div>
           </div>
-          <div className="flex flex-col gap-4 mt-2">
-            {selectedCourse.chapters?.map((chapter, index) => {
+
+          {activeTab === 'structure' && (
+            <div className="flex flex-col gap-4 mt-2">
+              {selectedCourse.chapters?.map((chapter, index) => {
               const isExpanded = expandedChapters.includes(chapter.id);
               return (
                 <div key={chapter.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -1256,7 +1380,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                               <div className="p-4 bg-white flex flex-col gap-2">
                                 {lesson.resources?.map((res, resIndex) => (
                                   <div key={res.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-transparent transition-colors group ${res.isVisible === false ? 'opacity-60' : ''}`}>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
                                       {res.type === 'pdf' ? (
                                         <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 transition-colors group-hover:bg-red-100">
                                           <File size={16} />
@@ -1307,7 +1431,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                         <Trash2 size={12} />
                                       </button>
                                     </div>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
                                       Open
                                     </a>
                                   </div>
@@ -1472,7 +1596,86 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <p className="text-gray-500">No modules added yet. Start by adding your first module.</p>
               </div>
             )}
+            </div>
+          )}
+
+          {activeTab === 'students' && (
+            /* Enrolled Students Tab */
+            <div className="flex flex-col gap-6 mt-2">
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div className="relative flex-1 max-w-md">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              <Filter size={18} className="text-gray-400" />
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="date">Sort by Enrollment Date</option>
+              </select>
+            </div>
           </div>
+
+          {isLoadingStudents ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {enrolledStudents
+                .filter(s => 
+                  s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  s.email?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .sort((a, b) => {
+                  if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+                  if (sortBy === 'date') return new Date(b.enrolled_date) - new Date(a.enrolled_date);
+                  return 0;
+                })
+                .map(student => (
+                <div 
+                  key={student.id} 
+                  onClick={() => navigate(`/teacher/student-profile/${student.id}`)}
+                  className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={student.profile_image || "https://ui-avatars.com/api/?name=" + encodeURIComponent(student.name) + "&background=random"} 
+                      alt={student.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-gray-100 group-hover:border-purple-200 transition-colors"
+                    />
+                    <div className="overflow-hidden">
+                      <h3 className="font-bold text-gray-900 truncate group-hover:text-purple-600 transition-colors">{student.name}</h3>
+                      <p className="text-sm text-gray-500 truncate">{student.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex sm:flex-row flex-col sm:items-center gap-3 sm:gap-6 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                    <div className="text-gray-500 font-medium text-xs">
+                      Enrolled: <span className="text-gray-700">{new Date(student.enrolled_date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {enrolledStudents.length === 0 && (
+                <div className="col-span-full py-12 text-center text-gray-500 font-medium bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                  No students enrolled in this course yet.
+                </div>
+              )}
+            </div>
+          )}
+          </div>
+        )}
         </div>
       ) : (
         <div className="animate-in fade-in duration-500 flex flex-col gap-8">
@@ -1495,7 +1698,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-xl text-gray-800 line-clamp-2">{course.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.students} Students • {course.modules} Modules</p>
+                    <p className="text-sm text-gray-500 mt-1">{course.grade ? `${course.grade} • ` : ''}{course.real_student_count || 0} Students • {course.modules} Modules</p>
                     <p className="text-sm font-bold text-purple-600 mt-1">LKR {course.monthly_fee ? parseFloat(course.monthly_fee).toFixed(2) : '0.00'}</p>
                   </div>
                 </div>
@@ -1993,134 +2196,364 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
       {/* Quiz Modal */}
       {isQuizModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setIsQuizModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">{editingQuizId ? 'Edit Quiz' : 'Create Quiz'}</h2>
-            <form onSubmit={submitQuiz} className="space-y-6">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+          <div className="bg-gray-50 rounded-2xl w-full max-w-4xl shadow-2xl relative animate-in zoom-in duration-300 max-h-[95vh] flex flex-col overflow-hidden border border-gray-200">
+            
+            {/* Modal Header */}
+            <div className="bg-white px-8 py-5 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Quiz Title</label>
-                <input
-                  type="text"
-                  value={quizData.title}
-                  onChange={e => setQuizData({ ...quizData, title: e.target.value })}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-                  placeholder="e.g. Midterm Exam"
-                />
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">{editingQuizId ? 'Edit Quiz' : 'Create New Quiz'}</h2>
+                <p className="text-sm text-gray-500 font-medium mt-1">Configure your quiz settings and build questions.</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Time Limit (HH:MM:SS)</label>
-                  <input
-                    type="text"
-                    value={quizData.time_limit}
-                    onChange={e => setQuizData({ ...quizData, time_limit: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all"
-                    placeholder="00:30:00"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Publish On (Optional)</label>
-                  <input
-                    type="datetime-local"
-                    value={quizData.publish_at}
-                    onChange={e => setQuizData({ ...quizData, publish_at: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-xl border focus:ring-2 outline-none transition-all text-sm ${quizErrors.publish_at
-                      ? 'border-red-500 focus:ring-red-100 focus:border-red-600'
-                      : 'border-gray-200 focus:ring-blue-100 focus:border-blue-600'
-                      }`}
-                  />
-                  {quizErrors.publish_at && <p className="text-[10px] text-red-500 mt-1 font-medium">{quizErrors.publish_at}</p>}
-                  {!quizErrors.publish_at && <p className="text-[10px] text-gray-400 mt-1 italic">Leave empty to publish immediately.</p>}
-                </div>
-              </div>
+              <button onClick={() => { setIsQuizModalOpen(false); setIsPreviewMode(false); }} className="bg-gray-100 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors p-2 rounded-full shadow-sm">
+                <X size={20} />
+              </button>
+            </div>
 
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center justify-between">
-                  Questions
-                  <button type="button" onClick={addQuizQuestion} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100">+ Add Question</button>
-                </h3>
-                <div className="space-y-4">
-                  {quizData.questions.map((q, qIdx) => (
-                    <div key={qIdx} className="p-4 border rounded-xl bg-gray-50/30 relative group">
-                      <button type="button" onClick={() => removeQuizQuestion(qIdx)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 size={16} />
-                      </button>
-                      <div className="space-y-3">
+            <div className="overflow-y-auto flex-1 p-6 md:p-8 custom-scrollbar">
+              <form id="quiz-form" onSubmit={submitQuiz} className="space-y-8 max-w-3xl mx-auto">
+                {!isPreviewMode ? (
+                  <>
+                    {/* 1. Quiz Settings Card */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-bold text-gray-800 mb-5 border-b pb-3 flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-700 w-8 h-8 flex items-center justify-center rounded-lg text-sm">1</span>
+                    General Settings
+                  </h3>
+                  
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Quiz Title</label>
+                      <input
+                        type="text"
+                        value={quizData.title}
+                        onChange={e => setQuizData({ ...quizData, title: e.target.value })}
+                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                        placeholder="e.g. Midterm Examination"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Time Limit</label>
                         <input
                           type="text"
-                          value={q.question}
-                          onChange={e => updateQuizQuestion(qIdx, 'question', e.target.value)}
-                          placeholder="Enter question text..."
-                          className="w-full bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none py-1 font-medium"
+                          value={quizData.time_limit}
+                          onChange={e => setQuizData({ ...quizData, time_limit: e.target.value })}
+                          className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-800 text-center"
+                          placeholder="00:30:00"
+                          required
                         />
-                        <div className="grid grid-cols-2 gap-4">
-                          <select
-                            value={q.type}
-                            onChange={e => updateQuizQuestion(qIdx, 'type', e.target.value)}
-                            className="text-xs border rounded p-1"
-                          >
-                            <option value="single">Single Selection (Radio)</option>
-                            <option value="dropdown">Dropdown Selection</option>
-                            <option value="multiple">Multiple Selection (Checkboxes)</option>
-                          </select>
-                          <input
-                            type="number"
-                            value={q.marks}
-                            onChange={e => updateQuizQuestion(qIdx, 'marks', e.target.value)}
-                            placeholder="Marks"
-                            className="text-xs border rounded p-1"
-                          />
-                        </div>
-                        <div className="space-y-2 mt-2">
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Options</p>
-                          {q.options.map((opt, oIdx) => (
-                            <div key={oIdx} className="flex items-center gap-2">
-                              <input
-                                type={q.type === 'single' || q.type === 'dropdown' ? 'radio' : 'checkbox'}
-                                checked={opt.correct}
-                                onChange={e => updateQuizOption(qIdx, oIdx, 'correct', e.target.checked)}
-                                className="rounded-full text-blue-600"
-                              />
-                              <input
-                                type="text"
-                                value={opt.answer}
-                                onChange={e => updateQuizOption(qIdx, oIdx, 'answer', e.target.value)}
-                                placeholder={`Option ${oIdx + 1}`}
-                                className="flex-1 text-sm bg-white border rounded px-2 py-1"
-                              />
-                              {q.options.length > 1 && (
-                                <button type="button" onClick={() => removeQuizOption(qIdx, oIdx)} className="text-gray-300 hover:text-red-400">
-                                  <X size={14} />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addQuizOption(qIdx)} className="text-[10px] text-blue-500 hover:underline">+ Add Option</button>
-                        </div>
+                        <p className="text-xs text-gray-400 mt-2 font-medium text-center">Format: Hours:Minutes:Seconds</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Publish On (Optional)</label>
+                        <input
+                          type="datetime-local"
+                          value={quizData.publish_at}
+                          onChange={e => setQuizData({ ...quizData, publish_at: e.target.value })}
+                          className={`w-full px-4 py-3 bg-gray-50 rounded-xl border focus:bg-white focus:ring-2 outline-none transition-all font-medium ${quizErrors.publish_at
+                            ? 'border-red-400 focus:ring-red-100 focus:border-red-500 text-red-600'
+                            : 'border-gray-200 focus:ring-blue-100 focus:border-blue-500 text-gray-800'
+                            }`}
+                        />
+                        {quizErrors.publish_at ? (
+                          <p className="text-xs text-red-500 mt-2 font-bold text-center">{quizErrors.publish_at}</p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-2 font-medium text-center">Leave blank to publish immediately</p>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex gap-3 pt-4 border-t">
-                <button type="button" onClick={() => { setIsQuizModalOpen(false); setEditingQuizId(null); }} className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
-                <button
-                  type="submit"
-                  disabled={isSavingQuiz || Object.keys(quizErrors).length > 0}
-                  className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all shadow-md ${isSavingQuiz || Object.keys(quizErrors).length > 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                >
-                  {isSavingQuiz ? 'Saving...' : (editingQuizId ? 'Save Changes' : 'Create Quiz')}
-                </button>
-              </div>
-            </form>
+                {/* Allow Review Toggle */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-bold text-gray-800 mb-5 border-b pb-3 flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-700 w-8 h-8 flex items-center justify-center rounded-lg text-sm">✓</span>
+                    Review Settings
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    <label className="block text-sm font-bold text-gray-700">
+                      Allow students to review correct answers after submission?
+                    </label>
+                    <div className="flex gap-6 mt-1">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input 
+                          type="radio" 
+                          name="allow_review" 
+                          checked={quizData.allow_review === true} 
+                          onChange={() => setQuizData({...quizData, allow_review: true})}
+                          className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className="text-gray-700 font-bold group-hover:text-blue-600 transition-colors">Yes, allow review</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input 
+                          type="radio" 
+                          name="allow_review" 
+                          checked={quizData.allow_review === false} 
+                          onChange={() => setQuizData({...quizData, allow_review: false})}
+                          className="w-5 h-5 text-gray-600 border-gray-300 focus:ring-gray-500 cursor-pointer"
+                        />
+                        <span className="text-gray-700 font-bold group-hover:text-gray-900 transition-colors">No, hide review</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+
+                {/* 2. Questions Builder */}
+                <div>
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                      <span className="bg-blue-100 text-blue-700 w-8 h-8 flex items-center justify-center rounded-lg text-sm">2</span>
+                      Questions ({quizData.questions.length})
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {quizData.questions.map((q, qIdx) => (
+                      <div key={qIdx} className="bg-white rounded-2xl shadow-sm border-l-4 border-l-blue-500 border-y border-r border-gray-200 relative group overflow-hidden">
+                        
+                        {/* Question Header */}
+                        <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                          <span className="text-sm font-black text-gray-600 tracking-wide uppercase">Question {qIdx + 1}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => removeQuizQuestion(qIdx)} 
+                            className="flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-red-600 transition-colors bg-white px-2 py-1 rounded shadow-sm border border-gray-200 hover:border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 size={14} /> Remove
+                          </button>
+                        </div>
+                        
+                        <div className="p-5 md:p-6 space-y-6">
+                          {/* Question Text */}
+                          <div>
+                            <textarea
+                              value={q.question}
+                              onChange={e => updateQuizQuestion(qIdx, 'question', e.target.value)}
+                              placeholder="Type your question here..."
+                              className="w-full bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-3 focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 outline-none font-semibold text-gray-800 resize-none min-h-[90px] transition-all text-lg placeholder-gray-300"
+                            />
+                          </div>
+                          
+                          {/* Type & Marks */}
+                          <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Answer Type</label>
+                              <select
+                                value={q.type}
+                                onChange={e => updateQuizQuestion(qIdx, 'type', e.target.value)}
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-bold text-gray-700 shadow-sm"
+                              >
+                                <option value="single">Single Choice (Radio)</option>
+                                <option value="dropdown">Dropdown List</option>
+                                <option value="multiple">Multiple Choice (Checkbox)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Points / Marks</label>
+                              <div className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 text-center shadow-inner cursor-not-allowed">
+                                {q.marks}% (Auto-calculated)
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Options */}
+                          <div className="pt-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Answer Options</label>
+                            <div className="space-y-3">
+                              {q.options.map((opt, oIdx) => (
+                                <div key={oIdx} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all shadow-sm ${opt.correct ? 'border-green-400 bg-green-50/50' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                                  <div className="flex items-center justify-center pl-2">
+                                    <input
+                                      type={q.type === 'single' || q.type === 'dropdown' ? 'radio' : 'checkbox'}
+                                      name={`question-${qIdx}`}
+                                      checked={opt.correct}
+                                      onChange={e => updateQuizOption(qIdx, oIdx, 'correct', e.target.checked)}
+                                      className="w-5 h-5 text-green-600 border-gray-300 focus:ring-green-500 cursor-pointer shadow-sm"
+                                      title="Mark as correct answer"
+                                    />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={opt.answer}
+                                    onChange={e => updateQuizOption(qIdx, oIdx, 'answer', e.target.value)}
+                                    placeholder={`Option ${oIdx + 1} text...`}
+                                    className="flex-1 bg-transparent border-none focus:ring-0 px-2 py-1 outline-none text-sm font-bold text-gray-700"
+                                  />
+                                  {opt.correct && (
+                                      <span className="text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded uppercase tracking-wider absolute right-14 md:right-16 pointer-events-none">
+                                        Correct
+                                      </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {quizData.questions.length === 0 && (
+                      <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-12 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100 shadow-sm">
+                           <File size={28} className="text-gray-400" />
+                        </div>
+                        <h4 className="text-gray-700 font-black text-lg mb-2">No questions yet</h4>
+                        <p className="text-sm text-gray-500 font-medium mb-6 max-w-xs">Start building your quiz by adding your first multiple choice or single choice question.</p>
+                      </div>
+                    )}
+                    
+                    <button 
+                      type="button" 
+                      onClick={addQuizQuestion} 
+                      className="w-full bg-blue-50 text-blue-700 border-2 border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 py-4 rounded-2xl flex items-center justify-center gap-2 text-base font-black transition-all shadow-sm"
+                    >
+                      <Plus size={20} /> Add New Question
+                    </button>
+                  </div>
+                </div>
+                  </>
+                ) : (
+                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+                    <h2 className="text-2xl font-black text-gray-900 mb-2">{quizData.title || 'Untitled Quiz'}</h2>
+                    <div className="flex items-center gap-4 text-sm font-bold text-gray-500 mb-8 pb-6 border-b border-gray-100">
+                      <span className="flex items-center gap-1.5"><CalendarIcon size={16} /> {quizData.time_limit || '00:00:00'}</span>
+                      <span className="flex items-center gap-1.5"><ClipboardList size={16} /> {quizData.questions.length} Questions</span>
+                    </div>
+                    <div className="space-y-8">
+                      {quizData.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                          <div className="flex justify-between items-start mb-4">
+                            <h4 className="text-lg font-bold text-gray-800">
+                              <span className="text-blue-600 mr-2">{qIdx + 1}.</span> 
+                              {q.question || <span className="text-gray-400 italic">Empty Question</span>}
+                            </h4>
+                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-black whitespace-nowrap">{q.marks} Marks</span>
+                          </div>
+                          <div className="space-y-3 mt-4 pl-6 border-l-2 border-gray-200">
+                            {q.options.map((opt, oIdx) => (
+                              <div key={oIdx} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${opt.correct ? 'bg-green-50 border-green-200' : 'bg-white border-transparent'}`}>
+                                <div className={`w-5 h-5 flex-shrink-0 rounded-${q.type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center ${opt.correct ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300'}`}>
+                                  {opt.correct && <CheckCircle size={14} className="text-white" />}
+                                </div>
+                                <span className={`text-sm font-bold break-all ${opt.correct ? 'text-green-800' : 'text-gray-600'}`}>{opt.answer || <span className="text-gray-400 italic">Empty Option</span>}</span>
+                                {opt.correct && <span className="ml-auto text-xs font-black text-green-600 uppercase tracking-wider bg-green-100 px-2 py-1 rounded-md shadow-sm whitespace-nowrap">Correct Answer</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </form>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="bg-white px-8 py-5 border-t border-gray-200 flex justify-end gap-4 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              {isPreviewMode ? (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsPreviewMode(false)} 
+                    className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all focus:ring-4 focus:ring-gray-100 mr-auto"
+                  >
+                    Exit Preview
+                  </button>
+              ) : (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsPreviewMode(true)} 
+                    disabled={quizData.questions.length === 0}
+                    className="px-6 py-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl font-bold transition-all focus:ring-4 focus:ring-indigo-100 mr-auto flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Eye size={18} /> Preview Quiz
+                  </button>
+              )}
+              <button 
+                type="button" 
+                onClick={() => { setIsQuizModalOpen(false); setEditingQuizId(null); setIsPreviewMode(false); }} 
+                className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all focus:ring-4 focus:ring-gray-100"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="submit"
+                form="quiz-form"
+                disabled={isSavingQuiz || Object.keys(quizErrors).length > 0}
+                className={`px-8 py-3 rounded-xl font-black transition-all shadow-md flex items-center gap-2 focus:ring-4 ${isSavingQuiz || Object.keys(quizErrors).length > 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-200 shadow-blue-600/20'
+                  }`}
+              >
+                {isSavingQuiz ? (
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <Plus size={18} className={editingQuizId ? 'hidden' : 'block'} />
+                )}
+                {editingQuizId ? 'Save Quiz Changes' : 'Create Quiz Now'}
+              </button>
+            </div>
+            
           </div>
         </div>
+      )}
+      {isAnnouncementModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+                  <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                          <Megaphone size={20} /> Class Announcement
+                      </h3>
+                      <button onClick={() => setIsAnnouncementModalOpen(false)} className="text-white hover:text-blue-200 text-2xl leading-none">&times;</button>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-1">Subject / Title</label>
+                          <input 
+                              type="text" 
+                              placeholder="e.g., Change in tomorrow's schedule!" 
+                              value={announcementForm.title}
+                              onChange={(e) => setAnnouncementForm({...announcementForm, title: e.target.value})}
+                              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-1">Message</label>
+                          <textarea 
+                              rows="5" 
+                              placeholder="Type your announcement here..."
+                              value={announcementForm.message}
+                              onChange={(e) => setAnnouncementForm({...announcementForm, message: e.target.value})}
+                              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                          ></textarea>
+                      </div>
+                      
+                      <div className="mt-6 flex gap-3 justify-end">
+                          <button onClick={() => setIsAnnouncementModalOpen(false)} className="px-5 py-2.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                          <button 
+                              onClick={async () => {
+                                  try {
+                                      await api.post(`/teacher/classes/${selectedCourse.id}/announcements`, {
+                                          ...announcementForm,
+                                          t_id: 1 // Replace with actual logged-in teacher ID
+                                      });
+                                      setIsAnnouncementModalOpen(false);
+                                      setAnnouncementForm({ title: '', message: '' });
+                                      alert("Announcement posted successfully!");
+                                  } catch (err) { alert("Failed to post announcement."); }
+                              }}
+                              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md"
+                          >
+                              Post Announcement
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
       )}
     </React.Fragment>
   );

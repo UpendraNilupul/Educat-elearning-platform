@@ -186,6 +186,19 @@ const StudentCalendar = ({ studentId = 1 }) => {
                                                         )}
                                                     </div>
                                                 </>
+                                            ) : event.type === 'assignment' || event.type === 'quiz' ? (
+                                                <>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`w-2 h-2 rounded-full bg-${event.theme_color || 'purple'}-500`}></span>
+                                                        <h4 className="font-bold text-gray-900 line-clamp-1">{event.course_title}</h4>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 font-medium ml-4">{event.event_title}</p>
+                                                    <div className="flex items-center gap-2 ml-4 mt-1">
+                                                        <span className={`text-[10px] font-bold ${event.type === 'assignment' ? 'text-blue-600 bg-blue-50' : 'text-green-600 bg-green-50'} px-2 py-0.5 rounded-md uppercase tracking-wider`}>
+                                                            {event.type === 'assignment' ? 'Assignment Due' : 'Quiz Scheduled'}
+                                                        </span>
+                                                    </div>
+                                                </>
                                             ) : (
                                                 <>
                                                     <div className="flex items-center gap-2 mb-1">
@@ -207,7 +220,7 @@ const StudentCalendar = ({ studentId = 1 }) => {
                                                 </>
                                             )}
                                         </div>
-                                        {event.type === 'class' ? (
+                                        {event.type === 'class' || event.type === 'assignment' || event.type === 'quiz' ? (
                                             <div className="p-2 rounded-lg bg-white border border-gray-100 self-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <ChevronRight className="w-4 h-4 text-gray-400" />
                                             </div>

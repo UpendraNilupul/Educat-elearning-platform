@@ -8,12 +8,12 @@ const query = util.promisify(db.query).bind(db);
 // --- TEACHER: CREATE QUIZ ---
 router.post('/modules/:mId/quizzes', async (req, res) => {
     const { mId } = req.params;
-    const { title, number, time_limit, publish_at } = req.body;
+    const { title, number, time_limit, publish_at, allow_review } = req.body;
 
     try {
         const result = await query(
-            'INSERT INTO quizes (m_id, title, number, time_limit, is_peer_reviewed, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [mId, title || null, number, time_limit || '00:30:00', false, publish_at || null]
+            'INSERT INTO quizes (m_id, title, number, time_limit, is_peer_reviewed, publish_at, allow_review) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [mId, title || null, number, time_limit || '00:30:00', false, publish_at || null, allow_review !== undefined ? allow_review : true]
         );
         res.status(201).json({ id: result.insertId, message: 'Quiz created successfully' });
     } catch (err) {
@@ -462,6 +462,7 @@ router.post('/quizzes/:qzId/submit', async (req, res) => {
         }
 
         // 4. Update total score in submission
+        totalScore = parseFloat(totalScore.toFixed(2));
         await query('UPDATE quiz_submissions SET score = ? WHERE id = ?', [totalScore, submissionId]);
 
         res.json({
@@ -490,12 +491,12 @@ router.get('/modules/:mId/quizzes', async (req, res) => {
 // --- TEACHER: UPDATE QUIZ METADATA ---
 router.put('/quizzes/:id', async (req, res) => {
     const { id } = req.params;
-    const { title, number, time_limit, publish_at } = req.body;
+    const { title, number, time_limit, publish_at, allow_review } = req.body;
 
     try {
         await query(
-            'UPDATE quizes SET title = ?, number = ?, time_limit = ?, publish_at = ? WHERE id = ?',
-            [title || null, number, time_limit, publish_at, id]
+            'UPDATE quizes SET title = ?, number = ?, time_limit = ?, publish_at = ?, allow_review = ? WHERE id = ?',
+            [title || null, number, time_limit, publish_at || null, allow_review !== undefined ? allow_review : true, id]
         );
         res.json({ message: 'Quiz updated successfully' });
     } catch (err) {

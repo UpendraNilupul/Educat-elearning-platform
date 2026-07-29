@@ -4,18 +4,61 @@ import {
     Settings, LogOut, Bell, UserCheck, PlayCircle, ShieldAlert, Send, X, MessageSquare
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from '../api'; // 🌟 THE FIX: Import the API instance
+import api from '../api'; 
+import { io } from 'socket.io-client';
+import NotificationBell from '../components/NotificationBell';
 
 const SubAdmin_dashboard = ({ userName, onLogout }) => {
     const navigate = useNavigate();
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
-    
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
     // Escalation Modal States
     const [isEscalateModalOpen, setIsEscalateModalOpen] = useState(false);
     const [escalationData, setEscalationData] = useState({ entityType: 'teacher', entityId: '', reason: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const fetchUnreadMessagesCount = async () => {
+        try {
+            const response = await api.get('/chat/unread-count');
+            if (response.data && response.data.success) {
+                setUnreadMessagesCount(response.data.count);
+            }
+        } catch (error) {
+            console.error("Error fetching unread messages count:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchUnreadMessagesCount();
+    }, []);
+
+    useEffect(() => {
+        const userId = localStorage.getItem('userId');
+        window.addEventListener('chat_messages_read', fetchUnreadMessagesCount);
+
+        if (userId) {
+            const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+            const socket = io(SOCKET_URL);
+
+            socket.emit('join_notification_room', userId);
+
+            socket.on('new_notification', (data) => {
+                fetchUnreadMessagesCount();
+            });
+
+            return () => {
+                socket.disconnect();
+                window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('chat_messages_read', fetchUnreadMessagesCount);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -62,6 +105,7 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Review Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teacher Directory', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Student Directory', icon: Users, path: '/admin/students' },
+        { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
        { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },
         { id: 'settings', label: 'My Settings', icon: Settings, path: '/admin/settings' },
     ];
@@ -85,7 +129,12 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
                         return (
                             <Link key={item.id} to={item.path} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50 hover:text-blue-600'}`}>
                                 <Icon size={20} className={isActive ? 'text-blue-600' : ''} />
-                                <span>{item.label}</span>
+                                <span className="flex-1 text-left">{item.label}</span>
+                                {item.id === 'communications' && unreadMessagesCount > 0 && (
+                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+                                        {unreadMessagesCount}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
@@ -115,10 +164,13 @@ const SubAdmin_dashboard = ({ userName, onLogout }) => {
                     <div className="flex items-center space-x-4">
                         <button 
                             onClick={() => setIsEscalateModalOpen(true)}
-                            className="flex items-center px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors"
+                            className="flex items-center px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors mr-2"
                         >
                             <ShieldAlert size={18} className="mr-2" /> Escalate Issue
                         </button>
+                        <NotificationBell onOpenChat={(senderName) => {
+                            navigate('/admin/communications', { state: { autoOpenSenderName: senderName } });
+                        }} />
                     </div>
                 </header>
 
