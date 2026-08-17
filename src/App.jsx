@@ -20,6 +20,7 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
 import Admin_Payouts from './pages/Admin_Payouts';
+import Admin_StaffPayouts from './pages/Admin_StaffPayouts';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -261,6 +262,8 @@ function App() {
             path="/admin/payouts"
             element={userRole === 'admin' ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
           />
+
+          <Route path="/admin/staff-payroll" element={userRole === 'admin' && adminLevel === 'super' ? <Admin_StaffPayouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />} />
 
           <Route
             path="/admin/slips"
