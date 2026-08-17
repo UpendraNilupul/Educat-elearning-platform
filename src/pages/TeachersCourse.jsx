@@ -1256,16 +1256,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </>
               )}
               <button onClick={() => setIsAnnouncementModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm"><Megaphone className="w-4 h-4" /> Post Announcement</button>
-              <button
-                onClick={() => {
-                  setEditingChapterId(null);
-                  setChapterTitle("");
-                  setIsChapterModalOpen(true);
-                }}
-                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Plus size={18} /> Add Module
-              </button>
+
             </div>
           </div>
 

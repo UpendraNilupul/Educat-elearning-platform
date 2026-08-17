@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, BookOpen, Users, CheckSquare, Megaphone, DollarSign,
-    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle, ShieldCheck, Activity, MessageSquare, ShieldAlert
+    Settings, LogOut, Search, Bell, TrendingUp, UserCheck, PlayCircle, ShieldCheck, Activity, MessageSquare, ShieldAlert, Briefcase
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
@@ -93,7 +93,9 @@ const Admin = ({ userName, onLogout }) => {
         { id: 'courses', label: 'Classes', icon: BookOpen, path: '/admin/courses' },
         { id: 'teachers', label: 'Teachers', icon: Users, path: '/admin/teachers' },
         { id: 'students', label: 'Students', icon: Users, path: '/admin/students' },
+        { id: 'slips', label: 'Slip Approvals', icon: CheckSquare, path: '/admin/slips' },
         { id: 'payouts', label: 'Payouts & Earnings', icon: DollarSign, path: '/admin/payouts' },
+        { id: 'staff-payroll', label: 'Staff Payroll', icon: Briefcase, path: '/admin/staff-payroll' },
         { id: 'promo', label: 'Promo Codes', icon: Megaphone, path: '/admin/promos' },
         { id: 'advertisements', label: 'Advertisements', icon: Megaphone, path: '/admin/advertisements' },
         { id: 'communications', label: 'Communications', icon: MessageSquare, path: '/admin/communications' },

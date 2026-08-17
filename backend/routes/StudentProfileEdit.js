@@ -295,7 +295,39 @@ router.get('/:studentId/calendar', async (req, res) => {
             theme_color: row.is_completed ? 'gray' : 'orange'
         }));
 
-        const mergedEvents = [...classes, ...todos];
+        const [assignmentRows] = await db.promise().query(`
+            SELECT 
+                a.id, 
+                a.title AS event_title, 
+                DATE_FORMAT(a.deadline, '%Y-%m-%d') AS scheduled_date, 
+                c.title AS course_title, 
+                c.theme_color 
+            FROM assignments a
+            JOIN modules m ON a.m_id = m.id
+            JOIN classes_courses c ON m.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            WHERE e.s_id = ? AND a.deadline IS NOT NULL AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
+        `, [studentId]);
+
+        const assignments = assignmentRows.map(row => ({ ...row, type: 'assignment' }));
+
+        const [quizRows] = await db.promise().query(`
+            SELECT 
+                q.id, 
+                COALESCE(NULLIF(q.title, ''), CONCAT('Quiz #', q.number)) AS event_title, 
+                DATE_FORMAT(q.publish_at, '%Y-%m-%d') AS scheduled_date, 
+                c.title AS course_title, 
+                c.theme_color 
+            FROM quizes q
+            JOIN modules m ON q.m_id = m.id
+            JOIN classes_courses c ON m.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            WHERE e.s_id = ? AND q.publish_at IS NOT NULL AND e.status = 'In Progress' AND c.status IN ('active', 'completed')
+        `, [studentId]);
+
+        const quizzes = quizRows.map(row => ({ ...row, type: 'quiz' }));
+
+        const mergedEvents = [...classes, ...todos, ...assignments, ...quizzes];
 
         res.status(200).json(mergedEvents);
     } catch (error) {
