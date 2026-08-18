@@ -103,6 +103,24 @@ router.post('/admin-chat/send-message', async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
+        // --- BLOCK CHECK VALIDATION ---
+        const blockCheck = await query(`
+            SELECT blocker_id FROM blocked_users 
+            WHERE (blocker_id = ? AND blocked_id = ?) 
+               OR (blocker_id = ? AND blocked_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        if (blockCheck.length > 0) {
+            const hasBlocked = blockCheck.some(b => b.blocker_id === parseInt(senderId));
+            return res.status(403).json({ 
+                success: false, 
+                message: hasBlocked 
+                    ? "You have blocked this user. Unblock to message." 
+                    : "You cannot message this user." 
+            });
+        }
+        // --- END OF BLOCK CHECK ---
+
         const convQuery = await query(`
             SELECT id FROM conversations 
             WHERE (participant1_id = ? AND participant2_id = ?) 
@@ -156,6 +174,78 @@ router.get('/admin-chat/contacts', async (req, res) => {
         res.status(200).json({ success: true, data: contacts });
     } catch (error) {
         console.error("Contacts fetch error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 5. Fetch all chat requests for logged-in Admin
+router.get('/admin-chat/requests', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const requests = await query(`
+            SELECT cr.id, cr.status, cr.message, cr.created_at, u.id as student_id, u.name as student_name, u.email as student_email, u.picture as student_picture
+            FROM chat_requests cr
+            JOIN users u ON cr.student_id = u.id
+            WHERE cr.admin_id = ?
+            ORDER BY cr.created_at DESC
+        `, [userId]);
+
+        res.status(200).json({ success: true, data: requests });
+    } catch (error) {
+        console.error("Fetch requests error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 6. Approve/Reject a chat request
+router.put('/admin-chat/requests/:id', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const { id } = req.params;
+        const { status } = req.body; // 'approved' or 'rejected'
+
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: "Invalid status." });
+        }
+
+        const requestCheck = await query('SELECT student_id FROM chat_requests WHERE id = ? AND admin_id = ?', [id, userId]);
+        if (requestCheck.length === 0) {
+            return res.status(404).json({ success: false, message: "Request not found or unauthorized." });
+        }
+        
+        const studentId = requestCheck[0].student_id;
+
+        await query('UPDATE chat_requests SET status = ? WHERE id = ?', [status, id]);
+
+        const adminQuery = await query('SELECT name FROM users WHERE id = ?', [userId]);
+        const adminName = adminQuery[0]?.name || 'Admin';
+        const notifTitle = 'Chat Request Update';
+        const notifDesc = `Your request to chat with ${adminName} has been ${status}.`;
+
+        const insertRes = await query(`
+            INSERT INTO notifications (user_id, title, description, is_read)
+            VALUES (?, ?, ?, FALSE)
+        `, [studentId, notifTitle, notifDesc]);
+
+        if (req.io) {
+            req.io.to(`user_${studentId}`).emit('new_notification', {
+                id: insertRes.insertId,
+                title: notifTitle,
+                description: notifDesc,
+                user_id: studentId,
+                is_read: 0,
+                created_at: new Date()
+            });
+            req.io.to(`user_${studentId}`).emit('chat_requests_updated');
+        }
+
+        res.status(200).json({ success: true, message: `Request successfully ${status}!` });
+    } catch (error) {
+        console.error("Update request error:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
