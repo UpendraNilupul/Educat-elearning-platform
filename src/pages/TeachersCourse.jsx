@@ -63,6 +63,13 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null, isVisible: true });
 
+  const getResourceDownloadUrl = (resource) => {
+    if (resource.url && resource.url.includes('res.cloudinary.com') && resource.url.includes('/raw/upload/')) {
+        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.url)}&name=${encodeURIComponent(resource.title)}`;
+    }
+    return resource.url;
+  };
+
   const [expandedLessons, setExpandedLessons] = useState([]);
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState(null);
@@ -1249,16 +1256,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </>
               )}
               <button onClick={() => setIsAnnouncementModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm"><Megaphone className="w-4 h-4" /> Post Announcement</button>
-              <button
-                onClick={() => {
-                  setEditingChapterId(null);
-                  setChapterTitle("");
-                  setIsChapterModalOpen(true);
-                }}
-                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Plus size={18} /> Add Module
-              </button>
+
             </div>
           </div>
 
@@ -1382,7 +1380,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                               <div className="p-4 bg-white flex flex-col gap-2">
                                 {lesson.resources?.map((res, resIndex) => (
                                   <div key={res.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-transparent transition-colors group ${res.isVisible === false ? 'opacity-60' : ''}`}>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
                                       {res.type === 'pdf' ? (
                                         <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 transition-colors group-hover:bg-red-100">
                                           <File size={16} />
@@ -1433,7 +1431,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                         <Trash2 size={12} />
                                       </button>
                                     </div>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
                                       Open
                                     </a>
                                   </div>

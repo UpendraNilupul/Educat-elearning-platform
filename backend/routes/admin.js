@@ -1131,6 +1131,75 @@ router.post('/create-sub-admin', async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to create Sub-Admin." });
     }
 });
+
+// ==========================================
+// 🌟 24.5 MANAGE SUB-ADMINS (SUPER ADMIN ONLY)
+// ==========================================
+
+// A. Fetch all Sub-Admins
+router.get('/sub-admins', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        const team = await query(`
+            SELECT u.id, u.name, u.email, u.phone_number, u.status, u.join_date 
+            FROM users u
+            JOIN admins a ON u.id = a.user_id
+            WHERE a.admin_level = 'sub'
+            ORDER BY u.created_at DESC
+        `);
+
+        res.status(200).json({ success: true, data: team });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch team members." });
+    }
+});
+
+// B. Toggle Sub-Admin Status (Suspend / Activate)
+router.put('/sub-admins/:id/status', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        const { status } = req.body; // 'active' or 'suspended'
+        await query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.id]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Changed Sub-Admin ID ${req.params.id} status to: ${status}`]
+        );
+
+        res.status(200).json({ success: true, message: `Sub-Admin marked as ${status}.` });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update status." });
+    }
+});
+
+// C. Permanently Remove Sub-Admin
+router.delete('/sub-admins/:id', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        // Deleting from the 'users' table will cascade and delete their 'admins' record automatically
+        await query('DELETE FROM users WHERE id = ?', [req.params.id]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Permanently deleted Sub-Admin ID ${req.params.id}`]
+        );
+
+        res.status(200).json({ success: true, message: "Sub-Admin permanently removed." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to remove Sub-Admin." });
+    }
+});
+
+
 // ==========================================
 // 25. GLOBAL AUDIT LOGS (SUPER ADMIN ONLY)
 // ==========================================
@@ -1325,6 +1394,144 @@ router.get('/export/students', async (req, res) => {
 });
 
 // ==========================================
+// 27.5 PROFESSIONAL FINANCIAL EXPORTS
+// ==========================================
+
+router.get('/export/finance', async (req, res) => {
+    try {
+        // Security check
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).send("Unauthorized. Super Admin clearance required.");
+        }
+
+        const { type, timeframe, customDate } = req.query;
+        let dateCondition = "1=1";
+
+        // Calculate Date Range based on timeframe
+        if (timeframe === 'weekly') {
+            dateCondition = "DATE(payment_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        } else if (timeframe === 'monthly') {
+            dateCondition = "MONTH(payment_date) = MONTH(CURDATE()) AND YEAR(payment_date) = YEAR(CURDATE())";
+        } else if (timeframe === 'yearly') {
+            dateCondition = "YEAR(payment_date) = YEAR(CURDATE())";
+        } else if (timeframe === 'custom_month' && customDate) {
+            const [year, month] = customDate.split('-');
+            dateCondition = `MONTH(payment_date) = ${parseInt(month)} AND YEAR(payment_date) = ${parseInt(year)}`;
+        } else if (timeframe === 'custom_year' && customDate) {
+            dateCondition = `YEAR(payment_date) = ${parseInt(customDate)}`;
+        }
+
+        let data = [];
+        let filename = "";
+
+        if (type === 'revenue') {
+            // 1. Student Revenue (Inflows)
+            filename = `Educat_Student_Revenue_${timeframe}_${getPastDateString(0)}.csv`;
+            dateCondition = dateCondition.replace(/payment_date/g, 'p.payment_date');
+            
+            data = await query(`
+                SELECT 
+                    p.invoice_link AS 'Invoice ID',
+                    DATE_FORMAT(p.payment_date, '%Y-%m-%d %H:%i') AS 'Date & Time',
+                    u.name AS 'Student Name',
+                    u.email AS 'Student Email',
+                    c.title AS 'Course Name',
+                    p.payment_method AS 'Method',
+                    p.amount AS 'Amount (LKR)'
+                FROM payments p
+                JOIN students s ON p.s_id = s.id
+                JOIN users u ON s.user_id = u.id
+                JOIN classes_courses c ON p.c_id = c.id
+                WHERE p.status = 'completed' AND ${dateCondition}
+                ORDER BY p.payment_date DESC
+            `);
+
+        } else if (type === 'payouts') {
+            // 2. Teacher Payout Ledger (Outflows)
+            filename = `Educat_Teacher_Payouts_${timeframe}_${getPastDateString(0)}.csv`;
+            dateCondition = dateCondition.replace(/payment_date/g, 'pt.payment_date');
+
+            data = await query(`
+                SELECT 
+                    pt.id AS 'Transaction ID',
+                    DATE_FORMAT(pt.payment_date, '%Y-%m-%d %H:%i') AS 'Date & Time',
+                    u.name AS 'Teacher Name',
+                    t.user_code AS 'Teacher ID',
+                    pt.amount AS 'Amount Paid (LKR)',
+                    pt.reference_note AS 'Reference / Note',
+                    admin_u.name AS 'Processed By'
+                FROM payout_transactions pt
+                JOIN teachers t ON pt.teacher_id = t.id
+                JOIN users u ON t.user_id = u.id
+                JOIN users admin_u ON pt.admin_id = admin_u.id
+                WHERE ${dateCondition}
+                ORDER BY pt.payment_date DESC
+            `);
+
+        } else if (type === 'manifest') {
+            // 3. Bank Transfer Manifest (Pending Balances)
+            filename = `Educat_Bank_Transfer_Manifest_${getPastDateString(0)}.csv`;
+
+            data = await query(`
+                SELECT 
+                    u.name AS 'Teacher Name',
+                    t.user_code AS 'Teacher ID',
+                    u.phone_number AS 'Phone Number',
+                    u.email AS 'Contact Email',
+                    tp.month_year AS 'For Month',
+                    (tp.net_payable - tp.amount_paid) AS 'Balance to Pay (LKR)'
+                FROM teacher_payouts tp
+                JOIN teachers t ON tp.teacher_id = t.id
+                JOIN users u ON t.user_id = u.id
+                WHERE (tp.net_payable - tp.amount_paid) > 0
+                ORDER BY u.name ASC
+            `);
+
+        } else if (type === 'profit') {
+            // 4. Platform Profitability (P&L Summary)
+            filename = `Educat_Platform_Profit_Summary_${timeframe}_${getPastDateString(0)}.csv`;
+            
+            // Map the standard dates to the 'month_year' format used in the payouts table
+            let profitDateCondition = "1=1";
+            if (timeframe === 'yearly') {
+                profitDateCondition = "month_year LIKE CONCAT(YEAR(CURDATE()), '-%')";
+            } else if (timeframe === 'monthly') {
+                profitDateCondition = "month_year = DATE_FORMAT(CURDATE(), '%Y-%m')";
+            } else if (timeframe === 'custom_month' && customDate) {
+                profitDateCondition = `month_year = '${customDate}'`;
+            } else if (timeframe === 'custom_year' && customDate) {
+                profitDateCondition = `month_year LIKE '${customDate}-%'`;
+            }
+
+            data = await query(`
+                SELECT 
+                    month_year AS 'Month/Year',
+                    COUNT(DISTINCT teacher_id) AS 'Active Teachers',
+                    SUM(gross_earnings) AS 'Total System Volume (LKR)',
+                    SUM(platform_fee) AS 'Platform Profit/Fee (LKR)'
+                FROM teacher_payouts
+                WHERE ${profitDateCondition}
+                GROUP BY month_year
+                ORDER BY month_year DESC
+            `);
+        }
+
+        if (data.length === 0) {
+            data = [{ Message: `No financial records found for ${type} in the ${timeframe} timeframe.` }];
+        }
+
+        const csvData = convertToCSV(data);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(filename);
+        res.send(csvData);
+
+    } catch (error) {
+        console.error("Financial Export Error:", error);
+        res.status(500).send("Failed to generate financial report.");
+    }
+});
+
+// ==========================================
 // 28. FINANCIAL PAYOUT SYSTEM
 // ==========================================
 
@@ -1342,7 +1549,7 @@ router.get('/payouts', async (req, res) => {
                 COALESCE(SUM(p.amount), 0) as gross_earned
             FROM payments p
             JOIN classes_courses c ON p.c_id = c.id
-            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'success'
+            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'completed'
             GROUP BY c.t_id
         `, [month, year]);
 
@@ -1404,27 +1611,281 @@ router.put('/payouts/:id/adjust', async (req, res) => {
     }
 });
 
-// C. Bulk Process Payments for a Month
-router.post('/payouts/process', async (req, res) => {
+// ==========================================
+// NEW LEDGER ROUTES: Process Payment & View History
+// ==========================================
+
+// A. Process an Individual Payment (Full or Partial)
+router.post('/payouts/:id/pay', async (req, res) => {
     try {
-        const { monthYear } = req.body;
+        const payoutId = req.params.id;
+        const { amount, referenceNote, teacherId } = req.body;
+        const adminId = req.session.userId;
 
-        if (!monthYear) return res.status(400).json({ success: false, message: "Month is required." });
+        // 1. Insert the transaction into the ledger
+        await query(`
+            INSERT INTO payout_transactions (payout_id, teacher_id, admin_id, amount, reference_note)
+            VALUES (?, ?, ?, ?, ?)
+        `, [payoutId, teacherId, adminId, amount, referenceNote]);
 
+        // 2. Update the running total on the main payout record
         await query(`
             UPDATE teacher_payouts 
-            SET status = 'paid', paid_at = NOW() 
-            WHERE month_year = ? AND status = 'pending'
+            SET amount_paid = amount_paid + ? 
+            WHERE id = ?
+        `, [amount, payoutId]);
+
+        // 3. Recalculate status (Paid vs Partial)
+        await query(`
+            UPDATE teacher_payouts 
+            SET payment_status = CASE 
+                WHEN amount_paid >= net_payable THEN 'completed'
+                ELSE 'partial'
+            END
+            WHERE id = ?
+        `, [payoutId]);
+
+        res.status(200).json({ success: true, message: "Payment recorded successfully in the ledger." });
+    } catch (error) {
+        console.error("Payment Transaction Error:", error);
+        res.status(500).json({ success: false, message: "Failed to process payment transaction." });
+    }
+});
+
+// B. Fetch Transaction History for a Payout
+router.get('/payouts/:id/history', async (req, res) => {
+    try {
+        const history = await query(`
+            SELECT pt.*, u.name as admin_name 
+            FROM payout_transactions pt
+            JOIN users u ON pt.admin_id = u.id
+            WHERE pt.payout_id = ?
+            ORDER BY pt.payment_date DESC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load transaction history." });
+    }
+});
+
+// ==========================================
+// 29. STAFF (SUB-ADMIN) PAYROLL SYSTEM
+// ==========================================
+
+// A. Fetch & Sync Monthly Staff Payouts
+router.get('/staff-payouts', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Super Admin clearance required." });
+        }
+
+        const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
+
+        // 1. Get all active Sub-Admins
+        const subAdmins = await query(`
+            SELECT u.id, u.name 
+            FROM users u 
+            JOIN admins a ON u.id = a.user_id 
+            WHERE a.admin_level = 'sub' AND u.status = 'active'
+        `);
+
+        // 2. Ensure a payout row exists for every Sub-Admin for this month
+        for (let admin of subAdmins) {
+            await query(`
+                INSERT IGNORE INTO admin_payouts (sub_admin_id, month_year)
+                VALUES (?, ?)
+            `, [admin.id, monthYear]);
+        }
+
+        // 3. Fetch the finalized ledger list
+        const payouts = await query(`
+            SELECT 
+                ap.*, u.name as admin_name, u.picture
+            FROM admin_payouts ap
+            JOIN users u ON ap.sub_admin_id = u.id
+            WHERE ap.month_year = ?
+            ORDER BY ap.net_payable DESC
         `, [monthYear]);
 
-        await query(
-            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
-            [req.session.userId, `Processed all teacher payouts for ${monthYear}`]
-        );
+        const systemStats = {
+            totalSalaries: payouts.reduce((sum, p) => sum + parseFloat(p.base_salary), 0),
+            totalAdjustments: payouts.reduce((sum, p) => sum + parseFloat(p.adjustment), 0),
+            totalToPay: payouts.reduce((sum, p) => sum + parseFloat(p.net_payable), 0),
+        };
 
-        res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
+        res.status(200).json({ success: true, data: payouts, stats: systemStats });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to process payments." });
+        console.error("Staff Payout Sync Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load staff payouts." });
+    }
+});
+
+// B. Update Staff Base Salary & Adjustments
+router.put('/staff-payouts/:id/update', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+        
+        const { base_salary, adjustment } = req.body;
+        
+        await query(`
+            UPDATE admin_payouts 
+            SET base_salary = ?, 
+                adjustment = ?, 
+                net_payable = (? + ?),
+                payment_status = CASE 
+                    WHEN amount_paid >= (? + ?) THEN 'completed'
+                    WHEN amount_paid > 0 THEN 'partial'
+                    ELSE 'unpaid'
+                END
+            WHERE id = ?
+        `, [base_salary, adjustment, base_salary, adjustment, base_salary, adjustment, req.params.id]);
+
+        res.status(200).json({ success: true, message: "Payroll updated successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update payroll." });
+    }
+});
+
+// C. Process Staff Payment (Ledger Entry)
+router.post('/staff-payouts/:id/pay', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+
+        const payoutId = req.params.id;
+        const { amount, referenceNote, subAdminId } = req.body;
+        const superAdminId = req.session.userId;
+
+        await query(`
+            INSERT INTO admin_payout_transactions (payout_id, sub_admin_id, processed_by, amount, reference_note)
+            VALUES (?, ?, ?, ?, ?)
+        `, [payoutId, subAdminId, superAdminId, amount, referenceNote]);
+
+        await query(`
+            UPDATE admin_payouts 
+            SET amount_paid = amount_paid + ? 
+            WHERE id = ?
+        `, [amount, payoutId]);
+
+        await query(`
+            UPDATE admin_payouts 
+            SET payment_status = CASE 
+                WHEN amount_paid >= net_payable THEN 'completed'
+                ELSE 'partial'
+            END
+            WHERE id = ?
+        `, [payoutId]);
+
+        res.status(200).json({ success: true, message: "Payment recorded successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to process payment." });
+    }
+});
+
+// D. Fetch Staff Transaction History
+router.get('/staff-payouts/:id/history', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+
+        const history = await query(`
+            SELECT pt.*, u.name as processor_name 
+            FROM admin_payout_transactions pt
+            JOIN users u ON pt.processed_by = u.id
+            WHERE pt.payout_id = ?
+            ORDER BY pt.payment_date DESC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load history." });
+    }
+});
+
+
+// ==========================================
+// 21. BANK SLIP PAYMENTS APPROVAL
+// ==========================================
+
+// A. Get pending slip payments
+router.get('/pending-payments', async (req, res) => {
+    try {
+        const payments = await query(`
+            SELECT 
+                p.id, p.amount, p.slip_url, p.payment_date, p.invoice_link,
+                u.name as student_name, u.email as student_email,
+                c.title as course_title, c.id as class_id,
+                s.id as student_id
+            FROM payments p
+            JOIN students s ON p.s_id = s.id
+            JOIN users u ON s.user_id = u.id
+            JOIN classes_courses c ON p.c_id = c.id
+            WHERE p.status = 'pending_approval' AND p.payment_method = 'slip'
+            ORDER BY p.payment_date ASC
+        `);
+        res.status(200).json({ success: true, data: payments });
+    } catch (error) {
+        console.error("Pending payments error:", error);
+        res.status(500).json({ success: false, message: "Failed to load pending payments." });
+    }
+});
+
+// B. Approve slip payment
+router.put('/payments/:id/approve', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        
+        // Find payment details
+        const paymentDetails = await query('SELECT * FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length === 0) {
+            return res.status(404).json({ success: false, message: "Payment not found" });
+        }
+        
+        const { c_id, s_id } = paymentDetails[0];
+
+        // Update payment status
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['completed', paymentId]);
+
+        // Enroll student
+        await query('INSERT IGNORE INTO enrollments (s_id, c_id) VALUES (?, ?)', [s_id, c_id]);
+
+        // Add Notification
+        const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [s_id]);
+        if (studentUser.length > 0) {
+            await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, 'Payment Approved', 'Your bank slip payment was approved and you have been enrolled.', 0)
+            `, [studentUser[0].user_id]);
+        }
+
+        res.status(200).json({ success: true, message: "Payment approved successfully." });
+    } catch (error) {
+        console.error("Payment approve error:", error);
+        res.status(500).json({ success: false, message: "Failed to approve payment." });
+    }
+});
+
+// C. Reject slip payment
+router.put('/payments/:id/reject', async (req, res) => {
+    try {
+        const paymentId = req.params.id;
+        await query('UPDATE payments SET status = ? WHERE id = ?', ['rejected', paymentId]);
+        
+        // Optionally notify student
+        const paymentDetails = await query('SELECT s_id FROM payments WHERE id = ?', [paymentId]);
+        if (paymentDetails.length > 0) {
+            const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [paymentDetails[0].s_id]);
+            if (studentUser.length > 0) {
+                await query(`
+                    INSERT INTO notifications (user_id, title, description, is_read)
+                    VALUES (?, 'Payment Rejected', 'Your bank slip payment was rejected. Please contact support.', 0)
+                `, [studentUser[0].user_id]);
+            }
+        }
+
+        res.status(200).json({ success: true, message: "Payment rejected successfully." });
+    } catch (error) {
+        console.error("Payment reject error:", error);
+        res.status(500).json({ success: false, message: "Failed to reject payment." });
     }
 });
 

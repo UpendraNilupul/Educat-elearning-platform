@@ -116,6 +116,25 @@ const submissionStorage = new CloudinaryStorage({
   },
 });
 
+// Storage for Payment Slips
+const slipStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'payment_slips',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+    resource_type: 'auto',
+  },
+});
+
+// Storage for Course Resources (PDFs, Videos, etc)
+const resourceStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'course_resources',
+    resource_type: 'auto',
+  },
+});
+
 // Storage for Teacher Advertisements
 const advertisementStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -125,4 +144,42 @@ const advertisementStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, advertisementStorage };
+// Storage for Course Thumbnails
+const courseThumbnailStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'course_thumbnails',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+  },
+});
+
+// Storage for Course Resources (PDFs, Zips, Docs)
+const courseResourceStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = file.mimetype === 'application/pdf' || ext === '.pdf';
+    const isZip = file.mimetype === 'application/zip' || ext === '.zip';
+    const resource_type = (isPdf || isZip) ? 'raw' : 'auto';
+    
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+    const uniqueId = `${cleanName}-${Date.now()}`;
+    
+    let public_id = uniqueId;
+    if (isPdf) {
+      public_id = `${uniqueId}.pdftemp`;
+    } else if (isZip) {
+      public_id = `${uniqueId}.ziptemp`;
+    } else if (resource_type === 'raw') {
+      public_id = `${uniqueId}${ext}`;
+    }
+    
+    return {
+      folder: 'course_resources',
+      resource_type: resource_type,
+      public_id: public_id,
+    };
+  },
+});
+
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage,  slipStorage, resourceStorage, advertisementStorage, courseThumbnailStorage, courseResourceStorage };
