@@ -729,7 +729,7 @@ router.get('/courses-list', async (req, res) => {
             SELECT 
                 c.id AS course_id,
                 c.title,
-                c.type,
+                c.month,
                 c.status,
                 c.created_at,
                 u.name AS teacher_name,
@@ -986,6 +986,24 @@ router.post('/send-message', async (req, res) => {
         if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
+
+        // --- BLOCK CHECK VALIDATION ---
+        const blockCheck = await query(`
+            SELECT blocker_id FROM blocked_users 
+            WHERE (blocker_id = ? AND blocked_id = ?) 
+               OR (blocker_id = ? AND blocked_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        if (blockCheck.length > 0) {
+            const hasBlocked = blockCheck.some(b => b.blocker_id === parseInt(senderId));
+            return res.status(403).json({ 
+                success: false, 
+                message: hasBlocked 
+                    ? "You have blocked this user. Unblock to message." 
+                    : "You cannot message this user." 
+            });
+        }
+        // --- END OF BLOCK CHECK ---
 
         // 1. Check if a conversation already exists between these two users
         const convQuery = await query(`

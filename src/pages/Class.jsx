@@ -681,6 +681,11 @@ const TuitionClass = () => {
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
                                                         <h5 className="text-sm font-bold text-gray-800">{lesson.title}</h5>
+                                                        {lesson.month && (
+                                                            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                                                                {lesson.month}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     {expandedLessons.includes(lesson.id) ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                                                 </div>
