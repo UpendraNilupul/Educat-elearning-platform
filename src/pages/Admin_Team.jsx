@@ -96,7 +96,7 @@ const Admin_Team = ({ userName, onLogout }) => {
         }
     };
 
-    // 4. Form Handlers (Existing logic)
+    // 4. Form Handlers
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
         if (errors[e.target.name]) {
@@ -109,7 +109,12 @@ const Admin_Team = ({ userName, onLogout }) => {
         if (!/^[a-zA-Z\s]{2,50}$/.test(formData.name.trim())) newErrors.name = "Name must be 2-50 characters and contain only letters.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Please enter a valid email address.";
         if (formData.password.length < 6) newErrors.password = "Password must be at least 6 characters long.";
-        if (!/^\+?[\d\s\-]{9,15}$/.test(formData.phoneNumber)) newErrors.phoneNumber = "Enter a valid phone number (9-15 digits).";
+        
+        // 🌟 UPDATED: +94 Phone Number Validation
+        const cleanPhone = formData.phoneNumber.replace(/[\s-]/g, ''); // Removes any spaces or dashes the user types
+        if (!/^\+94\d{9}$/.test(cleanPhone)) {
+            newErrors.phoneNumber = "Phone number must begin with +94 followed by 9 digits (e.g., +94771234567).";
+        }
         
         if (!formData.dob) {
             newErrors.dob = "Date of birth is required.";
@@ -139,7 +144,13 @@ const Admin_Team = ({ userName, onLogout }) => {
 
         setIsSubmitting(true);
         try {
-            const response = await api.post('/admin/create-sub-admin', formData);
+            // 🌟 Re-format the phone number cleanly before sending to backend
+            const payload = {
+                ...formData,
+                phoneNumber: formData.phoneNumber.replace(/[\s-]/g, '')
+            };
+
+            const response = await api.post('/admin/create-sub-admin', payload);
             if (response.data.success) {
                 alert("🎉 Sub-Admin created successfully!");
                 setFormData({ name: '', email: '', password: '', phoneNumber: '', address: '', dob: '', gender: '' });
@@ -307,7 +318,14 @@ const Admin_Team = ({ userName, onLogout }) => {
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
                                     <div className="relative">
                                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input type="text" name="phoneNumber" className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.phoneNumber ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} placeholder="07xxxxxxxx" value={formData.phoneNumber} onChange={handleChange} />
+                                        <input 
+                                            type="text" 
+                                            name="phoneNumber" 
+                                            className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:bg-white font-medium transition-colors ${errors.phoneNumber ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
+                                            placeholder="+94xxxxxxxxx" 
+                                            value={formData.phoneNumber} 
+                                            onChange={handleChange} 
+                                        />
                                     </div>
                                     {errors.phoneNumber && <p className="text-xs text-red-500 mt-1.5 font-semibold">{errors.phoneNumber}</p>}
                                 </div>
