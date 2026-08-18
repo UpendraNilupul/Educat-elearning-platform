@@ -3,7 +3,7 @@ import { Phone, Menu, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 // 🌟 Added userName to the props
-const Header = ({ userRole, userName, onLogout }) => { 
+const Header = ({ userRole, userName, onLogout }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const navigate = useNavigate();
@@ -32,11 +32,33 @@ const Header = ({ userRole, userName, onLogout }) => {
     const navLinks = [
         { name: 'Home', path: '/', active: true },
         { name: 'Classes', path: '/#classes', active: false },
-        { name: 'Teachers', path: '/teachers', active: false },
+        { name: 'Teachers', path: '/#teachers', active: false },
         { name: 'About', path: '/#about', active: false },
-        { name: 'News', path: '/#news', active: false },
-        { name: 'Contact us', path: '/#contact', active: false },
+        { name: 'FAQ', path: '/faq', active: false }, // Updated from News
+        { name: 'Contact us', path: '/contact', active: false },
     ];
+
+    const handleNavClick = (e, path) => {
+        if (path === '/' && window.location.pathname === '/') {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.history.pushState(null, '', '/');
+            setIsMenuOpen(false);
+            return;
+        }
+        if (path.startsWith('/#')) {
+            const id = path.replace('/#', '');
+            const element = document.getElementById(id);
+            if (element) {
+                e.preventDefault();
+                element.scrollIntoView({ behavior: 'smooth' });
+                window.history.pushState(null, '', path);
+                setIsMenuOpen(false);
+            }
+        } else {
+            setIsMenuOpen(false);
+        }
+    };
 
     return (
         <header className="relative w-full font-sans">
@@ -50,7 +72,7 @@ const Header = ({ userRole, userName, onLogout }) => {
                         <span className="text-[#ed8936] font-semibold text-xs md:text-sm tracking-wide">0714783615</span>
                     </div>
                     <div className="flex items-center space-x-4 text-xs font-medium md:text-sm">
-                        
+
                         {userRole ? (
                             <>
                                 {/* 🌟 Changed 'Dashboard' to the user's name! */}
@@ -69,7 +91,7 @@ const Header = ({ userRole, userName, onLogout }) => {
                                 <Link to="/register" className="transition-colors hover:text-gray-300">Register</Link>
                             </>
                         )}
-                        
+
                     </div>
                 </div>
             </div>
@@ -83,7 +105,7 @@ const Header = ({ userRole, userName, onLogout }) => {
             >
                 <div className="flex items-center justify-between w-full px-6 mx-auto max-w-7xl">
                     <div className="flex items-center flex-shrink-0">
-                        <Link to="/">
+                        <Link to="/" onClick={(e) => handleNavClick(e, '/')}>
                             <img
                                 src="/EduCat Logo.PNG"
                                 alt="Logo"
@@ -95,14 +117,27 @@ const Header = ({ userRole, userName, onLogout }) => {
 
                     <div className="items-center hidden gap-8 md:flex">
                         {navLinks.map((link) => (
-                            <Link
-                                key={link.name}
-                                to={link.path}
-                                className={`text-base font-semibold transition-colors hover:text-[#ed8936] ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
-                                    }`}
-                            >
-                                {link.name}
-                            </Link>
+                            link.path.startsWith('/#') ? (
+                                <a
+                                    key={link.name}
+                                    href={link.path}
+                                    onClick={(e) => handleNavClick(e, link.path)}
+                                    className={`text-base font-semibold transition-colors hover:text-[#ed8936] ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
+                                        }`}
+                                >
+                                    {link.name}
+                                </a>
+                            ) : (
+                                <Link
+                                    key={link.name}
+                                    to={link.path}
+                                    onClick={(e) => handleNavClick(e, link.path)}
+                                    className={`text-base font-semibold transition-colors hover:text-[#ed8936] ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
+                                        }`}
+                                >
+                                    {link.name}
+                                </Link>
+                            )
                         ))}
                     </div>
 
@@ -120,15 +155,27 @@ const Header = ({ userRole, userName, onLogout }) => {
                     <div className="absolute left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-lg top-full md:hidden">
                         <div className="flex flex-col p-4 space-y-4">
                             {navLinks.map((link) => (
-                                <Link
-                                    key={link.name}
-                                    to={link.path}
-                                    className={`text-lg font-medium py-2 border-b border-gray-50 last:border-0 ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
-                                        }`}
-                                    onClick={() => setIsMenuOpen(false)}
-                                >
-                                    {link.name}
-                                </Link>
+                                link.path.startsWith('/#') ? (
+                                    <a
+                                        key={link.name}
+                                        href={link.path}
+                                        onClick={(e) => handleNavClick(e, link.path)}
+                                        className={`text-lg font-medium py-2 border-b border-gray-50 last:border-0 ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
+                                            }`}
+                                    >
+                                        {link.name}
+                                    </a>
+                                ) : (
+                                    <Link
+                                        key={link.name}
+                                        to={link.path}
+                                        className={`text-lg font-medium py-2 border-b border-gray-50 last:border-0 ${link.active ? 'text-[#ed8936]' : 'text-[#4a0b59]'
+                                            }`}
+                                        onClick={(e) => handleNavClick(e, link.path)}
+                                    >
+                                        {link.name}
+                                    </Link>
+                                )
                             ))}
                         </div>
                     </div>

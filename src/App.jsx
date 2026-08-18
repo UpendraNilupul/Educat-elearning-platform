@@ -8,10 +8,12 @@ import api from './api';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import WelcomeSection from './components/WelcomeSection';
+import AboutSection from './components/AboutSection';
 import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
+import FAQ from './components/FAQ';
 
 // Page Imports
 import Login from './pages/Login';
@@ -45,7 +47,7 @@ import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
 import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
 import Admin_SlipApprovals from './pages/Admin_SlipApprovals';
-
+import ContactUs from './pages/ContactUs';
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
   return (
@@ -53,6 +55,7 @@ const HomePage = ({ userRole, userName, onLogout }) => {
       <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       <Hero />
       <WelcomeSection />
+      <AboutSection />
       <LatestUpdates />
       <MeetTeachers />
       <StatsCTA />
@@ -200,6 +203,24 @@ function App() {
         <Toaster position="top-right" />
         <Routes>
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
+
+          <Route
+            path="/faq"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <FAQ />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/contact"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <ContactUs userRole={userRole} userName={userName} onLogout={handleLogout} />
+              </MainLayout>
+            }
+          />
 
           <Route
             path="/login"
