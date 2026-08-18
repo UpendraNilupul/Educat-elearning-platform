@@ -107,6 +107,24 @@ router.post('/teacher-chat/send-message', async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
+        // --- BLOCK CHECK VALIDATION ---
+        const blockCheck = await query(`
+            SELECT blocker_id FROM blocked_users 
+            WHERE (blocker_id = ? AND blocked_id = ?) 
+               OR (blocker_id = ? AND blocked_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        if (blockCheck.length > 0) {
+            const hasBlocked = blockCheck.some(b => b.blocker_id === parseInt(senderId));
+            return res.status(403).json({ 
+                success: false, 
+                message: hasBlocked 
+                    ? "You have blocked this user. Unblock to message." 
+                    : "You cannot message this user." 
+            });
+        }
+        // --- END OF BLOCK CHECK ---
+
         const convQuery = await query(`
             SELECT id FROM conversations 
             WHERE (participant1_id = ? AND participant2_id = ?) 

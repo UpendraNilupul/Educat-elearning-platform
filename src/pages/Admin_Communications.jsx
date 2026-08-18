@@ -11,14 +11,24 @@ const Admin_Communications = ({ userName, onLogout }) => {
     const adminId = parseInt(localStorage.getItem('userId'));
     const autoOpenSenderName = location.state?.autoOpenSenderName || null;
 
-    const [activeTab, setActiveTab] = useState('messages'); // 'messages' or 'announcements'
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'messages'); // 'messages' or 'announcements'
     
+    useEffect(() => {
+        if (location.state?.activeTab) {
+            setActiveTab(location.state.activeTab);
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state]);
     // Message States
     const [conversations, setConversations] = useState([]);
     const [activeChat, setActiveChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [chatRequests, setChatRequests] = useState([]);
+    // Block States
+    const [isBlockedByMe, setIsBlockedByMe] = useState(false);
+    const [isBlockedByThem, setIsBlockedByThem] = useState(false);
     const messagesEndRef = useRef(null);
 
     // Attachment States
@@ -97,6 +107,9 @@ const Admin_Communications = ({ userName, onLogout }) => {
             if (activeTab === 'messages') {
                 const res = await api.get('/admin/conversations');
                 if (res.data.success) setConversations(res.data.data);
+            } else if (activeTab === 'chat_requests') {
+                const res = await api.get('/admin-chat/requests');
+                if (res.data.success) setChatRequests(res.data.data);
             } else {
                 // 🌟 THE FIX: Used api.get() and accessed .data
                 const res = await api.get('/admin/announcements-history');
@@ -106,6 +119,66 @@ const Admin_Communications = ({ userName, onLogout }) => {
             console.error("Failed to fetch data");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRequestAction = async (requestId, status) => {
+        try {
+            const res = await api.put(`/admin-chat/requests/${requestId}`, { status });
+            if (res.data.success) {
+                setChatRequests(prev => prev.map(req => 
+                    req.id === requestId ? { ...req, status } : req
+                ));
+            }
+        } catch (error) {
+            console.error("Failed to update request status:", error);
+            alert(error.response?.data?.message || "Failed to update status.");
+        }
+    };
+
+    // Block/Unblock Handlers
+    const checkBlockStatus = async (otherUserId) => {
+        try {
+            const res = await api.get(`/chat/check-blocked/${otherUserId}`);
+            if (res.data.success) {
+                setIsBlockedByMe(res.data.isBlockedByMe);
+                setIsBlockedByThem(res.data.isBlockedByThem);
+            }
+        } catch (error) {
+            console.error("Failed to check block status:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (activeChat) {
+            checkBlockStatus(activeChat.other_user_id);
+        } else {
+            setIsBlockedByMe(false);
+            setIsBlockedByThem(false);
+        }
+    }, [activeChat]);
+
+    const handleBlock = async () => {
+        if (!activeChat) return;
+        try {
+            const res = await api.post('/chat/block', { blockedId: activeChat.other_user_id });
+            if (res.data.success) {
+                setIsBlockedByMe(true);
+            }
+        } catch (error) {
+            console.error("Failed to block user:", error);
+        }
+    };
+
+    const handleUnblock = async () => {
+        if (!activeChat) return;
+        try {
+            const res = await api.post('/chat/unblock', { blockedId: activeChat.other_user_id });
+            if (res.data.success) {
+                setIsBlockedByMe(false);
+            }
+        } catch (error) {
+            console.error("Failed to unblock user:", error);
         }
     };
 
@@ -209,6 +282,12 @@ const Admin_Communications = ({ userName, onLogout }) => {
                     >
                         <Megaphone size={16} className="mr-2" /> Announcement History
                     </button>
+                    <button 
+                        onClick={() => setActiveTab('chat_requests')}
+                        className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center ${activeTab === 'chat_requests' ? 'bg-[#4a0b59] text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Clock size={16} className="mr-2" /> Chat Requests
+                    </button>
                 </div>
             </div>
 
@@ -271,6 +350,24 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                             <h3 className="font-bold text-gray-900">{activeChat.other_user_name}</h3>
                                             <p className="text-xs text-gray-500 capitalize">{activeChat.other_user_role}</p>
                                         </div>
+
+                                        <div className="ml-auto shrink-0 flex items-center">
+                                            {isBlockedByMe ? (
+                                                <button 
+                                                    onClick={handleUnblock}
+                                                    className="px-3.5 py-1.5 border border-red-500 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all"
+                                                >
+                                                    Unblock
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={handleBlock}
+                                                    className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                                                >
+                                                    Block
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Messages Area */}
@@ -322,67 +419,77 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                     {/* Input Area */}
                                     <div className="p-4 bg-white border-t border-gray-100 shrink-0">
                                         <form onSubmit={handleSendMessage} className="flex flex-col gap-3 max-w-4xl mx-auto">
-                                            {filePreview && (
-                                                <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
-                                                    <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => { setSelectedFile(null); setFilePreview(null); }}
-                                                        className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
+                                            {isBlockedByMe || isBlockedByThem ? (
+                                                <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-2xl p-4 text-center">
+                                                    {isBlockedByMe 
+                                                        ? "You have blocked this user. Unblock to message." 
+                                                        : "You cannot message this user."}
                                                 </div>
+                                            ) : (
+                                                <>
+                                                    {filePreview && (
+                                                        <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
+                                                            <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                                                                className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {!filePreview && selectedFile && (
+                                                        <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
+                                                            <FileIcon size={16} className="text-purple-600" />
+                                                            <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => { setSelectedFile(null); }}
+                                                                className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-end gap-3 w-full">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="p-3 bg-gray-50 border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                                                            title="Attach file or image"
+                                                        >
+                                                            <Paperclip size={20} />
+                                                        </button>
+                                                        <input 
+                                                            type="file" 
+                                                            ref={fileInputRef} 
+                                                            onChange={handleFileChange} 
+                                                            className="hidden" 
+                                                        />
+                                                        <textarea 
+                                                            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
+                                                            rows="2"
+                                                            placeholder="Type your message..."
+                                                            value={newMessage}
+                                                            onChange={(e) => setNewMessage(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                                    e.preventDefault(); 
+                                                                    handleSendMessage(e);
+                                                                }
+                                                            }}
+                                                        ></textarea>
+                                                        <button 
+                                                            type="submit"
+                                                            disabled={(!newMessage.trim() && !selectedFile) || isSending}
+                                                            className="p-3 bg-[#4a0b59] text-white rounded-xl hover:bg-purple-900 transition-colors shadow-md disabled:opacity-50"
+                                                        >
+                                                            <Send size={20} />
+                                                        </button>
+                                                    </div>
+                                                </>
                                             )}
-                                            {!filePreview && selectedFile && (
-                                                <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
-                                                    <FileIcon size={16} className="text-purple-600" />
-                                                    <span className="truncate max-w-[200px]">{selectedFile.name}</span>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => { setSelectedFile(null); }}
-                                                        className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <div className="flex items-end gap-3 w-full">
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="p-3 bg-gray-50 border border-gray-200 text-gray-500 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
-                                                    title="Attach file or image"
-                                                >
-                                                    <Paperclip size={20} />
-                                                </button>
-                                                <input 
-                                                    type="file" 
-                                                    ref={fileInputRef} 
-                                                    onChange={handleFileChange} 
-                                                    className="hidden" 
-                                                />
-                                                <textarea 
-                                                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm"
-                                                    rows="2"
-                                                    placeholder="Type your message..."
-                                                    value={newMessage}
-                                                    onChange={(e) => setNewMessage(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                                            e.preventDefault(); 
-                                                            handleSendMessage(e);
-                                                        }
-                                                    }}
-                                                ></textarea>
-                                                <button 
-                                                    type="submit"
-                                                    disabled={(!newMessage.trim() && !selectedFile) || isSending}
-                                                    className="p-3 bg-[#4a0b59] text-white rounded-xl hover:bg-purple-900 transition-colors shadow-md disabled:opacity-50"
-                                                >
-                                                    <Send size={20} />
-                                                </button>
-                                            </div>
                                         </form>
                                     </div>
                                 </>
@@ -426,6 +533,67 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                         </div>
                                     </div>
                                 ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ================= CHAT REQUESTS TAB ================= */}
+                {activeTab === 'chat_requests' && (
+                    <div className="w-full flex flex-col">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h2 className="text-lg font-bold text-gray-800">Student Messaging Requests</h2>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {loading ? (
+                                <p className="text-center p-8 text-gray-400 font-medium">Loading requests...</p>
+                            ) : chatRequests.length === 0 ? (
+                                <p className="text-center p-8 text-gray-400 font-medium">No pending chat requests.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {chatRequests.map((req) => (
+                                        <div key={req.id} className="p-5 bg-white border border-gray-150 rounded-2xl shadow-sm flex items-start justify-between hover:shadow-md transition-shadow">
+                                            <div className="flex items-start space-x-4">
+                                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold overflow-hidden shrink-0 mt-0.5">
+                                                    {req.student_picture ? <img src={`http://localhost:3000/uploads/${req.student_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : req.student_name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-gray-900">{req.student_name}</h3>
+                                                    <p className="text-xs text-gray-500">{req.student_email}</p>
+                                                    {req.message && (
+                                                        <p className="text-xs bg-purple-50 text-purple-900 border border-purple-100 rounded-xl p-3 mt-2 font-medium max-w-sm whitespace-pre-wrap italic">
+                                                            "{req.message}"
+                                                        </p>
+                                                    )}
+                                                    <p className="text-[10px] text-gray-400 mt-1.5">Requested: {new Date(req.created_at).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center space-x-2 shrink-0">
+                                                {req.status === 'pending' ? (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => handleRequestAction(req.id, 'approved')}
+                                                            className="px-3.5 py-1.5 bg-[#4a0b59] hover:bg-[#5b0e6e] text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleRequestAction(req.id, 'rejected')}
+                                                            className="px-3.5 py-1.5 border border-red-500 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className={`px-3 py-1 text-xs font-bold rounded-lg capitalize ${req.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                                        {req.status}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
