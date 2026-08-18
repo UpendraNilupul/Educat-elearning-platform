@@ -136,6 +136,7 @@ const Admin_Courses = ({ userName, onLogout }) => {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-gray-900">{course.title}</p>
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider mt-0.5">{course.type} Format</p>
                                                 </div>
                                             </div>
                                         </td>
