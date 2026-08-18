@@ -73,9 +73,10 @@ const Admin_Settings = ({ userName, onLogout }) => {
             newErrors.email = "Please enter a valid email address.";
         }
 
-        // Phone: Allows optional '+', followed by 9-15 digits/spaces/dashes
-        if (!/^\+?[\d\s\-]{9,15}$/.test(profileData.phone_number)) {
-            newErrors.phone_number = "Enter a valid phone number (9-15 digits).";
+        // 🌟 UPDATED: +94 Phone Number Validation
+        const cleanPhone = profileData.phone_number.replace(/[\s-]/g, ''); // Removes any spaces or dashes
+        if (!/^\+94\d{9}$/.test(cleanPhone)) {
+            newErrors.phone_number = "Phone number must begin with +94 followed by 9 digits (e.g., +94771234567).";
         }
 
         // Address: Minimum length check
@@ -112,7 +113,13 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
         setIsSavingProfile(true);
         try {
-            const response = await api.put(`/admin/profile/${adminId}`, profileData);
+            // 🌟 Clean the phone number before sending to the backend
+            const payload = {
+                ...profileData,
+                phone_number: profileData.phone_number.replace(/[\s-]/g, '')
+            };
+
+            const response = await api.put(`/admin/profile/${adminId}`, payload);
             const result = response.data;
             alert(result.message);
             if (result.success) {
@@ -231,6 +238,7 @@ const Admin_Settings = ({ userName, onLogout }) => {
                                     <input 
                                         type="text" 
                                         name="phone_number" 
+                                        placeholder="+947xxxxxxxx"
                                         className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.phone_number ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
                                         value={profileData.phone_number} 
                                         onChange={handleProfileChange} 

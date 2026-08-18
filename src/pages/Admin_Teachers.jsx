@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Search, Filter, MoreVertical, ShieldAlert, 
-    Mail, Eye, FileText, CheckCircle, Clock, X, Send, Download
+    Mail, Eye, FileText, CheckCircle, Clock, X, Send, Download, ArrowLeft
 } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import the API instance
 
@@ -100,14 +100,18 @@ const Admin_Teachers = ({ userName, onLogout }) => {
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen relative overflow-hidden">
             {/* Header Area */}
+            {/* Header Area */}
             <div className="flex justify-between items-end mb-8">
                 <div>
+                    <button 
+                        onClick={() => navigate('/admin')}
+                        className="flex items-center text-gray-500 hover:text-[#4a0b59] font-bold mb-4 transition-colors"
+                    >
+                        <ArrowLeft size={20} className="mr-2" /> Back to Dashboard
+                    </button>
                     <h1 className="text-3xl font-black text-gray-900">Teacher Directory</h1>
                     <p className="text-gray-500 mt-1">Manage, monitor, and review your platform's educators.</p>
                 </div>
-                <button onClick={() => navigate('/admin')} className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-colors">
-                    Back to Dashboard
-                </button>
             </div>
 
             {/* Filters Bar */}

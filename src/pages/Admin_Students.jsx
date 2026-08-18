@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Search, Filter, MoreVertical, ShieldAlert,
-    Mail, Eye, X, Megaphone, Gift, Clock, Send, Download
+    Mail, Eye, X, Megaphone, Gift, Clock, Send, Download, ArrowLeft
 } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
@@ -146,15 +146,15 @@ const Admin_Students = ({ userName, onLogout }) => {
 
             <div className="flex justify-between items-end mb-8">
                 <div>
+                    <button 
+                        onClick={() => navigate('/admin')}
+                        className="flex items-center text-gray-500 hover:text-[#4a0b59] font-bold mb-4 transition-colors"
+                    >
+                        <ArrowLeft size={20} className="mr-2" /> Back to Dashboard
+                    </button>
                     <h1 className="text-3xl font-black text-gray-900">Student Directory</h1>
                     <p className="text-gray-500 mt-1">Manage, monitor, and assist the learners on your platform.</p>
                 </div>
-                <button
-                    onClick={() => navigate('/admin')}
-                    className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-colors"
-                >
-                    Back to Dashboard
-                </button>
             </div>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 mb-6 items-center">
