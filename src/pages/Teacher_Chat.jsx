@@ -29,6 +29,10 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
   const [contacts, setContacts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Block States
+  const [isBlockedByMe, setIsBlockedByMe] = useState(false);
+  const [isBlockedByThem, setIsBlockedByThem] = useState(false);
+
   const getFileUrl = (url) => {
       if (!url) return '';
       if (url.startsWith('http')) return url;
@@ -183,6 +187,52 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
       }
       setIsComposing(false);
       setSearchTerm("");
+  };
+
+  // Block/Unblock Handlers
+  const checkBlockStatus = async (otherUserId) => {
+      try {
+          const res = await api.get(`/chat/check-blocked/${otherUserId}`);
+          if (res.data.success) {
+              setIsBlockedByMe(res.data.isBlockedByMe);
+              setIsBlockedByThem(res.data.isBlockedByThem);
+          }
+      } catch (error) {
+          console.error("Failed to check block status:", error);
+      }
+  };
+
+  useEffect(() => {
+      if (activeChat) {
+          checkBlockStatus(activeChat.other_user_id);
+      } else {
+          setIsBlockedByMe(false);
+          setIsBlockedByThem(false);
+      }
+  }, [activeChat]);
+
+  const handleBlock = async () => {
+      if (!activeChat) return;
+      try {
+          const res = await api.post('/chat/block', { blockedId: activeChat.other_user_id });
+          if (res.data.success) {
+              setIsBlockedByMe(true);
+          }
+      } catch (error) {
+          console.error("Failed to block user:", error);
+      }
+  };
+
+  const handleUnblock = async () => {
+      if (!activeChat) return;
+      try {
+          const res = await api.post('/chat/unblock', { blockedId: activeChat.other_user_id });
+          if (res.data.success) {
+              setIsBlockedByMe(false);
+          }
+      } catch (error) {
+          console.error("Failed to unblock user:", error);
+      }
   };
 
   const handleSendMessage = async (e) => {
@@ -389,6 +439,24 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
                         <h3 className="font-bold text-lg text-gray-900 leading-tight">{activeChat.other_user_name}</h3>
                         <p className="text-xs text-purple-600 uppercase tracking-wider font-bold mt-0.5">{activeChat.other_user_role}</p>
                     </div>
+
+                    <div className="ml-auto shrink-0 flex items-center">
+                        {isBlockedByMe ? (
+                            <button 
+                                onClick={handleUnblock}
+                                className="px-3.5 py-1.5 border border-red-500 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all"
+                            >
+                                Unblock
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={handleBlock}
+                                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                            >
+                                Block
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Messages Container */}
@@ -445,67 +513,77 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
                 {/* Input Area */}
                 <div className="p-4 md:p-6 bg-white border-t border-gray-200 shrink-0">
                     <form onSubmit={handleSendMessage} className="flex flex-col gap-3 max-w-4xl mx-auto">
-                        {filePreview && (
-                            <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
-                                <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setSelectedFile(null); setFilePreview(null); }}
-                                    className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
+                        {isBlockedByMe || isBlockedByThem ? (
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-2xl p-4 text-center">
+                                {isBlockedByMe 
+                                    ? "You have blocked this user. Unblock to message." 
+                                    : "You cannot message this user."}
                             </div>
+                        ) : (
+                            <>
+                                {filePreview && (
+                                    <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
+                                        <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                                            className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                {!filePreview && selectedFile && (
+                                    <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
+                                        <FileIcon size={16} className="text-purple-600" />
+                                        <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setSelectedFile(null); }}
+                                            className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="flex items-end gap-3 w-full">
+                                    <button 
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-4 bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                                        title="Attach file or image"
+                                    >
+                                        <Paperclip size={24} />
+                                    </button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileChange} 
+                                        className="hidden" 
+                                    />
+                                    <textarea 
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
+                                        rows="2"
+                                        placeholder="Type a message..."
+                                        value={chatMessage}
+                                        onChange={(e) => setChatMessage(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault(); 
+                                                handleSendMessage();
+                                            }
+                                        }}
+                                    ></textarea>
+                                    <button 
+                                        type="submit"
+                                        disabled={(!chatMessage.trim() && !selectedFile) || isSending}
+                                        className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
+                                    >
+                                        <Send size={24} />
+                                    </button>
+                                </div>
+                            </>
                         )}
-                        {!filePreview && selectedFile && (
-                            <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
-                                <FileIcon size={16} className="text-purple-600" />
-                                <span className="truncate max-w-[200px]">{selectedFile.name}</span>
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setSelectedFile(null); }}
-                                    className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        )}
-                        <div className="flex items-end gap-3 w-full">
-                            <button 
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="p-4 bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
-                                title="Attach file or image"
-                            >
-                                <Paperclip size={24} />
-                            </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleFileChange} 
-                                className="hidden" 
-                            />
-                            <textarea 
-                                className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
-                                rows="2"
-                                placeholder="Type a message..."
-                                value={chatMessage}
-                                onChange={(e) => setChatMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault(); 
-                                        handleSendMessage();
-                                    }
-                                }}
-                            ></textarea>
-                            <button 
-                                type="submit"
-                                disabled={(!chatMessage.trim() && !selectedFile) || isSending}
-                                className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
-                            >
-                                <Send size={24} />
-                            </button>
-                        </div>
                     </form>
                 </div>
               </>

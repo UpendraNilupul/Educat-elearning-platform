@@ -121,7 +121,6 @@ CREATE TABLE classes_courses (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     title VARCHAR(100) NOT NULL,
-    type VARCHAR(20) NOT NULL,
     t_id INT NOT NULL, 
     teacher_id INT DEFAULT 1,          
     students INT DEFAULT 0,            
@@ -191,6 +190,7 @@ CREATE TABLE lessons (
     isVisible TINYINT(1) DEFAULT 1,    
     type VARCHAR(20) NOT NULL,
     link VARCHAR(300) NOT NULL,
+    month VARCHAR(20) DEFAULT NULL,
     m_id INT NOT NULL,
     FOREIGN KEY(m_id) REFERENCES modules(id) ON DELETE CASCADE
 );
@@ -367,6 +367,29 @@ CREATE TABLE enrollments (
     FOREIGN KEY(c_id) REFERENCES classes_courses(id) ON DELETE CASCADE
 );
 
+CREATE TABLE chat_requests (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    admin_id INT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    message TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_request (student_id, admin_id)
+);
+
+CREATE TABLE blocked_users (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    blocker_id INT NOT NULL,
+    blocked_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_block (blocker_id, blocked_id)
+);
+
 CREATE TABLE lesson_completions (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     s_id INT NOT NULL,
@@ -505,9 +528,9 @@ INSERT INTO teachers (user_id, user_code, highest_qualification, university, exp
 (4, 'TCH003', 'PhD in Mathematics', 'University of Peradeniya', 10, 'approved');
 
 -- Mock Live Courses
-INSERT INTO classes_courses (name, title, type, t_id, status, is_published) VALUES
-('Full-Stack Web Development', 'Mastering MERN', 'course', 1, 'active', 1),
-('Advanced Data Science', 'Machine Learning Essentials', 'course', 2, 'active', 1);
+INSERT INTO classes_courses (name, title, t_id, status, is_published) VALUES
+('Full-Stack Web Development', 'Mastering MERN', 1, 'active', 1),
+('Advanced Data Science', 'Machine Learning Essentials', 2, 'active', 1);
 
 -- Verified Instructor Financial Payout History
 INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, adjustment, net_payable, status, paid_at) VALUES 
@@ -529,7 +552,7 @@ CREATE TABLE class_announcements (
 
 ALTER TABLE notifications ADD COLUMN is_read BOOLEAN;
 
-ALTER TABLE classes_courses ADD COLUMN grade VARCHAR(50) DEFAULT NULL AFTER type;
+ALTER TABLE classes_courses ADD COLUMN grade VARCHAR(50) DEFAULT NULL AFTER title;
 
 ALTER TABLE reviews ADD UNIQUE INDEX unique_student_class (s_id, c_id);
 

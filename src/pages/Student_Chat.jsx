@@ -28,6 +28,15 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
   const [contacts, setContacts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Request Access Modal States
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestingAdminId, setRequestingAdminId] = useState(null);
+  const [requestMessage, setRequestMessage] = useState("");
+
+  // Block States
+  const [isBlockedByMe, setIsBlockedByMe] = useState(false);
+  const [isBlockedByThem, setIsBlockedByThem] = useState(false);
+
   const getFileUrl = (url) => {
       if (!url) return '';
       if (url.startsWith('http')) return url;
@@ -65,6 +74,10 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
 
       newSocket.on("receive_message", (newMessage) => {
           setMessages((prev) => [...prev, newMessage]);
+      });
+
+      newSocket.on("chat_requests_updated", () => {
+          fetchContacts();
       });
 
       return () => newSocket.disconnect();
@@ -174,6 +187,82 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
       }
       setIsComposing(false);
       setSearchTerm("");
+  };
+
+  const handleRequestClick = (adminId) => {
+      setRequestingAdminId(adminId);
+      setRequestMessage("");
+      setIsRequestModalOpen(true);
+  };
+
+  const submitChatRequest = async (e) => {
+      e.preventDefault();
+      if (!requestingAdminId) return;
+
+      try {
+          const res = await api.post('/student-chat/request-access', { 
+              adminId: requestingAdminId, 
+              message: requestMessage 
+          });
+          if (res.data.success) {
+              setContacts(prev => prev.map(c => 
+                  c.user_id === requestingAdminId ? { ...c, chat_status: 'pending' } : c
+              ));
+          }
+      } catch (error) {
+          console.error("Failed to request chat access", error);
+          alert(error.response?.data?.message || "Failed to request chat access.");
+      } finally {
+          setIsRequestModalOpen(false);
+          setRequestingAdminId(null);
+          setRequestMessage("");
+      }
+  };
+
+  // Block/Unblock Handlers
+  const checkBlockStatus = async (otherUserId) => {
+      try {
+          const res = await api.get(`/chat/check-blocked/${otherUserId}`);
+          if (res.data.success) {
+              setIsBlockedByMe(res.data.isBlockedByMe);
+              setIsBlockedByThem(res.data.isBlockedByThem);
+          }
+      } catch (error) {
+          console.error("Failed to check block status:", error);
+      }
+  };
+
+  useEffect(() => {
+      if (activeChat) {
+          checkBlockStatus(activeChat.other_user_id);
+      } else {
+          setIsBlockedByMe(false);
+          setIsBlockedByThem(false);
+      }
+  }, [activeChat]);
+
+  const handleBlock = async () => {
+      if (!activeChat) return;
+      try {
+          const res = await api.post('/chat/block', { blockedId: activeChat.other_user_id });
+          if (res.data.success) {
+              setIsBlockedByMe(true);
+          }
+      } catch (error) {
+          console.error("Failed to block user:", error);
+      }
+  };
+
+  const handleUnblock = async () => {
+      if (!activeChat) return;
+      try {
+          const res = await api.post('/chat/unblock', { blockedId: activeChat.other_user_id });
+          if (res.data.success) {
+              setIsBlockedByMe(false);
+          }
+      } catch (error) {
+          console.error("Failed to unblock user:", error);
+      }
   };
 
   const handleSendMessage = async (e) => {
@@ -291,21 +380,53 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
                 /* CONTACTS LIST */
                 contacts
                     .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map((contact) => (
-                    <button 
-                        key={contact.user_id}
-                        onClick={() => startNewChat(contact)}
-                        className="w-full p-3 bg-white border border-gray-100 rounded-xl hover:shadow-md transition-all flex items-center space-x-4 text-left group"
-                    >
-                        <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
-                            {contact.picture ? <img src={`http://localhost:3000/uploads/${contact.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : contact.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <h4 className="font-bold text-gray-900 truncate">{contact.name}</h4>
-                            <p className="text-xs text-purple-600 font-medium capitalize">{contact.role_name}</p>
-                        </div>
-                    </button>
-                ))
+                    .map((contact) => {
+                        const isAdmin = contact.role_name === 'admin';
+                        const isPending = isAdmin && contact.chat_status === 'pending';
+                        const isApproved = !isAdmin || contact.chat_status === 'approved';
+                        const hasNoRequest = isAdmin && (contact.chat_status === null || contact.chat_status === 'rejected');
+
+                        return (
+                            <div 
+                                key={contact.user_id}
+                                className="w-full p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between"
+                            >
+                                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                    <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
+                                        {contact.picture ? <img src={`http://localhost:3000/uploads/${contact.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : contact.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-bold text-gray-900 truncate">{contact.name}</h4>
+                                        <p className="text-xs text-purple-600 font-medium capitalize">{contact.role_name}</p>
+                                    </div>
+                                </div>
+                                
+                                {isApproved && (
+                                    <button 
+                                        onClick={() => startNewChat(contact)}
+                                        className="px-3.5 py-1.5 bg-[#4a0b59] hover:bg-[#5b0e6e] text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+                                    >
+                                        Chat
+                                    </button>
+                                )}
+
+                                {isPending && (
+                                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-xs font-semibold rounded-lg shrink-0">
+                                        Pending
+                                    </span>
+                                )}
+
+                                 {hasNoRequest && (
+                                     <button 
+                                        onClick={() => handleRequestClick(contact.user_id)}
+                                        className="px-3.5 py-1.5 border border-[#4a0b59] text-[#4a0b59] hover:bg-[#4a0b59]/5 text-xs font-semibold rounded-lg transition-colors shrink-0"
+                                     >
+                                         Request
+                                     </button>
+                                 )}
+                            </div>
+                        );
+                    })
             ) : (
                 /* CONVERSATIONS LIST */
                 conversations.length === 0 ? (
@@ -380,6 +501,24 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
                         <h3 className="font-bold text-lg text-gray-900 leading-tight">{activeChat.other_user_name}</h3>
                         <p className="text-xs text-purple-600 uppercase tracking-wider font-bold mt-0.5">{activeChat.other_user_role}</p>
                     </div>
+
+                    <div className="ml-auto shrink-0 flex items-center">
+                        {isBlockedByMe ? (
+                            <button 
+                                onClick={handleUnblock}
+                                className="px-3.5 py-1.5 border border-red-500 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all"
+                            >
+                                Unblock
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={handleBlock}
+                                className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                            >
+                                Block
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Messages Container */}
@@ -436,72 +575,127 @@ const StudentChat = ({ autoOpenSenderName, clearAutoOpenSenderName }) => {
                 {/* Input Area */}
                 <div className="p-4 md:p-6 bg-white border-t border-gray-200 shrink-0">
                     <form onSubmit={handleSendMessage} className="flex flex-col gap-3 max-w-4xl mx-auto">
-                        {filePreview && (
-                            <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
-                                <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setSelectedFile(null); setFilePreview(null); }}
-                                    className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
+                        {isBlockedByMe || isBlockedByThem ? (
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-2xl p-4 text-center">
+                                {isBlockedByMe 
+                                    ? "You have blocked this user. Unblock to message." 
+                                    : "You cannot message this user."}
                             </div>
+                        ) : (
+                            <>
+                                {filePreview && (
+                                    <div className="relative inline-block self-start border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-1">
+                                        <img src={filePreview} alt="Preview" className="h-20 max-w-xs object-cover rounded-lg" />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                                            className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                {!filePreview && selectedFile && (
+                                    <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
+                                        <FileIcon size={16} className="text-purple-600" />
+                                        <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setSelectedFile(null); }}
+                                            className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="flex items-end gap-3 w-full">
+                                    <button 
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-4 bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
+                                        title="Attach file or image"
+                                    >
+                                        <Paperclip size={24} />
+                                    </button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleFileChange} 
+                                        className="hidden" 
+                                    />
+                                    <textarea 
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
+                                        rows="2"
+                                        placeholder="Type a message..."
+                                        value={chatMessage}
+                                        onChange={(e) => setChatMessage(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault(); 
+                                                handleSendMessage();
+                                            }
+                                        }}
+                                    ></textarea>
+                                    <button 
+                                        type="submit"
+                                        disabled={(!chatMessage.trim() && !selectedFile) || isSending}
+                                        className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
+                                    >
+                                        <Send size={24} />
+                                    </button>
+                                </div>
+                            </>
                         )}
-                        {!filePreview && selectedFile && (
-                            <div className="flex items-center gap-2 self-start bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700">
-                                <FileIcon size={16} className="text-purple-600" />
-                                <span className="truncate max-w-[200px]">{selectedFile.name}</span>
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setSelectedFile(null); }}
-                                    className="text-gray-400 hover:text-gray-600 rounded-full p-0.5 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        )}
-                        <div className="flex items-end gap-3 w-full">
-                            <button 
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="p-4 bg-gray-50 border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-100 hover:text-gray-700 transition-all active:scale-95 shadow-sm flex items-center justify-center"
-                                title="Attach file or image"
-                            >
-                                <Paperclip size={24} />
-                            </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleFileChange} 
-                                className="hidden" 
-                            />
-                            <textarea 
-                                className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-purple-200 resize-none text-[15px] transition-all shadow-inner"
-                                rows="2"
-                                placeholder="Type a message..."
-                                value={chatMessage}
-                                onChange={(e) => setChatMessage(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault(); 
-                                        handleSendMessage();
-                                    }
-                                }}
-                            ></textarea>
-                            <button 
-                                type="submit"
-                                disabled={(!chatMessage.trim() && !selectedFile) || isSending}
-                                className="p-4 bg-[#4a0b59] text-white rounded-2xl hover:bg-purple-900 transition-all shadow-md disabled:opacity-50 disabled:shadow-none hover:shadow-lg active:scale-95"
-                            >
-                                <Send size={24} />
-                            </button>
-                        </div>
                     </form>
                 </div>
               </>
-          )}
+           )}
       </div>
+
+      {/* Request Chat Modal */}
+      {isRequestModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative border border-gray-100 transform transition-all scale-100">
+                  <button 
+                      onClick={() => { setIsRequestModalOpen(false); setRequestingAdminId(null); setRequestMessage(""); }}
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                      <X size={24} />
+                  </button>
+                  <h2 className="text-xl font-black mb-2 text-gray-900">Request Chat Access</h2>
+                  <p className="text-xs text-gray-500 mb-4">Please specify why you are requesting to message this administrator.</p>
+                  
+                  <form onSubmit={submitChatRequest} className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Requesting Message</label>
+                          <textarea 
+                              value={requestMessage} 
+                              onChange={(e) => setRequestMessage(e.target.value)} 
+                              required 
+                              rows="4"
+                              className="w-full border border-gray-250 rounded-xl p-3 outline-none focus:ring-2 focus:ring-purple-100 resize-none text-sm transition-all focus:border-[#4a0b59]" 
+                              placeholder="e.g. Hello, I have some questions regarding my course enrollments and payments."
+                          />
+                      </div>
+                      <div className="flex space-x-3">
+                          <button 
+                              type="button" 
+                              onClick={() => { setIsRequestModalOpen(false); setRequestingAdminId(null); setRequestMessage(""); }}
+                              className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-colors font-bold text-sm"
+                          >
+                              Cancel
+                          </button>
+                          <button 
+                              type="submit" 
+                              className="flex-1 py-2.5 bg-[#4a0b59] hover:bg-[#5b0e6e] text-white rounded-xl transition-colors font-bold text-sm shadow-md"
+                          >
+                              Send Request
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

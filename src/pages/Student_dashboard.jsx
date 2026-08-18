@@ -418,9 +418,6 @@ const Student = ({ userName, onLogout }) => {
                                                         <div className={`p-2 rounded-xl bg-${course.theme_color || 'purple'}-600/10 group-hover:scale-110 transition-transform`}>
                                                             <BookOpen className={`w-5 h-5 text-${course.theme_color || 'purple'}-600`} />
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                                            {course.type}
-                                                        </span>
                                                     </div>
                                                     <h4 className="font-bold text-gray-900 line-clamp-1 group-hover:text-brand-purple transition-colors">{course.class_name}</h4>
                                                     <p className="text-xs text-gray-500 font-medium mt-1">Instructor: {course.teacher_name}</p>

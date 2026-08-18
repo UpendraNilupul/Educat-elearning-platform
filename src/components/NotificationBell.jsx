@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check, Circle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api';
 
 const NotificationBell = ({ onOpenChat }) => {
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -243,6 +245,9 @@ const NotificationBell = ({ onOpenChat }) => {
                                                      if (onOpenChat) {
                                                          onOpenChat(senderName);
                                                      }
+                                                     setIsOpen(false);
+                                                 } else if (notif.title === 'Chat Request') {
+                                                     navigate('/admin/communications', { state: { activeTab: 'chat_requests' } });
                                                      setIsOpen(false);
                                                  }
                                              }
