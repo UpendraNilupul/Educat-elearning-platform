@@ -13,7 +13,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
     const adminId = parseInt(localStorage.getItem('userId'));
     const autoOpenSenderName = location.state?.autoOpenSenderName || null;
 
-    const [activeTab, setActiveTab] = useState('messages'); 
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'messages'); 
     
     // Chat States
     const [conversations, setConversations] = useState([]);
@@ -37,6 +37,11 @@ const Admin_Communications = ({ userName, onLogout }) => {
     // Announcement States
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Chat Requests & Block States
+    const [chatRequests, setChatRequests] = useState([]);
+    const [isBlockedByMe, setIsBlockedByMe] = useState(false);
+    const [isBlockedByThem, setIsBlockedByThem] = useState(false);
 
     const getFileUrl = (url) => {
         if (!url) return '';
@@ -75,6 +80,11 @@ const Admin_Communications = ({ userName, onLogout }) => {
             setMessages((prev) => [...prev, incomingMessage]);
         });
 
+        newSocket.on("chat_requests_updated", () => {
+            fetchChatRequests();
+            fetchData();
+        });
+
         return () => newSocket.disconnect();
     }, [adminId]);
 
@@ -89,15 +99,29 @@ const Admin_Communications = ({ userName, onLogout }) => {
     // 🌟 DATA FETCHING & AUTO-LOGIC
     // ==========================================
     useEffect(() => {
+        if (location.state?.activeTab) {
+            setActiveTab(location.state.activeTab);
+        }
+    }, [location.state]);
+
+    useEffect(() => {
         fetchData();
         if (activeTab === 'messages') {
             api.put('/chat/mark-notifications-read').catch(err => {});
+        } else if (activeTab === 'chat_requests') {
+            fetchChatRequests();
         }
     }, [activeTab]);
 
     useEffect(() => {
-        if (activeChat && !activeChat.conversation_id.toString().startsWith('temp_')) {
-            fetchMessages(activeChat.conversation_id);
+        if (activeChat) {
+            if (!activeChat.conversation_id.toString().startsWith('temp_')) {
+                fetchMessages(activeChat.conversation_id);
+            }
+            checkBlockStatus(activeChat.other_user_id);
+        } else {
+            setIsBlockedByMe(false);
+            setIsBlockedByThem(false);
         }
     }, [activeChat]);
 
@@ -138,7 +162,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
             if (activeTab === 'messages') {
                 const res = await api.get('/admin-chat/conversations');
                 if (res.data.success) setConversations(res.data.data);
-            } else {
+            } else if (activeTab === 'announcements') {
                 const res = await api.get('/admin/announcements-history');
                 if (res.data.success) setAnnouncements(res.data.data);
             }
@@ -170,6 +194,65 @@ const Admin_Communications = ({ userName, onLogout }) => {
             }
         } catch (error) {
             console.error("Failed to fetch messages");
+        }
+    };
+
+    const fetchChatRequests = async () => {
+        try {
+            const res = await api.get('/admin-chat/requests');
+            if (res.data.success) {
+                setChatRequests(res.data.data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch chat requests:", error);
+        }
+    };
+
+    const handleUpdateRequestStatus = async (id, status) => {
+        try {
+            const res = await api.put(`/admin-chat/requests/${id}`, { status });
+            if (res.data.success) {
+                fetchChatRequests();
+                fetchData();
+            }
+        } catch (error) {
+            alert(error.response?.data?.message || "Failed to update request status.");
+        }
+    };
+
+    const checkBlockStatus = async (otherUserId) => {
+        try {
+            const res = await api.get(`/chat/check-blocked/${otherUserId}`);
+            if (res.data.success) {
+                setIsBlockedByMe(res.data.isBlockedByMe);
+                setIsBlockedByThem(res.data.isBlockedByThem);
+            }
+        } catch (error) {
+            console.error("Failed to check block status:", error);
+        }
+    };
+
+    const handleBlock = async () => {
+        if (!activeChat) return;
+        try {
+            const res = await api.post('/chat/block', { blockedId: activeChat.other_user_id });
+            if (res.data.success) {
+                setIsBlockedByMe(true);
+            }
+        } catch (error) {
+            console.error("Failed to block user:", error);
+        }
+    };
+
+    const handleUnblock = async () => {
+        if (!activeChat) return;
+        try {
+            const res = await api.post('/chat/unblock', { blockedId: activeChat.other_user_id });
+            if (res.data.success) {
+                setIsBlockedByMe(false);
+            }
+        } catch (error) {
+            console.error("Failed to unblock user:", error);
         }
     };
 
@@ -271,6 +354,12 @@ const Admin_Communications = ({ userName, onLogout }) => {
                         className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center ${activeTab === 'messages' ? 'bg-[#4a0b59] text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         <MessageSquare size={16} className="mr-2" /> Direct Messages
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('chat_requests')}
+                        className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center ${activeTab === 'chat_requests' ? 'bg-[#4a0b59] text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        <Clock size={16} className="mr-2" /> Chat Requests
                     </button>
                     <button 
                         onClick={() => setActiveTab('announcements')}
@@ -415,6 +504,23 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                             <h3 className="text-lg font-bold leading-tight text-gray-900">{activeChat.other_user_name}</h3>
                                             <p className="text-xs text-purple-600 uppercase tracking-wider font-bold mt-0.5">{activeChat.other_user_role}</p>
                                         </div>
+                                        <div className="ml-auto shrink-0 flex items-center">
+                                            {isBlockedByMe ? (
+                                                <button 
+                                                    onClick={handleUnblock}
+                                                    className="px-3.5 py-1.5 border border-red-500 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all"
+                                                >
+                                                    Unblock
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={handleBlock}
+                                                    className="px-3.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                                                >
+                                                    Block
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Messages Area */}
@@ -470,8 +576,15 @@ const Admin_Communications = ({ userName, onLogout }) => {
 
                                     {/* Input Area */}
                                     <div className="p-4 bg-white border-t border-gray-200 md:p-6 shrink-0">
-                                        <form onSubmit={handleSendMessage} className="flex flex-col max-w-4xl mx-auto gap-3">
-                                            {filePreview && (
+                                        {isBlockedByMe || isBlockedByThem ? (
+                                            <div className="text-center text-sm font-semibold text-red-500 py-3 bg-red-50 rounded-xl border border-red-100 max-w-4xl mx-auto">
+                                                {isBlockedByMe 
+                                                    ? "You have blocked this user. Unblock to message." 
+                                                    : "You cannot message this user."}
+                                            </div>
+                                        ) : (
+                                            <form onSubmit={handleSendMessage} className="flex flex-col max-w-4xl mx-auto gap-3">
+                                                {filePreview && (
                                                 <div className="relative self-start inline-block p-1 overflow-hidden border border-gray-200 bg-gray-50 rounded-xl">
                                                     <img src={filePreview} alt="Preview" className="object-cover h-20 max-w-xs rounded-lg" />
                                                     <button 
@@ -533,11 +646,82 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                                 </button>
                                             </div>
                                         </form>
-                                    </div>
+                                    )}
+                                </div>
                                 </>
                             )}
                         </div>
                     </>
+                )}
+
+                {/* ================= CHAT REQUESTS TAB ================= */}
+                {activeTab === 'chat_requests' && (
+                    <div className="flex flex-col w-full min-h-0 bg-gray-50/30">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white shrink-0">
+                            <h2 className="text-lg font-bold text-gray-800">Student Chat Requests</h2>
+                        </div>
+                        <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                            {chatRequests.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400 p-6 text-center">
+                                    <Clock size={48} className="mb-4 opacity-20" />
+                                    <p className="font-medium">No chat requests found.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {chatRequests.map((req) => (
+                                        <div key={req.id} className="p-6 bg-white border border-gray-200 shadow-sm rounded-2xl flex flex-col justify-between hover:shadow-md transition-shadow">
+                                            <div>
+                                                <div className="flex items-center space-x-4 mb-4">
+                                                    <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
+                                                        {req.student_picture ? (
+                                                            <img src={`http://localhost:3000/uploads/${req.student_picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            req.student_name.charAt(0)
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-bold text-gray-900 truncate">{req.student_name}</h4>
+                                                        <p className="text-xs text-gray-500 truncate">{req.student_email}</p>
+                                                    </div>
+                                                </div>
+                                                {req.message && (
+                                                    <div className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-600 mb-4 italic">
+                                                        "{req.message}"
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center text-xs text-gray-400 mb-6 font-medium">
+                                                    <span>Requested on {new Date(req.created_at).toLocaleDateString()}</span>
+                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                        req.status === 'approved' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                                        req.status === 'rejected' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                        'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                                    }`}>
+                                                        {req.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {req.status === 'pending' && (
+                                                <div className="flex gap-3 mt-auto border-t border-gray-100 pt-4">
+                                                    <button 
+                                                        onClick={() => handleUpdateRequestStatus(req.id, 'rejected')}
+                                                        className="flex-1 px-4 py-2 border border-red-200 hover:bg-red-50 text-red-600 text-sm font-bold rounded-xl transition-colors"
+                                                    >
+                                                        Reject
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleUpdateRequestStatus(req.id, 'approved')}
+                                                        className="flex-1 px-4 py-2 bg-[#4a0b59] hover:bg-purple-900 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+                                                    >
+                                                        Approve
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
 
                 {/* ================= ANNOUNCEMENTS TAB ================= */}
