@@ -407,7 +407,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                                         <input 
                                             type="text" 
-                                            placeholder="Search students or teachers..." 
+                                            placeholder="Search students, teachers, or staff..." 
                                             className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[#4a0b59] focus:ring-1 focus:ring-[#4a0b59]"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
