@@ -1,0 +1,164 @@
+/* Container with a subtle gradient to make the white card pop */
+.login-form-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh; 
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  padding: 3rem 2rem 3rem 2rem;
+}
+
+/* The Card: Larger curves, diffused layered shadows, and a subtle hover lift */
+#login-form , #register-form{
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px; 
+  box-shadow: 0 10px 25px rgba(74, 11, 89, 0.05), 0 20px 48px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  padding: 3rem 2.5rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+#login-form:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(74, 11, 89, 0.08), 0 24px 50px rgba(0, 0, 0, 0.05);
+}
+
+/* Heading: Tighter letter spacing for a modern typographic feel */
+#login-form h3 {
+  font-size: 2rem;
+  color: #4a0b59;
+  margin-bottom: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px; 
+  text-transform: capitalize;
+}
+
+/* Inputs: Borderless appearance with a soft gray fill that turns white on focus */
+#login-form .box {
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.2rem;
+  background-color: #f9fafb; 
+  border: 1px solid transparent; 
+  border-radius: 12px; 
+  font-size: 1rem;
+  color: #1f2937;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+/* Focus Ring: Emphasizes the EduCat Orange */
+#login-form .box:focus {
+  outline: none;
+  background-color: #ffffff;
+  border-color: #ed8936;
+  box-shadow: 0 0 0 4px rgba(237, 137, 54, 0.15);
+}
+
+#login-form .box::placeholder {
+  color: #9ca3af;
+}
+
+/* Button: Subtle gradient, rounded corners, and shadow */
+#login-form .btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ed8936 0%, #d97706 100%);
+  color: #fff;
+  padding: 0.9rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.25);
+}
+
+#login-form .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(237, 137, 54, 0.35);
+}
+
+#login-form .btn:active {
+  transform: translateY(0);
+}
+
+/* Custom modern checkbox */
+#login-form input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d1d5db;
+  border-radius: 5px;
+  margin-right: 8px;
+  vertical-align: middle;
+  position: relative;
+  top: -2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#login-form input[type="checkbox"]:checked {
+  background-color: #4a0b59;
+  border-color: #4a0b59;
+}
+
+/* SVG-like checkmark using pure CSS */
+#login-form input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+#login-form label {
+  font-size: 0.95rem;
+  color: #4b5563;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+#login-form p {
+  margin-top: 1.2rem;
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+#login-form p a {
+  color: #4a0b59; 
+  font-weight: 700;
+  text-decoration: none;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+/* Animated underline for links */
+#login-form p a::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: #ed8936;
+  transform-origin: bottom right;
+  transition: transform 0.3s cubic-bezier(0.86, 0, 0.07, 1);
+}
+
+#login-form p a:hover::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
