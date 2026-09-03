@@ -43,6 +43,7 @@ import assignmentRoutes from './routes/assignments.js';
 import quizRoutes from './routes/quizzes.js';
 import paymentRoute from './routes/paymentRoute.js'; 
 import advertisementRoutes from './routes/advertisements.js';
+import contactRoutes from './routes/contact.js';
 import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
 // Chat Routes
@@ -175,6 +176,7 @@ app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
 app.use('/api', paymentRoute); 
+app.use('/api', contactRoutes);
 
 // ==========================================
 // 📊 STATS API ROUTE

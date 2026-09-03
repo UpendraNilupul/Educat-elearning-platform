@@ -1,81 +1,69 @@
-import React, { useState } from 'react';
-import { FlaskConical, Calculator, Monitor, Languages, Menu, X, Palette, Terminal, Coffee, Layout } from 'lucide-react';
+import React from 'react';
+import { BookOpen, BookMarked, GraduationCap } from 'lucide-react';
 
 const WelcomeSection = () => {
-    const [activeTab, setActiveTab] = useState('advanced');
-
-    const advancedData = [
-        { icon: <FlaskConical size={48} />, name: 'Science' },
-        { icon: <Calculator size={48} />, name: 'Maths' },
-        { icon: <Monitor size={48} />, name: 'IT' },
-        { icon: <Languages size={48} />, name: 'English' },
-    ];
-
-    const coursesData = [
-        { icon: <Palette size={48} />, name: 'Graphic Design' },
-        { icon: <Terminal size={48} />, name: 'Software Engineering' },
-        { icon: <Coffee size={48} />, name: 'Java for Beginner' },
-        { icon: <Layout size={48} />, name: 'Web Development' },
+    const levelsData = [
+        { 
+            name: 'Primary', 
+            description: 'Laying a strong foundation for lifelong learning with engaging and interactive content.',
+            icon: <BookOpen size={48} /> 
+        },
+        { 
+            name: 'Ordinary Level (O/L)', 
+            description: 'Comprehensive preparation designed to build confidence and ensure exam success.',
+            icon: <BookMarked size={48} /> 
+        },
+        { 
+            name: 'Advanced Level (A/L)', 
+            description: 'Specialized subject mastery to propel you towards your higher education goals.',
+            icon: <GraduationCap size={48} /> 
+        },
     ];
 
     return (
-        <section className="w-full bg-white">
-            {/* Top Tabs Bar */}
-            <div className="w-full border-t border-b border-gray-200">
-                <div className="flex justify-center space-x-12 py-4">
-                    {[{ key: 'advanced', label: 'Advanced Level' }, { key: 'courses', label: 'Courses' }].map((tab) => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`text-lg font-semibold transition-all relative ${activeTab === tab.key
-                                ? 'text-purple-900'
-                                : 'text-gray-500 hover:text-purple-900'
-                                }`}
-                        >
-                            {tab.label}
-                            {activeTab === tab.key && (
-                                <div className="absolute -bottom-[17px] left-0 right-0 h-0.5 border-b-2 border-purple-900"></div>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="container mx-auto px-4 py-16 text-center">
+        <section className="w-full bg-[#f9f8f4] py-20">
+            <div className="container mx-auto px-4 text-center max-w-6xl">
+                
                 {/* Heading */}
-                <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                <h2 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">
                     <span className="text-[#4a0b59]">Welcome to </span>
                     <span className="text-[#ed8936]">EduCat</span>
                     <span className="text-[#4a0b59]"> Learning Platform</span>
                 </h2>
 
                 {/* Placeholder Text */}
-                <div className="max-w-2xl mx-auto mb-16 text-gray-400 text-sm leading-relaxed">
-                    <p>
+                <div className="max-w-3xl mx-auto mb-16 text-gray-600 text-base md:text-lg leading-relaxed">
+                    <p className="mb-2">
                         Experience a transformation in your learning journey with world-class faculty and cutting-edge resources.
                     </p>
                     <p>
-                        We are dedicated to providing excellence in education and empowering students to achieve their dreams.
+                        We are dedicated to providing excellence in education and empowering students to achieve their dreams across all levels of study.
                     </p>
                 </div>
 
-                {/* Categories Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
-                    {(activeTab === 'advanced' ? advancedData : coursesData).map((category) => (
+                {/* Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {levelsData.map((level, index) => (
                         <div
-                            key={category.name}
-                            className="flex flex-col items-center group cursor-pointer"
+                            key={index}
+                            className="flex flex-col items-center p-10 bg-white rounded-3xl shadow-sm border border-gray-100 group cursor-pointer transition-all duration-300 hover:shadow-xl hover:border-[#ed8936]/50 hover:-translate-y-2 relative overflow-hidden"
                         >
-                            <div className="text-orange-500 mb-4 transition-transform group-hover:scale-110 duration-300">
-                                {category.icon}
+                            {/* Decorative background element */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#f9f8f4] rounded-bl-full -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-500 ease-out z-0"></div>
+
+                            <div className="text-[#ed8936] mb-6 transition-transform group-hover:scale-110 group-hover:text-[#4a0b59] duration-300 z-10 bg-[#fff5eb] p-5 rounded-2xl group-hover:bg-[#f3e8f5]">
+                                {level.icon}
                             </div>
-                            <h3 className="text-xl font-bold text-[#4a0b59]">
-                                {category.name}
+                            <h3 className="text-2xl font-bold text-[#4a0b59] mb-4 z-10">
+                                {level.name}
                             </h3>
+                            <p className="text-gray-500 leading-relaxed z-10">
+                                {level.description}
+                            </p>
                         </div>
                     ))}
                 </div>
+                
             </div>
         </section>
     );
