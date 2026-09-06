@@ -7,7 +7,7 @@ import path from 'path';
 import https from 'https';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { resourceStorage } from '../cloudinaryConfig.js';
-import path from 'path';
+
 
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
@@ -39,7 +39,7 @@ router.get('/courses', async (req, res) => {
                 const lessons = await query('SELECT * FROM lessons WHERE m_id = ? ORDER BY number ASC, id ASC', [mod.id]);
                 mod.lessons = [];
                 for (let les of lessons) {
-                    const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title, isVisible: les.isVisible !== 0 };
+                    const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title, month: les.month, isVisible: les.isVisible !== 0 };
                     const resources = await query('SELECT * FROM resources WHERE l_id = ? ORDER BY number ASC, id ASC', [les.id]);
                     mappedLesson.resources = resources.map(r => ({
                         id: r.id, title: r.name, type: r.type || 'pdf', url: r.link, isVisible: r.isVisible !== 0
@@ -92,19 +92,24 @@ router.post('/courses/upload-thumbnail', requireRole(['teacher', 'admin']), uplo
 // POST a new course
 router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("POST /courses req.body:", req.body);
-    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
+    const { name, title, grade, status, is_published, theme_color, thumbnail_url, students, progress, userId, monthly_fee } = req.body;
     try {
         const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [userId]);
         const actualTeacherId = tRes.length > 0 ? tRes[0].id : 0;
 
         const result = await query(
-            'INSERT INTO classes_courses (name, title, type, grade, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
+            'INSERT INTO classes_courses (name, title, grade, status, is_published, theme_color, thumbnail_url, students, modules, progress, t_id, monthly_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, title, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, students || 0, 0, progress || 0, actualTeacherId, monthly_fee || 0]
         );
         res.status(201).json({ id: result.insertId, ...req.body, t_id: actualTeacherId });
     } catch (err) {
         console.error('Error creating course:', err);
-        return res.status(500).json({ message: 'Server error' });
+        try {
+            fs.writeFileSync('./backend/error_create.log', `${new Date().toISOString()}\n${err.stack || err.message || String(err)}\n\n`);
+        } catch (fsErr) {
+            console.error('Failed to write error log file:', fsErr);
+        }
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
 
@@ -112,15 +117,15 @@ router.post('/courses', requireRole(['teacher', 'admin']), async (req, res) => {
 router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) => {
     console.log("PUT /courses/:id req.body:", req.body);
     const { id } = req.params;
-    const { name, title, type, grade, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
+    const { name, title, grade, status, is_published, theme_color, thumbnail_url, monthly_fee } = req.body;
     
     const updateQuery = `
         UPDATE classes_courses 
-        SET name = ?, title = ?, type = ?, grade = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
+        SET name = ?, title = ?, grade = ?, status = ?, is_published = ?, theme_color = ?, thumbnail_url = ?, monthly_fee = ?
         WHERE id = ?
     `;
     
-    const values = [name, title, type, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
+    const values = [name, title, grade || null, status, is_published ? 1 : 0, theme_color || 'purple', thumbnail_url, monthly_fee || 0, id];
     
 
 
@@ -129,10 +134,15 @@ router.put('/courses/:id', requireRole(['teacher', 'admin']), async (req, res) =
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Course not found' });
         }
-        res.status(200).json({ id: parseInt(id), name, title, type, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
+        res.status(200).json({ id: parseInt(id), name, title, grade, status, is_published, theme_color: theme_color || 'purple', thumbnail_url, monthly_fee });
     } catch (err) {
         console.error('Error updating course:', err);
-        return res.status(500).json({ message: 'Server error' });
+        try {
+            fs.writeFileSync('./backend/error_create.log', `${new Date().toISOString()}\n${err.stack || err.message || String(err)}\n\n`);
+        } catch (fsErr) {
+            console.error('Failed to write error log file:', fsErr);
+        }
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 });
 
@@ -279,10 +289,10 @@ router.delete('/modules/:id', requireRole(['teacher', 'admin']), async (req, res
 });
 
 router.post('/modules/:m_id/lessons', requireRole(['teacher', 'admin']), async (req, res) => {
-    const { title } = req.body;
+    const { title, month } = req.body;
     try {
-        const result = await query('INSERT INTO lessons (title, number, type, link, m_id) VALUES (?, ?, ?, ?, ?)', [title, 1, 'standard', '', req.params.m_id]);
-        res.status(201).json({ id: result.insertId, title, type: 'standard', link: '', number: 1, m_id: req.params.m_id, resources: [] });
+        const result = await query('INSERT INTO lessons (title, number, type, link, month, m_id) VALUES (?, ?, ?, ?, ?, ?)', [title, 1, 'standard', '', month || null, req.params.m_id]);
+        res.status(201).json({ id: result.insertId, title, type: 'standard', link: '', number: 1, month, m_id: req.params.m_id, resources: [] });
     } catch (err) {
         console.error('Error adding lesson:', err);
         res.status(500).json({ message: 'Error adding lesson' });
@@ -290,11 +300,12 @@ router.post('/modules/:m_id/lessons', requireRole(['teacher', 'admin']), async (
 });
 
 router.put('/lessons/:id', requireRole(['teacher', 'admin']), async (req, res) => {
-    const { title, isVisible } = req.body;
+    const { title, isVisible, month } = req.body;
     try {
         let updateQuery = 'UPDATE lessons SET ';
         const params = [];
         if (title !== undefined) { updateQuery += 'title = ?, '; params.push(title); }
+        if (month !== undefined) { updateQuery += 'month = ?, '; params.push(month); }
         if (isVisible !== undefined) { updateQuery += 'isVisible = ?, '; params.push(isVisible ? 1 : 0); }
         if (params.length === 0) return res.status(400).json({ message: 'Nothing to update' });
 
@@ -302,7 +313,7 @@ router.put('/lessons/:id', requireRole(['teacher', 'admin']), async (req, res) =
         params.push(req.params.id);
 
         await query(updateQuery, params);
-        res.status(200).json({ id: req.params.id, title, isVisible: isVisible ? true : false });
+        res.status(200).json({ id: req.params.id, title, month, isVisible: isVisible ? true : false });
     } catch (err) {
         console.error('Error updating lesson:', err);
         res.status(500).json({ message: 'Error updating lesson' });
@@ -451,7 +462,6 @@ router.get('/courses/search', async (req, res) => {
             c.id, 
             c.name AS class_name, 
             c.title AS subject, 
-            c.type, 
             c.grade,
             c.theme_color, 
             c.thumbnail_url, 

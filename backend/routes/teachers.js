@@ -10,9 +10,11 @@ const router = express.Router();
 // Get all teachers
 router.get('/teachers', (req, res) => {
     const sqlQuery = `
-        SELECT u.id, u.name, u.picture, u.email
+        SELECT u.id, u.name, u.picture, u.email, u.phone_number,
+               t.highest_qualification, t.university, t.experience_years
         FROM users u
         JOIN roles r ON u.role_id = r.id
+        LEFT JOIN teachers t ON u.id = t.user_id
         WHERE r.role_name = ?
     `;
 

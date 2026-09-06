@@ -14,6 +14,9 @@ const Admin_Settings = ({ userName, onLogout }) => {
     const [loading, setLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isSavingPassword, setIsSavingPassword] = useState(false);
+    
+    // Validation Error State
+    const [errors, setErrors] = useState({});
 
     // Profile State
     const [profileData, setProfileData] = useState({
@@ -44,37 +47,79 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
     const handleProfileChange = (e) => {
         setProfileData({ ...profileData, [e.target.name]: e.target.value });
+        // Clear specific error when user starts typing again
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: null });
+        }
     };
 
     const handlePasswordChange = (e) => {
         setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: null });
+        }
     };
 
-    const submitProfileUpdate = async (e) => {
-        e.preventDefault();
+    const validateProfile = () => {
+        const newErrors = {};
+        
+        // Name: Letters and spaces only, 2-50 characters
+        if (!/^[a-zA-Z\s]{2,50}$/.test(profileData.name.trim())) {
+            newErrors.name = "Name must be 2-50 characters and contain only letters.";
+        }
 
+        // Email: Standard email format
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.email)) {
+            newErrors.email = "Please enter a valid email address.";
+        }
+
+        // 🌟 UPDATED: +94 Phone Number Validation
+        const cleanPhone = profileData.phone_number.replace(/[\s-]/g, ''); // Removes any spaces or dashes
+        if (!/^\+94\d{9}$/.test(cleanPhone)) {
+            newErrors.phone_number = "Phone number must begin with +94 followed by 9 digits (e.g., +94771234567).";
+        }
+
+        // Address: Minimum length check
+        if (profileData.address.trim().length < 5) {
+            newErrors.address = "Address must be at least 5 characters long.";
+        }
+
+        // DOB: Past dates only, reasonable minimum year
         if (profileData.dob) {
             const birthDate = new Date(profileData.dob);
             const today = new Date();
             const minDate = new Date('1900-01-01');
+            
             if (birthDate >= today) {
-                alert("Date of birth must be in the past.");
-                return;
+                newErrors.dob = "Date of birth must be in the past.";
+            } else if (birthDate < minDate) {
+                newErrors.dob = "Date of birth must be after 1900.";
             }
-            if (birthDate < minDate) {
-                alert("Date of birth must be after 1900-01-01.");
-                return;
-            }
-            if (profileData.dob.split('-')[0].length !== 4) {
-                alert("Date of birth must have a valid 4-digit year.");
-                return;
-            }
+        } else {
+            newErrors.dob = "Date of birth is required.";
+        }
+
+        return newErrors;
+    };
+
+    const submitProfileUpdate = async (e) => {
+        e.preventDefault();
+        
+        const profileValidationErrors = validateProfile();
+        if (Object.keys(profileValidationErrors).length > 0) {
+            setErrors(profileValidationErrors);
+            return;
         }
 
         setIsSavingProfile(true);
         try {
-            // 🌟 THE FIX: Pass the profileData object directly to api.put
-            const response = await api.put(`/admin/profile/${adminId}`, profileData);
+            // 🌟 Clean the phone number before sending to the backend
+            const payload = {
+                ...profileData,
+                phone_number: profileData.phone_number.replace(/[\s-]/g, '')
+            };
+
+            const response = await api.put(`/admin/profile/${adminId}`, payload);
             const result = response.data;
             alert(result.message);
             if (result.success) {
@@ -89,16 +134,22 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
     const submitPasswordUpdate = async (e) => {
         e.preventDefault();
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            return alert("New passwords do not match!");
-        }
+        const newErrors = {};
+
         if (passwordData.newPassword.length < 6) {
-            return alert("Password must be at least 6 characters long.");
+            newErrors.newPassword = "Password must be at least 6 characters long.";
+        }
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            newErrors.confirmPassword = "New passwords do not match.";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
         }
 
         setIsSavingPassword(true);
         try {
-            // 🌟 THE FIX: Pass the raw object directly! No { body: JSON.stringify(...) } needed.
             const response = await api.put(`/admin/change-password/${adminId}`, {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword
@@ -107,6 +158,7 @@ const Admin_Settings = ({ userName, onLogout }) => {
             alert(result.message);
             if (result.success) {
                 setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setErrors({});
             }
         } catch (error) {
             alert(error.response?.data?.message || "Failed to update password.");
@@ -139,7 +191,7 @@ const Admin_Settings = ({ userName, onLogout }) => {
 
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                {/* Profile Details Column (Takes up 2/3) */}
+                {/* Profile Details Column */}
                 <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
                     <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center">
@@ -147,32 +199,62 @@ const Admin_Settings = ({ userName, onLogout }) => {
                         </h2>
                     </div>
                     
-                    <form onSubmit={submitProfileUpdate} className="p-8">
+                    <form onSubmit={submitProfileUpdate} className="p-8" noValidate>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
                                 <div className="relative">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input type="text" name="name" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.name} onChange={handleProfileChange} />
+                                    <input 
+                                        type="text" 
+                                        name="name" 
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.name ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
+                                        value={profileData.name} 
+                                        onChange={handleProfileChange} 
+                                    />
                                 </div>
+                                {errors.name && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.name}</p>}
                             </div>
+                            
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input type="email" name="email" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.email} onChange={handleProfileChange} />
+                                    <input 
+                                        type="email" 
+                                        name="email" 
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.email ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
+                                        value={profileData.email} 
+                                        onChange={handleProfileChange} 
+                                    />
                                 </div>
+                                {errors.email && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.email}</p>}
                             </div>
+                            
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input type="text" name="phone_number" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.phone_number} onChange={handleProfileChange} />
+                                    <input 
+                                        type="text" 
+                                        name="phone_number" 
+                                        placeholder="+947xxxxxxxx"
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.phone_number ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
+                                        value={profileData.phone_number} 
+                                        onChange={handleProfileChange} 
+                                    />
                                 </div>
+                                {errors.phone_number && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.phone_number}</p>}
                             </div>
+                            
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
-                                <select name="gender" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700 cursor-pointer" value={profileData.gender} onChange={handleProfileChange}>
+                                <select 
+                                    name="gender" 
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700 cursor-pointer" 
+                                    value={profileData.gender} 
+                                    onChange={handleProfileChange}
+                                >
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
                                     <option value="Other">Other</option>
@@ -188,21 +270,29 @@ const Admin_Settings = ({ userName, onLogout }) => {
                                     <input 
                                         type="date" 
                                         name="dob" 
-                                        required 
                                         min="1900-01-01"
                                         max={new Date().toISOString().split('T')[0]}
-                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium text-gray-700" 
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium text-gray-700 ${errors.dob ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
                                         value={profileData.dob} 
                                         onChange={handleProfileChange} 
                                     />
                                 </div>
+                                {errors.dob && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.dob}</p>}
                             </div>
+                            
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
                                 <div className="relative">
                                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input type="text" name="address" required className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-100 font-medium" value={profileData.address} onChange={handleProfileChange} />
+                                    <input 
+                                        type="text" 
+                                        name="address" 
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.address ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-purple-100'}`} 
+                                        value={profileData.address} 
+                                        onChange={handleProfileChange} 
+                                    />
                                 </div>
+                                {errors.address && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.address}</p>}
                             </div>
                         </div>
 
@@ -214,7 +304,7 @@ const Admin_Settings = ({ userName, onLogout }) => {
                     </form>
                 </div>
 
-                {/* Security Column (Takes up 1/3) */}
+                {/* Security Column */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-fit">
                     <div className="p-6 border-b border-gray-100 bg-red-50/30">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center">
@@ -222,18 +312,42 @@ const Admin_Settings = ({ userName, onLogout }) => {
                         </h2>
                     </div>
 
-                    <form onSubmit={submitPasswordUpdate} className="p-8 space-y-5">
+                    <form onSubmit={submitPasswordUpdate} className="p-8 space-y-5" noValidate>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Password</label>
-                            <input type="password" name="currentPassword" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.currentPassword} onChange={handlePasswordChange} />
+                            <input 
+                                type="password" 
+                                name="currentPassword" 
+                                required 
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" 
+                                placeholder="••••••••" 
+                                value={passwordData.currentPassword} 
+                                onChange={handlePasswordChange} 
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">New Password</label>
-                            <input type="password" name="newPassword" required minLength="6" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.newPassword} onChange={handlePasswordChange} />
+                            <input 
+                                type="password" 
+                                name="newPassword" 
+                                className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.newPassword ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-red-100'}`} 
+                                placeholder="••••••••" 
+                                value={passwordData.newPassword} 
+                                onChange={handlePasswordChange} 
+                            />
+                            {errors.newPassword && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.newPassword}</p>}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Confirm New Password</label>
-                            <input type="password" name="confirmPassword" required minLength="6" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium" placeholder="••••••••" value={passwordData.confirmPassword} onChange={handlePasswordChange} />
+                            <input 
+                                type="password" 
+                                name="confirmPassword" 
+                                className={`w-full px-4 py-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 font-medium ${errors.confirmPassword ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:ring-red-100'}`} 
+                                placeholder="••••••••" 
+                                value={passwordData.confirmPassword} 
+                                onChange={handlePasswordChange} 
+                            />
+                            {errors.confirmPassword && <p className="text-xs text-red-500 mt-1 font-semibold">{errors.confirmPassword}</p>}
                         </div>
 
                         <div className="pt-4">

@@ -140,6 +140,74 @@ router.post('/student-chat/send-message', async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
+        // --- BLOCK CHECK VALIDATION ---
+        const blockCheck = await query(`
+            SELECT blocker_id FROM blocked_users 
+            WHERE (blocker_id = ? AND blocked_id = ?) 
+               OR (blocker_id = ? AND blocked_id = ?)
+        `, [senderId, receiverId, receiverId, senderId]);
+
+        if (blockCheck.length > 0) {
+            const hasBlocked = blockCheck.some(b => b.blocker_id === parseInt(senderId));
+            return res.status(403).json({ 
+                success: false, 
+                message: hasBlocked 
+                    ? "You have blocked this user. Unblock to message." 
+                    : "You cannot message this user." 
+            });
+        }
+        // --- END OF BLOCK CHECK ---
+
+        // --- SECURITY VALIDATION FOR STUDENTS ---
+        const senderQuery = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ?
+        `, [senderId]);
+        
+        const isStudent = senderQuery.length > 0 && senderQuery[0].role_name.toLowerCase().trim() === 'student';
+        
+        if (isStudent) {
+            const receiverQuery = await query(`
+                SELECT r.role_name 
+                FROM users u 
+                JOIN roles r ON u.role_id = r.id 
+                WHERE u.id = ?
+            `, [receiverId]);
+            
+            if (receiverQuery.length > 0) {
+                const receiverRole = receiverQuery[0].role_name.toLowerCase().trim();
+                
+                if (receiverRole === 'teacher') {
+                    const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [senderId]);
+                    const studentId = studentRes[0]?.id;
+                    
+                    const enrollCheck = await query(`
+                        SELECT e.id 
+                        FROM enrollments e
+                        JOIN classes_courses c ON e.c_id = c.id
+                        JOIN teachers t ON c.t_id = t.id
+                        WHERE e.s_id = ? AND t.user_id = ?
+                    `, [studentId || 0, receiverId]);
+                    
+                    if (enrollCheck.length === 0) {
+                        return res.status(403).json({ success: false, message: "You are not authorized to message this teacher. You must be enrolled in one of their courses." });
+                    }
+                } else if (receiverRole === 'admin') {
+                    const requestCheck = await query(`
+                        SELECT status FROM chat_requests 
+                        WHERE student_id = ? AND admin_id = ? AND status = 'approved'
+                    `, [senderId, receiverId]);
+                    
+                    if (requestCheck.length === 0) {
+                        return res.status(403).json({ success: false, message: "You are not authorized to message this admin. You must submit a request and wait for approval." });
+                    }
+                }
+            }
+        }
+        // --- END OF SECURITY VALIDATION ---
+
         const convQuery = await query(`
             SELECT id FROM conversations 
             WHERE (participant1_id = ? AND participant2_id = ?) 
@@ -176,23 +244,102 @@ router.post('/student-chat/send-message', async (req, res) => {
     }
 });
 
-// 4. Fetch contacts to start a new chat (Teachers & Admins ONLY)
+// 4. Fetch contacts to start a new chat (Restricted: Enrolled teachers & Admins with approval status)
 router.get('/student-chat/contacts', async (req, res) => {
     try {
         const userId = req.session.userId;
         if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
 
-        const contacts = await query(`
-            SELECT u.id as user_id, u.name, u.picture, r.role_name
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ?', [userId]);
+        const studentId = studentRes[0]?.id;
+
+        let teachers = [];
+        if (studentId) {
+            teachers = await query(`
+                SELECT DISTINCT u.id as user_id, u.name, u.picture, r.role_name, NULL as chat_status, NULL as request_id
+                FROM enrollments e
+                JOIN classes_courses c ON e.c_id = c.id
+                JOIN teachers t ON c.t_id = t.id
+                JOIN users u ON t.user_id = u.id
+                JOIN roles r ON u.role_id = r.id
+                WHERE e.s_id = ? AND u.id != ?
+            `, [studentId, userId]);
+        }
+
+        const admins = await query(`
+            SELECT u.id as user_id, u.name, u.picture, r.role_name, cr.status as chat_status, cr.id as request_id
             FROM users u
             JOIN roles r ON u.role_id = r.id
-            WHERE u.id != ? AND r.role_name IN ('teacher', 'admin')
-            ORDER BY r.role_name, u.name ASC
-        `, [userId]);
+            LEFT JOIN chat_requests cr ON cr.admin_id = u.id AND cr.student_id = ?
+            WHERE r.role_name = 'admin' AND u.id != ?
+        `, [userId, userId]);
+
+        const contacts = [...teachers, ...admins];
+        contacts.sort((a, b) => {
+            if (a.role_name !== b.role_name) {
+                return a.role_name.localeCompare(b.role_name);
+            }
+            return a.name.localeCompare(b.name);
+        });
 
         res.status(200).json({ success: true, data: contacts });
     } catch (error) {
         console.error("Contacts fetch error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 5. Send message request to an Admin
+router.post('/student-chat/request-access', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const { adminId, message } = req.body;
+        if (!adminId) return res.status(400).json({ success: false, message: "adminId is required." });
+
+        const adminCheck = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ? AND r.role_name = 'admin'
+        `, [adminId]);
+
+        if (adminCheck.length === 0) {
+            return res.status(400).json({ success: false, message: "Recipient is not an admin." });
+        }
+
+        await query(`
+            INSERT INTO chat_requests (student_id, admin_id, status, message)
+            VALUES (?, ?, 'pending', ?)
+            ON DUPLICATE KEY UPDATE status = 'pending', message = ?, updated_at = CURRENT_TIMESTAMP
+        `, [userId, adminId, message || null, message || null]);
+
+        const studentQuery = await query('SELECT name FROM users WHERE id = ?', [userId]);
+        const studentName = studentQuery[0]?.name || 'A student';
+        const notifTitle = 'Chat Request';
+        const notifDesc = `${studentName} has requested access to message you.`;
+
+        const insertRes = await query(`
+            INSERT INTO notifications (user_id, title, description, is_read)
+            VALUES (?, ?, ?, FALSE)
+        `, [adminId, notifTitle, notifDesc]);
+
+        if (req.io) {
+            req.io.to(`user_${adminId}`).emit('new_notification', {
+                id: insertRes.insertId,
+                title: notifTitle,
+                description: notifDesc,
+                user_id: adminId,
+                is_read: 0,
+                created_at: new Date()
+            });
+            req.io.to(`user_${adminId}`).emit('chat_requests_updated');
+        }
+
+        res.status(200).json({ success: true, message: "Chat request sent successfully!" });
+    } catch (error) {
+        console.error("Chat request error:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
@@ -259,6 +406,82 @@ router.put('/chat/mark-notifications-read', async (req, res) => {
         res.status(200).json({ success: true, message: "Chat notifications marked as read" });
     } catch (error) {
         console.error("Error marking chat notifications as read:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 6. Block a user
+router.post('/chat/block', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const { blockedId } = req.body;
+        if (!blockedId) return res.status(400).json({ success: false, message: "blockedId is required." });
+
+        if (parseInt(userId) === parseInt(blockedId)) {
+            return res.status(400).json({ success: false, message: "You cannot block yourself." });
+        }
+
+        await query(`
+            INSERT INTO blocked_users (blocker_id, blocked_id)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE blocker_id = blocker_id
+        `, [userId, blockedId]);
+
+        res.status(200).json({ success: true, message: "User blocked successfully!" });
+    } catch (error) {
+        console.error("Block user error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 7. Unblock a user
+router.post('/chat/unblock', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const { blockedId } = req.body;
+        if (!blockedId) return res.status(400).json({ success: false, message: "blockedId is required." });
+
+        await query(`
+            DELETE FROM blocked_users 
+            WHERE blocker_id = ? AND blocked_id = ?
+        `, [userId, blockedId]);
+
+        res.status(200).json({ success: true, message: "User unblocked successfully!" });
+    } catch (error) {
+        console.error("Unblock user error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+// 8. Check blocked status
+router.get('/chat/check-blocked/:otherUserId', async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        const { otherUserId } = req.params;
+
+        const result = await query(`
+            SELECT blocker_id, blocked_id 
+            FROM blocked_users 
+            WHERE (blocker_id = ? AND blocked_id = ?) 
+               OR (blocker_id = ? AND blocked_id = ?)
+        `, [userId, otherUserId, otherUserId, userId]);
+
+        const isBlockedByMe = result.some(r => r.blocker_id === parseInt(userId));
+        const isBlockedByThem = result.some(r => r.blocker_id === parseInt(otherUserId));
+
+        res.status(200).json({ 
+            success: true, 
+            isBlockedByMe, 
+            isBlockedByThem 
+        });
+    } catch (error) {
+        console.error("Check blocked status error:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });

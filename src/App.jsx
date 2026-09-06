@@ -8,10 +8,12 @@ import api from './api';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import WelcomeSection from './components/WelcomeSection';
+import AboutSection from './components/AboutSection';
 import LatestUpdates from './components/LatestUpdates';
 import MeetTeachers from './components/MeetTeachers';
 import StatsCTA from './components/StatsCTA';
 import Footer from './components/Footer';
+import FAQ from './components/FAQ';
 
 // Page Imports
 import Login from './pages/Login';
@@ -20,6 +22,7 @@ import Teachers from './pages/Teachers';
 import Admin from './pages/Admin_dashboard';
 import SubAdmin_dashboard from './pages/SubAdmin_dashboard';
 import Admin_Payouts from './pages/Admin_Payouts';
+import Admin_StaffPayouts from './pages/Admin_StaffPayouts';
 import TeacherDashboard from './pages/Teacher_dashboard';
 import Student from './pages/Student_dashboard';
 import TeacherProfileEdit from './pages/TeacherProfileEdit';
@@ -44,6 +47,7 @@ import Admin_Communications from './pages/Admin_Communications';
 import Admin_Escalations from './pages/Admin_Escalations';
 import AssignmentSubmissionPage from './pages/AssignmentSubmissionPage';
 import Admin_SlipApprovals from './pages/Admin_SlipApprovals';
+import ContactUs from './pages/ContactUs';
 
 // Home Page Component
 const HomePage = ({ userRole, userName, onLogout }) => {
@@ -52,6 +56,7 @@ const HomePage = ({ userRole, userName, onLogout }) => {
       <Header userRole={userRole} userName={userName} onLogout={onLogout} />
       <Hero />
       <WelcomeSection />
+      <AboutSection />
       <LatestUpdates />
       <MeetTeachers />
       <StatsCTA />
@@ -97,7 +102,13 @@ function App() {
           const safeRole = String(data.userRole || '').toLowerCase().trim();
           setUserRole(safeRole);
           setUserName(data.userName);
-          if (data.adminLevel) setAdminLevel(data.adminLevel);
+          
+          // 🌟 THE FIX: Securely cache admin level state
+          if (data.adminLevel) {
+            setAdminLevel(data.adminLevel);
+            localStorage.setItem('adminLevel', data.adminLevel);
+          }
+          
           if (data.userPicture) {
             setUserPicture(data.userPicture);
             localStorage.setItem('userPicture', data.userPicture);
@@ -201,6 +212,24 @@ function App() {
           <Route path="/" element={<HomePage userRole={userRole} userName={userName} onLogout={handleLogout} />} />
 
           <Route
+            path="/faq"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <FAQ />
+              </MainLayout>
+            }
+          />
+
+          <Route
+            path="/contact"
+            element={
+              <MainLayout userRole={userRole} userName={userName} onLogout={handleLogout}>
+                <ContactUs userRole={userRole} userName={userName} onLogout={handleLogout} />
+              </MainLayout>
+            }
+          />
+
+          <Route
             path="/login"
             element={<Login setUserRole={setUserRole} setUserName={setUserName} setUserPicture={setUserPicture} setAdminLevel={setAdminLevel} userName={userName} />}
           />
@@ -225,15 +254,15 @@ function App() {
             element={userRole === 'teacher' ? <VerifyTeacher /> : <Navigate to="/" />}
           />
 
-          {/* Protected Route: Admin Traffic Cop */}
+          {/* 🌟 PROTECTED ROUTE: Master Admin Traffic Cop */}
           <Route
             path="/admin"
             element={
               userRole === 'admin' ? (
-                adminLevel === 'sub' ? (
-                  <SubAdmin_dashboard userName={userName} onLogout={handleLogout} />
-                ) : (
+                adminLevel === 'super' ? (
                   <Admin userName={userName} onLogout={handleLogout} />
+                ) : (
+                  <SubAdmin_dashboard userName={userName} adminLevel={adminLevel} onLogout={handleLogout} />
                 )
               ) : (
                 <Navigate to="/" />
@@ -241,84 +270,30 @@ function App() {
             }
           />
 
-          <Route
-            path="/admin/teachers"
-            element={userRole === 'admin' ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
+          {/* 🌟 MODERATOR & SUPER ADMIN ONLY ROUTES */}
+          <Route path="/admin/teachers" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_Teachers userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/teacher-analytics/:id" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_TeacherAnalytics userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/review-teacher/:id" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/students" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/student-profile/:id" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_StudentProfile userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/promos" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/advertisements" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/courses" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/announcements" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'moderator') ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
 
-          <Route
-            path="/admin/teacher-analytics/:id"
-            element={userRole === 'admin' ? <Admin_TeacherAnalytics userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
+          {/* 🌟 FINANCE & SUPER ADMIN ONLY ROUTES */}
+          <Route path="/admin/payouts" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'finance') ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/slips" element={userRole === 'admin' && (adminLevel === 'super' || adminLevel === 'finance') ? <Admin_SlipApprovals /> : <Navigate to="/admin" />} />
 
-          <Route
-            path="/admin/review-teacher/:id"
-            element={userRole === 'admin' ? <TeacherReview userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
+          {/* 🌟 SUPER ADMIN EXCLUSIVE ROUTES */}
+          <Route path="/admin/staff-payroll" element={userRole === 'admin' && adminLevel === 'super' ? <Admin_StaffPayouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/team" element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Team userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/system-logs" element={userRole === 'admin' && adminLevel === 'super' ? <Admin_SystemLogs userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
+          <Route path="/admin/escalations" element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Escalations userName={userName} onLogout={handleLogout} /> : <Navigate to="/admin" />} />
 
-          {/* Admin Payouts Route */}
-          <Route
-            path="/admin/payouts"
-            element={userRole === 'admin' ? <Admin_Payouts userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/slips"
-            element={userRole === 'admin' ? <Admin_SlipApprovals /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/students"
-            element={userRole === 'admin' ? <Admin_Students userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/student-profile/:id"
-            element={userRole === 'admin' ? <Admin_StudentProfile userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/promos"
-            element={userRole === 'admin' ? <Admin_PromoCodes userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/advertisements"
-            element={userRole === 'admin' ? <Admin_Advertisements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/courses"
-            element={userRole === 'admin' ? <Admin_Courses userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/announcements"
-            element={userRole === 'admin' ? <Admin_Announcements userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/team"
-            element={userRole === 'admin' ? <Admin_Team userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/settings"
-            element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-
-          <Route
-            path="/admin/system-logs"
-            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_SystemLogs userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/communications"
-            element={userRole === 'admin' ? <Admin_Communications userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/escalations"
-            element={userRole === 'admin' && adminLevel === 'super' ? <Admin_Escalations userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />}
-          />
+          {/* 🌟 UNIVERSAL ADMIN ROUTES (Settings & Comms) */}
+          <Route path="/admin/settings" element={userRole === 'admin' ? <Admin_Settings userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />} />
+          <Route path="/admin/communications" element={userRole === 'admin' ? <Admin_Communications userName={userName} onLogout={handleLogout} /> : <Navigate to="/" />} />
 
           {/* Teacher */}
           <Route path="/teacher" element={
