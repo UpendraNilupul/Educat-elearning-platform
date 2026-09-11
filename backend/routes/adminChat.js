@@ -157,7 +157,7 @@ router.post('/admin-chat/send-message', async (req, res) => {
     }
 });
 
-// 4. Fetch contacts to start a new chat (Teachers & Students)
+// 4. Fetch contacts to start a new chat (Teachers, Students & Staff)
 router.get('/admin-chat/contacts', async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -167,7 +167,7 @@ router.get('/admin-chat/contacts', async (req, res) => {
             SELECT u.id as user_id, u.name, u.picture, r.role_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
-            WHERE u.id != ? AND r.role_name IN ('teacher', 'student')
+            WHERE u.id != ? AND r.role_name IN ('teacher', 'student', 'admin')
             ORDER BY r.role_name, u.name ASC
         `, [userId]);
 

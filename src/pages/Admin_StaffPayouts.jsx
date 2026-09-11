@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, CheckCircle, Clock, Edit2, ArrowLeft, CreditCard, History, X, Save } from 'lucide-react';
+import { Briefcase, CheckCircle, Clock, Edit2, ArrowLeft, CreditCard, History, X, Save, Download, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
@@ -17,6 +17,10 @@ const Admin_StaffPayouts = () => {
     // Modals
     const [paymentModal, setPaymentModal] = useState({ isOpen: false, payout: null, amount: '', note: '' });
     const [historyModal, setHistoryModal] = useState({ isOpen: false, payout: null, transactions: [], loading: false });
+    
+    // 🌟 NEW: Reporting Modal for Staff Payouts
+    const [reportModal, setReportModal] = useState({ isOpen: false, type: 'staff_manifest', timeframe: 'all', customDate: '' });
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const fetchPayouts = async () => {
         setLoading(true);
@@ -97,24 +101,70 @@ const Admin_StaffPayouts = () => {
         }
     };
 
+    // 🌟 NEW: Download Logic
+    const downloadReport = async () => {
+        if (reportModal.timeframe === 'custom_month' && !reportModal.customDate) return alert("Please select a month.");
+        if (reportModal.timeframe === 'custom_year' && !reportModal.customDate) return alert("Please enter a year.");
+
+        setIsDownloading(true);
+        try {
+            const urlReq = `/admin/export/finance?type=${reportModal.type}&timeframe=${reportModal.timeframe}&customDate=${reportModal.customDate}`;
+            const response = await api.get(urlReq, { responseType: 'blob' });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            
+            const dateStr = new Date().toISOString().split('T')[0];
+            link.setAttribute('download', `Educat_${reportModal.type}_report_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            
+            setReportModal({ isOpen: false, type: 'staff_manifest', timeframe: 'all', customDate: '' });
+        } catch (error) {
+            alert("Failed to download report. Ensure you have Super Admin privileges.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <div className="p-8 font-sans bg-gray-50 min-h-screen relative">
             <div className="flex justify-between items-end mb-8">
                 <div>
-                    <button onClick={() => navigate('/admin')} className="flex items-center text-gray-500 hover:text-[#4a0b59] font-bold mb-4 transition-colors">
-                        <ArrowLeft size={20} className="mr-2" /> Back to Dashboard
-                    </button>
+                    <div className="flex items-center space-x-4 mb-4">
+                        <button onClick={() => navigate(-1)} className="flex items-center text-gray-500 hover:text-[#4a0b59] font-bold transition-colors">
+                            <ArrowLeft size={20} className="mr-2" /> Go Back
+                        </button>
+                        <span className="text-gray-300 font-bold">|</span>
+                        <button onClick={() => navigate('/admin')} className="flex items-center text-gray-500 hover:text-[#4a0b59] font-bold transition-colors">
+                            Dashboard
+                        </button>
+                    </div>
                     <h1 className="text-3xl font-black text-gray-900">Staff Payroll</h1>
                     <p className="text-gray-500 mt-1">Manage monthly salaries and process payments for Sub-Admins.</p>
                 </div>
-                <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
-                    <label className="text-xs font-bold text-gray-400 uppercase mr-3">Select Month:</label>
-                    <input 
-                        type="month" 
-                        value={selectedMonth} 
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="outline-none font-bold text-[#4a0b59] bg-transparent cursor-pointer"
-                    />
+                
+                <div className="flex items-center space-x-4">
+                    {/* 🌟 NEW: Report Button */}
+                    <button 
+                        onClick={() => setReportModal({ ...reportModal, isOpen: true })}
+                        className="flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl font-bold hover:bg-blue-100 transition-colors shadow-sm"
+                    >
+                        <Download size={18} className="mr-2" /> Generate Reports
+                    </button>
+
+                    {/* Month Picker */}
+                    <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
+                        <label className="text-xs font-bold text-gray-400 uppercase mr-3">Select Month:</label>
+                        <input 
+                            type="month" 
+                            value={selectedMonth} 
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="outline-none font-bold text-[#4a0b59] bg-transparent cursor-pointer"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -229,6 +279,95 @@ const Admin_StaffPayouts = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* 🌟 NEW: REPORTS MODAL */}
+            {reportModal.isOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-blue-50/50">
+                            <h3 className="text-lg font-bold text-blue-900 flex items-center">
+                                <FileText className="mr-2 text-blue-600" size={20} /> Export Staff Reports
+                            </h3>
+                            <button onClick={() => setReportModal({ ...reportModal, isOpen: false, customDate: '' })} className="text-gray-400 hover:text-gray-700">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Report Document</label>
+                                <select 
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 font-medium text-gray-800"
+                                    value={reportModal.type}
+                                    onChange={(e) => setReportModal({ ...reportModal, type: e.target.value })}
+                                >
+                                    <option value="staff_manifest">Bank Transfer Manifest (Pending Payouts)</option>
+                                    <option value="staff_payouts">Staff Payment Ledger (Outflows)</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {reportModal.type === 'staff_manifest' && "Use this document to instruct the finance manager exactly who to pay and how much today."}
+                                    {reportModal.type === 'staff_payouts' && "A historical ledger of every individual payout processed to staff by the administration."}
+                                </p>
+                            </div>
+
+                            {reportModal.type !== 'staff_manifest' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Timeframe</label>
+                                    <select 
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 font-medium text-gray-800"
+                                        value={reportModal.timeframe}
+                                        onChange={(e) => setReportModal({ ...reportModal, timeframe: e.target.value, customDate: '' })}
+                                    >
+                                        <option value="all">Lifetime (All Time)</option>
+                                        <option value="yearly">This Year</option>
+                                        <option value="monthly">This Month</option>
+                                        <option value="weekly">Last 7 Days</option>
+                                        <option value="custom_month">Specific Month</option>
+                                        <option value="custom_year">Specific Year</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Dynamic Inputs for Custom Timeframes */}
+                            {(reportModal.timeframe === 'custom_month' || reportModal.timeframe === 'custom_year') && reportModal.type !== 'staff_manifest' && (
+                                <div className="animate-in fade-in">
+                                    <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
+                                        {reportModal.timeframe === 'custom_month' ? 'Select Month' : 'Enter Year'}
+                                    </label>
+                                    {reportModal.timeframe === 'custom_month' ? (
+                                        <input 
+                                            type="month" 
+                                            className="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-300 font-bold text-blue-800"
+                                            value={reportModal.customDate}
+                                            onChange={(e) => setReportModal({ ...reportModal, customDate: e.target.value })}
+                                        />
+                                    ) : (
+                                        <input 
+                                            type="number" 
+                                            min="2020" 
+                                            max="2100" 
+                                            placeholder="e.g. 2026"
+                                            className="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-300 font-bold text-blue-800"
+                                            value={reportModal.customDate}
+                                            onChange={(e) => setReportModal({ ...reportModal, customDate: e.target.value })}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="pt-4 border-t border-gray-100">
+                                <button 
+                                    onClick={downloadReport}
+                                    disabled={isDownloading}
+                                    className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition-all flex items-center justify-center disabled:opacity-50"
+                                >
+                                    {isDownloading ? 'Generating...' : <><Download size={18} className="mr-2" /> Download CSV Report</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* PAYMENT MODAL */}
             {paymentModal.isOpen && (
