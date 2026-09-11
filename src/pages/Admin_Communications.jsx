@@ -429,7 +429,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                             className="flex items-center w-full p-3 space-x-4 text-left transition-all bg-white border border-gray-100 group rounded-xl hover:shadow-md"
                                         >
                                             <div className="flex items-center justify-center font-bold text-[#4a0b59] overflow-hidden shrink-0 w-12 h-12 bg-purple-100 rounded-full">
-                                                {contact.picture ? <img src={`http://localhost:3000/uploads/${contact.picture}`} alt="Avatar" className="object-cover w-full h-full" /> : contact.name.charAt(0)}
+                                                {contact.picture ? <img src={`${baseURL}/uploads/${contact.picture}`} alt="Avatar" className="object-cover w-full h-full" /> : contact.name.charAt(0)}
                                             </div>
                                             <div className="flex-1 overflow-hidden">
                                                 <h4 className="font-bold text-gray-900 truncate">{contact.name}</h4>
@@ -457,7 +457,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                                 className={`w-full p-4 border rounded-2xl transition-all flex items-center space-x-4 text-left group ${activeChat?.conversation_id === chat.conversation_id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-gray-100 hover:shadow-md'}`}
                                             >
                                                 <div className="flex items-center justify-center font-bold text-[#4a0b59] overflow-hidden shrink-0 w-12 h-12 bg-purple-100 rounded-full">
-                                                    {chat.other_user_picture ? <img src={`http://localhost:3000/uploads/${chat.other_user_picture}`} alt="Avatar" className="object-cover w-full h-full" /> : chat.other_user_name.charAt(0)}
+                                                    {chat.other_user_picture ? <img src={`${baseURL}/uploads/${chat.other_user_picture}`} alt="Avatar" className="object-cover w-full h-full" /> : chat.other_user_name.charAt(0)}
                                                 </div>
                                                 <div className="flex items-center justify-between flex-1 overflow-hidden">
                                                     <div className="flex-1 min-w-0">
@@ -498,7 +498,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                             <ArrowLeft size={20} />
                                         </button>
                                         <div className="flex items-center justify-center font-bold text-[#4a0b59] overflow-hidden shrink-0 w-12 h-12 bg-purple-100 rounded-full">
-                                            {activeChat.other_user_picture ? <img src={`http://localhost:3000/uploads/${activeChat.other_user_picture}`} alt="Avatar" className="object-cover w-full h-full" /> : activeChat.other_user_name.charAt(0)}
+                                            {activeChat.other_user_picture ? <img src={`${baseURL}/uploads/${activeChat.other_user_picture}`} alt="Avatar" className="object-cover w-full h-full" /> : activeChat.other_user_name.charAt(0)}
                                         </div>
                                         <div>
                                             <h3 className="text-lg font-bold leading-tight text-gray-900">{activeChat.other_user_name}</h3>
@@ -674,7 +674,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
                                                 <div className="flex items-center space-x-4 mb-4">
                                                     <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
                                                         {req.student_picture ? (
-                                                            <img src={`http://localhost:3000/uploads/${req.student_picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                            <img src={`${baseURL}/uploads/${req.student_picture}`} alt="Avatar" className="w-full h-full object-cover" />
                                                         ) : (
                                                             req.student_name.charAt(0)
                                                         )}

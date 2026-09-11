@@ -144,7 +144,7 @@ const Admin_Courses = ({ userName, onLogout }) => {
                                         <td className="p-4">
                                             <div className="flex items-center space-x-2">
                                                 <img 
-                                                    src={course.teacher_picture ? `http://localhost:3000/uploads/${course.teacher_picture}` : `https://ui-avatars.com/api/?name=${course.teacher_name}&background=random`} 
+                                                    src={course.teacher_picture ? `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000'}/uploads/${course.teacher_picture}` : `https://ui-avatars.com/api/?name=${course.teacher_name}&background=random`} 
                                                     alt="Avatar" 
                                                     className="w-6 h-6 rounded-full object-cover" 
                                                 />

@@ -123,7 +123,10 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
       try {
         const id = localStorage.getItem('userId');
         if (!id) return;
-        const response = await fetch(`http://localhost:3000/api/teachers/${id}/dashboard-stats`);
+        const API_BASE = import.meta.env.VITE_API_URL 
+          ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+          : 'http://localhost:3000';
+        const response = await fetch(`${API_BASE}/api/teachers/${id}/dashboard-stats`);
         if (response.ok) {
           const data = await response.json();
           setDashboardStats(data);
@@ -212,7 +215,7 @@ const TeacherDashboard = ({ userName = "Teacher", userPicture = "", onLogout }) 
           <div className="flex items-center gap-3 mb-3">
             {userPicture ? (
               <img
-                src={userPicture.startsWith('http') ? userPicture : `http://localhost:3000/uploads/profiles/${userPicture}`}
+                src={userPicture.startsWith('http') ? userPicture : `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000'}/uploads/profiles/${userPicture}`}
                 alt="Profile"
                 className="w-10 h-10 rounded-full object-cover border-2 border-purple-100 shadow-sm"
               />

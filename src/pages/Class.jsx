@@ -32,9 +32,13 @@ const getYouTubeEmbedUrl = (url) => {
     return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
 };
 
+const API_BASE = import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+    : 'http://localhost:3000';
+
 const getResourceDownloadUrl = (resource) => {
     if (resource.link && resource.link.includes('res.cloudinary.com') && resource.link.includes('/raw/upload/')) {
-        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.link)}&name=${encodeURIComponent(resource.name)}`;
+        return `${API_BASE}/api/resources/download?url=${encodeURIComponent(resource.link)}&name=${encodeURIComponent(resource.name)}`;
     }
     return resource.link;
 };

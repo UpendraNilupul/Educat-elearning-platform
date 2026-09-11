@@ -92,9 +92,13 @@ const Admin_Teachers = ({ userName, onLogout }) => {
         }
     };
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     // 🌟 Trigger CSV Download (Keep this as a full URL for window.open)
     const handleExportCSV = () => {
-        window.open('http://localhost:3000/api/admin/export/teachers', '_blank');
+        window.open(`${API_BASE}/api/admin/export/teachers`, '_blank');
     };
 
     return (
@@ -175,7 +179,7 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                                         <td className="p-4">
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0">
-                                                    {teacher.picture ? <img src={`http://localhost:3000/uploads/${teacher.picture}`} alt="Avatar" className="w-full h-full rounded-full object-cover" /> : teacher.name.charAt(0)}
+                                                    {teacher.picture ? <img src={`${API_BASE}/uploads/${teacher.picture}`} alt="Avatar" className="w-full h-full rounded-full object-cover" /> : teacher.name.charAt(0)}
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-gray-900">
@@ -237,7 +241,7 @@ const Admin_Teachers = ({ userName, onLogout }) => {
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0 overflow-hidden">
-                            {chatUser?.picture ? <img src={`http://localhost:3000/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
+                            {chatUser?.picture ? <img src={`${API_BASE}/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
                         </div>
                         <div>
                             <h3 className="font-bold text-gray-900 leading-tight">{chatUser?.name}</h3>

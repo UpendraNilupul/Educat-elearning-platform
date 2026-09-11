@@ -36,8 +36,10 @@ const StatsCTA = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-                const response = await fetch(`${API_URL}/api/public/stats`);
+                const API_BASE = import.meta.env.VITE_API_URL 
+                    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+                    : 'http://localhost:3000';
+                const response = await fetch(`${API_BASE}/api/public/stats`);
                 const data = await response.json();
                 setRealStats(data);
             } catch (error) {

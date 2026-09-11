@@ -19,6 +19,10 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
     const [chatMessage, setChatMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
@@ -132,7 +136,7 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                     <div className="flex items-center space-x-6">
                         <div className="w-24 h-24 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 font-black text-4xl shrink-0 overflow-hidden">
                             {profile.picture ? (
-                                <img src={`http://localhost:3000/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                <img src={`${API_BASE}/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" />
                             ) : profile.name.charAt(0)}
                         </div>
                         <div>
@@ -269,7 +273,7 @@ const Admin_TeacherAnalytics = ({ userName, onLogout }) => {
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0 overflow-hidden">
-                            {profile?.picture ? <img src={`http://localhost:3000/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
+                            {profile?.picture ? <img src={`${API_BASE}/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
                         </div>
                         <div>
                             <h3 className="font-bold text-gray-900 leading-tight">{profile?.name}</h3>

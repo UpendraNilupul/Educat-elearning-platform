@@ -8,9 +8,13 @@ const StudentTodo = ({ userId = 1 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     const fetchTodos = async () => {
         try {
-            const response = await fetch(`http://localhost:3000/api/student/${userId}/todos`);
+            const response = await fetch(`${API_BASE}/api/student/${userId}/todos`);
             const data = await response.json();
             setTodos(data);
         } catch (error) {
@@ -38,7 +42,7 @@ const StudentTodo = ({ userId = 1 }) => {
 
         setIsAdding(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/student/${userId}/todos`, {
+            const response = await fetch(`${API_BASE}/api/student/${userId}/todos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task: newTask, due_date: dueDate || null }),
@@ -57,7 +61,7 @@ const StudentTodo = ({ userId = 1 }) => {
 
     const handleToggle = async (id, currentStatus) => {
         try {
-            const response = await fetch(`http://localhost:3000/api/student/todos/${id}/toggle`, {
+            const response = await fetch(`${API_BASE}/api/student/todos/${id}/toggle`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_completed: !currentStatus }),
@@ -72,7 +76,7 @@ const StudentTodo = ({ userId = 1 }) => {
 
     const handleDelete = async (id) => {
         try {
-            const response = await fetch(`http://localhost:3000/api/student/todos/${id}`, {
+            const response = await fetch(`${API_BASE}/api/student/todos/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {

@@ -83,8 +83,12 @@ const StudentProfileEdit = ({ onClose }) => {
         return;
       }
 
+      const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
       try {
-        const response = await fetch(`http://localhost:3000/api/student/profile/${userId}`, {
+        const response = await fetch(`${API_BASE}/api/student/profile/${userId}`, {
           credentials: 'include'
         });
         const result = await response.json();
@@ -113,7 +117,7 @@ const StudentProfileEdit = ({ onClose }) => {
             if (pic.startsWith('http')) {
               setPreviewImage(pic);
             } else {
-              setPreviewImage(`http://localhost:3000/uploads/${pic}`);
+              setPreviewImage(`${API_BASE}/uploads/${pic}`);
             }
           }
         }
@@ -134,6 +138,10 @@ const StudentProfileEdit = ({ onClose }) => {
       alert('Error: User session not found. Please log in again.');
       return;
     }
+
+    const API_BASE = import.meta.env.VITE_API_URL 
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+      : 'http://localhost:3000';
 
     const formData = new FormData();
     // Append standard fields
@@ -160,7 +168,7 @@ const StudentProfileEdit = ({ onClose }) => {
 
     setIsUploading(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/student/profile/${userId}`, {
+      const response = await fetch(`${API_BASE}/api/student/profile/${userId}`, {
         method: 'PUT',
         body: formData,
         credentials: 'include'
