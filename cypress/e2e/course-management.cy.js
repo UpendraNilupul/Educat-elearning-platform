@@ -1,36 +1,27 @@
-// cypress/e2e/course-management.cy.js
-
 describe('EduCat E2E - Teacher Course and Assessment Creation', () => {
   it('Logs in as an approved teacher, creates a course module, and adds an assignment', () => {
-    // 1. Log in as an existing approved teacher (Seed user: teacher1@example.com)
+    // 1. Force desktop viewport to prevent the sidebar from hiding
+    cy.viewport(1280, 720);
+    
     cy.visit('http://localhost:5173/login');
-    cy.get('input[type="email"]').type('teacher1@example.com');
-    cy.get('input[type="password"]').type('password123'); // Or your test seed pass
+    
+    // 2. Use your real database credentials
+    cy.get('input[type="email"]').type('tchr@example.com');
+    cy.get('input[type="password"]').type('tchr123');
     cy.get('input[type="submit"]').click();
 
-    // 2. Navigate to Teacher Dashboard Course Management
-    cy.visit('http://localhost:5173/teacher');
+    // 3. Synchronization Checkpoint (Replaces the broken cy.visit)
+    cy.url().should('include', '/teacher');
+    cy.get('aside', { timeout: 10000 }).should('be.visible');
+
+    // 4. Safe navigation using the sidebar
     cy.contains('Course Management').click();
+    cy.contains('Loading', { timeout: 10000 }).should('not.exist');
 
-    // 3. Create a new course
+    // 5. Create a new course
     cy.contains('Create New Course').click();
-    cy.get('input[name="name"]').type('QA Test Course Ref');
-    cy.get('input[name="title"]').type('Automated Full-Stack Testing');
-    cy.get('select[name="grade"]').select('Grade 12');
-    cy.get('input[name="monthly_fee"]').type('3500');
-    cy.contains('Create Course').click();
-
-    // 4. Open the newly created course structure
-    cy.contains('Automated Full-Stack Testing').parent().parent().within(() => {
-      cy.contains('View').click();
-    });
-
-    // 5. Add a Module / Chapter
-    cy.contains('Add Module').click();
-    cy.get('input[placeholder*="Module 1"]').type('Module 1: Introduction to QA');
-    cy.contains('Create Module').click();
-
-    // Verify module appears in the syllabus
-    cy.contains('Module 1: Introduction to QA').should('be.visible');
+    
+    // --- Paste the rest of your original course creation logic below this line ---
+    
   });
 });

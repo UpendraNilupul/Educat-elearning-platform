@@ -1,7 +1,23 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import dotenv from 'dotenv';
 import path from 'path';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const multerCloudinary = require('multer-storage-cloudinary');
+
+// Safely handle both v2 and v4 of the package
+const StorageModule = multerCloudinary.CloudinaryStorage || multerCloudinary;
+
+const createStorage = (options) => {
+  try {
+    // Try v4 class instantiation
+    return new StorageModule(options);
+  } catch (e) {
+    // Fallback to v2 function invocation
+    return StorageModule(options);
+  }
+};
 
 dotenv.config();
 
@@ -19,7 +35,7 @@ if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !pr
 }
 
 // Storage for Profile Pictures
-const profileStorage = new CloudinaryStorage({
+const profileStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'teacher_profiles',
@@ -29,7 +45,7 @@ const profileStorage = new CloudinaryStorage({
 });
 
 // Storage for Verification Docs (NIC, Resume)
-const verificationStorage = new CloudinaryStorage({
+const verificationStorage = createStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -59,7 +75,7 @@ const verificationStorage = new CloudinaryStorage({
 });
 
 // Storage for Assignment Attachments
-const assignmentStorage = new CloudinaryStorage({
+const assignmentStorage = createStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -88,7 +104,7 @@ const assignmentStorage = new CloudinaryStorage({
 });
 
 // Storage for Student Submissions
-const submissionStorage = new CloudinaryStorage({
+const submissionStorage = createStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -117,7 +133,7 @@ const submissionStorage = new CloudinaryStorage({
 });
 
 // Storage for Payment Slips
-const slipStorage = new CloudinaryStorage({
+const slipStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'payment_slips',
@@ -127,7 +143,7 @@ const slipStorage = new CloudinaryStorage({
 });
 
 // Storage for Course Resources (PDFs, Videos, etc)
-const resourceStorage = new CloudinaryStorage({
+const resourceStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'course_resources',
@@ -136,7 +152,7 @@ const resourceStorage = new CloudinaryStorage({
 });
 
 // Storage for Teacher Advertisements
-const advertisementStorage = new CloudinaryStorage({
+const advertisementStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'teacher_advertisements',
@@ -145,7 +161,7 @@ const advertisementStorage = new CloudinaryStorage({
 });
 
 // Storage for Course Thumbnails
-const courseThumbnailStorage = new CloudinaryStorage({
+const courseThumbnailStorage = createStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'course_thumbnails',
@@ -154,7 +170,7 @@ const courseThumbnailStorage = new CloudinaryStorage({
 });
 
 // Storage for Course Resources (PDFs, Zips, Docs)
-const courseResourceStorage = new CloudinaryStorage({
+const courseResourceStorage = createStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -182,4 +198,4 @@ const courseResourceStorage = new CloudinaryStorage({
   },
 });
 
-export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage,  slipStorage, resourceStorage, advertisementStorage, courseThumbnailStorage, courseResourceStorage };
+export { cloudinary, profileStorage, verificationStorage, assignmentStorage, submissionStorage, slipStorage, resourceStorage, advertisementStorage, courseThumbnailStorage, courseResourceStorage };
