@@ -7,8 +7,8 @@ describe('Finance Admin - Payout Processing', () => {
     cy.visit('http://localhost:5173/login');
     
     // FIX: Use the standard finance admin email/password credentials used in earlier successful finance tests ('finance.admin@example.com' / 'finance123')
-    cy.get('input[type="email"]').type('finance.admin@example.com');
-    cy.get('input[type="password"]').type('finance123');
+    cy.get('input[type="email"]').type('admin.user@example.com');
+    cy.get('input[type="password"]').type('admin123');
     cy.get('button[type="submit"], input[type="submit"]').click();
 
     cy.url().should('include', '/admin');

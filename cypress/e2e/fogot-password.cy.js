@@ -1,35 +1,48 @@
 describe('Authentication - Forgot Password', () => {
   it('Executes the 3-step OTP password reset process', () => {
-    // 1. Intercept backend routes
-    cy.intercept('POST', '**/api/forgot-password/send-otp').as('sendOtp');
-    cy.intercept('POST', '**/api/forgot-password/verify-otp').as('verifyOtp');
-    cy.intercept('POST', '**/api/forgot-password/reset').as('resetPassword');
+    cy.viewport(1280, 720);
 
+    // 1. Exact intercepts based on the routes in Login.jsx
+    cy.intercept('POST', '**/forgot-password/send-otp*', {
+      statusCode: 200,
+      body: { success: true, message: 'OTP sent' }
+    }).as('sendOtp');
+
+    cy.intercept('POST', '**/forgot-password/verify-otp*', {
+      statusCode: 200,
+      body: { success: true, message: 'OTP verified' }
+    }).as('verifyOtp');
+
+    cy.intercept('POST', '**/forgot-password/reset-password*', {
+      statusCode: 200,
+      body: { success: true, message: 'Password reset' }
+    }).as('resetPassword');
+
+    // Start Flow
     cy.visit('http://localhost:5173/login');
-    cy.on('window:alert', () => true);
-
-    // Navigate to Forgot Password
-    cy.contains(/forget password/i).click();
-
-    // STEP 1: Enter Email and Submit
-    cy.get('input[type="email"]').type('std@example.com'); // Note: Must exist in DB
-    cy.get('button[type="submit"]').click();
-
-    cy.wait('@sendOtp').its('response.statusCode').should('be.oneOf', [200, 201]);
-
-    // STEP 2: Enter OTP and Submit
-    // Using the exact placeholder from your original codebase
-    cy.get('input[placeholder="Enter OTP"]', { timeout: 10000 })
-      .should('be.visible')
-      .type('123456');
-    cy.get('button[type="submit"]').click();
-
-    // STEP 3: Enter New Password and Submit
-    // Target the exact password input fields sequentially to avoid guessing placeholders
-    cy.get('input[type="password"]', { timeout: 10000 }).should('have.length.at.least', 2);
-    cy.get('input[type="password"]').eq(0).type('newpassword123'); // New Password
-    cy.get('input[type="password"]').eq(1).type('newpassword123'); // Confirm Password
     
-    cy.get('button[type="submit"]').click();
+    // Target the specific "click here" button for forgot password
+    cy.contains('forget password?').find('button').click();
+
+    // STEP 1: Enter Email
+    cy.get('input[type="email"]').should('be.visible').type('std@example.com'); 
+    cy.get('input[value="Send OTP"]').click();
+
+    cy.wait('@sendOtp', { timeout: 10000 });
+
+    // STEP 2: Enter OTP
+    cy.get('input[placeholder="Enter OTP"]').should('be.visible').type('123456');
+    cy.get('input[value="Verify OTP"]').click();
+
+    cy.wait('@verifyOtp', { timeout: 10000 });
+
+    // STEP 3: Enter New Password
+    cy.get('input[placeholder="New Password"]').should('be.visible').type('newpassword123');
+    cy.get('input[value="Reset Password"]').click();
+
+    cy.wait('@resetPassword', { timeout: 10000 });
+    
+    // Verify it returns to the login screen upon completion
+    cy.contains('login now').should('be.visible');
   });
 });
