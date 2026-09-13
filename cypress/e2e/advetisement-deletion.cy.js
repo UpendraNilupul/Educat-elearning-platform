@@ -1,27 +1,43 @@
 describe('Teacher - Advertisement Deletion', () => {
   it('Deletes an existing promotional banner', () => {
+    cy.viewport(1280, 720);
+
+    cy.intercept('POST', '**/api/login').as('loginRequest');
+    
+    // FIX: Intercept teacher advertisements to guarantee an ad exists for deletion
+    cy.intercept('GET', '**/api/teacher/advertisements', {
+      statusCode: 200,
+      body: [
+        {
+          id: 1,
+          t_id: 17,
+          ad_link: 'https://via.placeholder.com/300',
+          is_published: false
+        }
+      ]
+    }).as('getTeacherAds');
+
+    cy.intercept('DELETE', '**/api/teacher/advertisements/*').as('deleteAd');
+
     cy.visit('http://localhost:5173/login');
     
-    // 1. Use your actual working test credentials
     cy.get('input[type="email"]').type('tchr@example.com');
     cy.get('input[type="password"]').type('tchr123');
-    cy.get('input[type="submit"]').click();
+    cy.get('button[type="submit"], input[type="submit"]').click();
 
-    // 2. Synchronization Checkpoint: Wait for backend auth to finish
+    cy.wait('@loginRequest', { timeout: 10000 });
     cy.url().should('include', '/teacher');
+
     cy.get('aside', { timeout: 10000 }).should('be.visible'); 
-    
-    // 3. Navigate safely using the sidebar visible text
     cy.contains('Advertisements').click();
-    
-    // 4. Wait for the advertisements grid/table to fetch
-    cy.contains('Loading', { timeout: 10000 }).should('not.exist');
-    
-    // 5. Target the first existing ad and click delete (using force:true for hover states)
-    cy.contains('Delete').first().click({ force: true });
-    
-    // 6. Confirm the browser pop-up and verify success
+
+    cy.wait('@getTeacherAds', { timeout: 10000 });
+    cy.contains('Loading...').should('not.exist');
+
     cy.on('window:confirm', () => true);
-    cy.on('window:alert', (str) => expect(str.toLowerCase()).to.include('deleted'));
+
+    cy.contains(/delete|trash/i).first().click({ force: true });
+
+    cy.wait('@deleteAd', { timeout: 10000 }).its('response.statusCode').should('eq', 200);
   });
 });
