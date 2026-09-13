@@ -10,6 +10,7 @@ const db = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    timezone: '+00:00',
     ssl: {
         rejectUnauthorized: false // Required: Aiven enforces secure SSL connections
     }

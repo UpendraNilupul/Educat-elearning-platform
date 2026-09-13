@@ -73,6 +73,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     return resource.url;
   };
 
+  const formatToLocalDateTime = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   const [expandedLessons, setExpandedLessons] = useState([]);
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState(null);
@@ -514,8 +522,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
       const formData = new FormData();
       formData.append('title', assignmentData.title);
       formData.append('description', assignmentData.description);
-      formData.append('deadline', assignmentData.deadline);
-      formData.append('publish_at', assignmentData.publish_at);
+      formData.append('deadline', (assignmentData.deadline && !isNaN(new Date(assignmentData.deadline))) ? new Date(assignmentData.deadline).toISOString() : assignmentData.deadline);
+      formData.append('publish_at', (assignmentData.publish_at && !isNaN(new Date(assignmentData.publish_at))) ? new Date(assignmentData.publish_at).toISOString() : assignmentData.publish_at);
       formData.append('max_marks', assignmentData.max_marks);
       if (assignmentData.files && assignmentData.files.length > 0) {
         Array.from(assignmentData.files).forEach(file => {
@@ -677,12 +685,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
         number: data.number,
         time_limit: data.time_limit,
         allow_review: data.allow_review !== undefined ? Boolean(data.allow_review) : true,
-        publish_at: data.publish_at ? (() => {
-          const d = new Date(data.publish_at);
-          if (isNaN(d.getTime())) return "";
-          const pad = n => n.toString().padStart(2, '0');
-          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        })() : "",
+        publish_at: formatToLocalDateTime(data.publish_at),
         questions: recalculateMarks(data.questions.map(q => {
           let opts = q.options.map(o => ({
             id: o.id,
@@ -778,7 +781,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
         number: quizData.number,
         time_limit: quizData.time_limit,
         allow_review: quizData.allow_review,
-        publish_at: quizData.publish_at || null
+        publish_at: (quizData.publish_at && !isNaN(new Date(quizData.publish_at))) ? new Date(quizData.publish_at).toISOString() : null
       };
 
       if (editingQuizId) {
@@ -1491,8 +1494,8 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                       setAssignmentData({
                                         title: assign.title || "",
                                         description: assign.description || "",
-                                        deadline: (assign.deadline && !isNaN(new Date(assign.deadline))) ? new Date(assign.deadline).toISOString().slice(0, 16) : "",
-                                        publish_at: (assign.publish_at && !isNaN(new Date(assign.publish_at))) ? new Date(assign.publish_at).toISOString().slice(0, 16) : "",
+                                        deadline: formatToLocalDateTime(assign.deadline),
+                                        publish_at: formatToLocalDateTime(assign.publish_at),
                                         max_marks: assign.max_marks || 100,
                                         files: [],
                                         existingAttachments: assign.attachments || []
