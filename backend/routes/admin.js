@@ -1494,12 +1494,15 @@ router.get('/payouts', async (req, res) => {
         }
 
         const payouts = await query(`
-            SELECT 
-                tp.*, u.name as teacher_name, u.picture
+            SELECT DISTINCT
+                tp.*, 
+                u.name as teacher_name, 
+                u.picture
             FROM teacher_payouts tp
             JOIN teachers t ON tp.teacher_id = t.id
             JOIN users u ON t.user_id = u.id
             WHERE tp.month_year = ?
+            GROUP BY t.id, u.name, tp.id, u.picture
             ORDER BY tp.net_payable DESC
         `, [monthYear]);
 

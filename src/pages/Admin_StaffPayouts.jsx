@@ -27,8 +27,8 @@ const Admin_StaffPayouts = () => {
         try {
             const response = await api.get(`/admin/staff-payouts?month=${selectedMonth}`);
             if (response.data.success) {
-                setPayouts(response.data.data);
-                setStats(response.data.stats);
+                setPayouts(response.data.data || []);
+                setStats(response.data.stats || { totalSalaries: 0, totalAdjustments: 0, totalToPay: 0 });
             }
         } catch (error) {
             console.error("Failed to load staff payouts:", error);
@@ -39,7 +39,33 @@ const Admin_StaffPayouts = () => {
     };
 
     useEffect(() => {
-        fetchPayouts();
+        let isCancelled = false;
+
+        const loadStaffPayouts = async () => {
+            setLoading(true);
+            try {
+                const response = await api.get(`/admin/staff-payouts?month=${selectedMonth}`);
+                if (!isCancelled && response.data.success) {
+                    setPayouts(response.data.data || []);
+                    setStats(response.data.stats || { totalSalaries: 0, totalAdjustments: 0, totalToPay: 0 });
+                }
+            } catch (error) {
+                if (!isCancelled) {
+                    console.error("Failed to load staff payouts:", error);
+                    if (error.response?.status === 403) navigate('/admin');
+                }
+            } finally {
+                if (!isCancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadStaffPayouts();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [selectedMonth]);
 
     const handleSavePayroll = async (id) => {

@@ -27,8 +27,8 @@ const Admin_Payouts = () => {
         try {
             const response = await api.get(`/admin/payouts?month=${selectedMonth}`);
             if (response.data.success) {
-                setPayouts(response.data.data);
-                setStats(response.data.stats);
+                setPayouts(response.data.data || []);
+                setStats(response.data.stats || { totalGross: 0, systemEarnings: 0, totalToPay: 0 });
             }
         } catch (error) {
             console.error("Failed to load payouts:", error);
@@ -38,7 +38,32 @@ const Admin_Payouts = () => {
     };
 
     useEffect(() => {
-        fetchPayouts();
+        let isCancelled = false;
+
+        const loadPayouts = async () => {
+            setLoading(true);
+            try {
+                const response = await api.get(`/admin/payouts?month=${selectedMonth}`);
+                if (!isCancelled && response.data.success) {
+                    setPayouts(response.data.data || []);
+                    setStats(response.data.stats || { totalGross: 0, systemEarnings: 0, totalToPay: 0 });
+                }
+            } catch (error) {
+                if (!isCancelled) {
+                    console.error("Failed to load payouts:", error);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadPayouts();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [selectedMonth]);
 
     const handleSaveAdjustment = async (id) => {
