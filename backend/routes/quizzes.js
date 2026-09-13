@@ -30,47 +30,184 @@ router.post('/modules/:mId/quizzes', async (req, res) => {
     }
 });
 
-// --- TEACHER: ADD QUESTION TO BANK ---
+// --- HELPER: SAVE SINGLE QUESTION TO DB ---
+async function saveQuestionToDb({ courseId, question, type, marks, options, teacherId, quizId }) {
+    // 1. Verify course existence
+    const courseRows = await query('SELECT id, t_id FROM classes_courses WHERE id = ?', [courseId]);
+    if (courseRows.length === 0) {
+        throw new Error(`Course with ID ${courseId} not found`);
+    }
+    const course = courseRows[0];
+
+    // 2. Resolve teacher ID (foreign key check)
+    let validTeacherId = null;
+    if (teacherId) {
+        const tRows = await query('SELECT id FROM teachers WHERE id = ? OR user_id = ?', [teacherId, teacherId]);
+        if (tRows.length > 0) {
+            validTeacherId = tRows[0].id;
+        }
+    }
+    if (!validTeacherId && course.t_id) {
+        const tRows = await query('SELECT id FROM teachers WHERE id = ?', [course.t_id]);
+        if (tRows.length > 0) {
+            validTeacherId = tRows[0].id;
+        }
+    }
+    if (!validTeacherId) {
+        const fallbackRows = await query('SELECT id FROM teachers LIMIT 1');
+        if (fallbackRows.length > 0) {
+            validTeacherId = fallbackRows[0].id;
+        } else {
+            throw new Error('No valid teacher record exists in database to associate questions with.');
+        }
+    }
+
+    // 3. Verify quiz existence if quizId is provided
+    let validQuizId = null;
+    if (quizId) {
+        const qzRows = await query('SELECT id FROM quizes WHERE id = ?', [quizId]);
+        if (qzRows.length > 0) {
+            validQuizId = qzRows[0].id;
+        }
+    }
+
+    // 4. Insert into question_bank
+    const qResult = await query(
+        'INSERT INTO question_bank (type, marks, question, c_id, t_id) VALUES (?, ?, ?, ?, ?)',
+        [type || 'single', marks !== undefined ? marks : 1, question, course.id, validTeacherId]
+    );
+    const qId = qResult.insertId;
+
+    // 5. Parse and insert options into answers table
+    let parsedOptions = options;
+    if (typeof options === 'string') {
+        try {
+            parsedOptions = JSON.parse(options);
+        } catch {
+            parsedOptions = [];
+        }
+    }
+
+    if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+        for (let opt of parsedOptions) {
+            const answerText = typeof opt === 'object' ? (opt.answer || opt.text || '') : String(opt);
+            const isCorrect = typeof opt === 'object' ? (Boolean(opt.correct) ? 1 : 0) : 0;
+            await query(
+                'INSERT INTO answers (answer, correct, q_id) VALUES (?, ?, ?)',
+                [answerText, isCorrect, qId]
+            );
+        }
+    }
+
+    // 6. Link to quiz if validQuizId exists
+    if (validQuizId) {
+        await query('INSERT IGNORE INTO quiz_questions (qz_id, q_id) VALUES (?, ?)', [validQuizId, qId]);
+    }
+
+    return qId;
+}
+
+// --- TEACHER: ADD QUESTION(S) TO COURSE / BANK ---
 router.post('/courses/:cId/questions', async (req, res) => {
     const { cId } = req.params;
-    const { type, marks, question, t_id, options } = req.body;
+    const body = req.body;
 
     try {
-        // 1. Insert question into question_bank
-        const qResult = await query(
-            'INSERT INTO question_bank (type, marks, question, c_id, t_id) VALUES (?, ?, ?, ?, ?)',
-            [type, marks, question, cId, t_id]
-        );
-        const qId = qResult.insertId;
+        const targetQuizId = body.quiz_id || body.qzId || req.query.quiz_id || null;
+        const targetTeacherId = body.t_id || body.teacher_id || null;
 
-        // 2. Insert options into answers table
-        if (options && options.length > 0) {
-            for (let opt of options) {
-                await query(
-                    'INSERT INTO answers (answer, correct, q_id) VALUES (?, ?, ?)',
-                    [opt.answer, opt.correct, qId]
-                );
-            }
+        // Check if multiple questions were provided
+        const questionsList = Array.isArray(body) 
+            ? body 
+            : (Array.isArray(body.questions) ? body.questions : [body]);
+
+        const insertedIds = [];
+        for (const item of questionsList) {
+            const qId = await saveQuestionToDb({
+                courseId: cId,
+                question: item.question,
+                type: item.type,
+                marks: item.marks,
+                options: item.options,
+                teacherId: item.t_id || item.teacher_id || targetTeacherId,
+                quizId: item.quiz_id || item.qzId || targetQuizId
+            });
+            insertedIds.push(qId);
         }
 
-        res.status(201).json({ id: qId, message: 'Question added to bank' });
-    } catch (err) {
-        console.error('Error adding question:', err);
-        res.status(500).json({ error: 'Failed to add question' });
+        if (insertedIds.length === 1) {
+            res.status(201).json({ id: insertedIds[0], qId: insertedIds[0], message: 'Question added to bank' });
+        } else {
+            res.status(201).json({ ids: insertedIds, count: insertedIds.length, message: 'Questions added to bank' });
+        }
+    } catch (error) {
+        console.error("Save questions error:", error);
+        res.status(500).json({ error: 'Failed to add question', message: error.message });
     }
 });
 
-// --- TEACHER: LINK QUESTION TO QUIZ ---
+// --- TEACHER: LINK OR CREATE QUESTION(S) FOR QUIZ ---
 router.post('/quizzes/:qzId/questions', async (req, res) => {
     const { qzId } = req.params;
-    const { qId } = req.body;
+    const body = req.body;
 
     try {
-        await query('INSERT INTO quiz_questions (qz_id, q_id) VALUES (?, ?)', [qzId, qId]);
-        res.status(201).json({ message: 'Question linked to quiz' });
-    } catch (err) {
-        console.error('Error linking question:', err);
-        res.status(500).json({ error: 'Failed to link question' });
+        // Case 1: Simple link of existing question { qId }
+        if (body.qId && !body.question && !body.questions) {
+            const quizCheck = await query('SELECT id FROM quizes WHERE id = ?', [qzId]);
+            if (quizCheck.length === 0) {
+                return res.status(404).json({ error: `Quiz ${qzId} not found` });
+            }
+            const qCheck = await query('SELECT id FROM question_bank WHERE id = ?', [body.qId]);
+            if (qCheck.length === 0) {
+                return res.status(404).json({ error: `Question ${body.qId} not found` });
+            }
+            await query('INSERT IGNORE INTO quiz_questions (qz_id, q_id) VALUES (?, ?)', [qzId, body.qId]);
+            return res.status(201).json({ message: 'Question linked to quiz' });
+        }
+
+        // Case 2: Direct creation of question(s) for this quiz
+        const quizRows = await query(`
+            SELECT q.id AS qz_id, m.c_id, cc.t_id 
+            FROM quizes q
+            JOIN modules m ON q.m_id = m.id
+            JOIN classes_courses cc ON m.c_id = cc.id
+            WHERE q.id = ?
+        `, [qzId]);
+
+        if (quizRows.length === 0) {
+            return res.status(404).json({ error: `Quiz ${qzId} not found or module/course association missing` });
+        }
+
+        const courseId = quizRows[0].c_id;
+        const defaultTeacherId = quizRows[0].t_id;
+
+        const questionsList = Array.isArray(body) 
+            ? body 
+            : (Array.isArray(body.questions) ? body.questions : [body]);
+
+        const insertedIds = [];
+        for (const item of questionsList) {
+            const qId = await saveQuestionToDb({
+                courseId: item.course_id || item.c_id || courseId,
+                question: item.question,
+                type: item.type,
+                marks: item.marks,
+                options: item.options,
+                teacherId: item.t_id || item.teacher_id || defaultTeacherId,
+                quizId: qzId
+            });
+            insertedIds.push(qId);
+        }
+
+        if (insertedIds.length === 1) {
+            res.status(201).json({ id: insertedIds[0], qId: insertedIds[0], message: 'Question created and linked to quiz' });
+        } else {
+            res.status(201).json({ ids: insertedIds, count: insertedIds.length, message: 'Questions created and linked to quiz' });
+        }
+    } catch (error) {
+        console.error("Save questions error:", error);
+        res.status(500).json({ error: 'Failed to link/create question for quiz', message: error.message });
     }
 });
 
@@ -537,6 +674,11 @@ router.put('/questions/:id', async (req, res) => {
     const { type, marks, question, options } = req.body;
 
     try {
+        const qCheck = await query('SELECT id FROM question_bank WHERE id = ?', [id]);
+        if (qCheck.length === 0) {
+            return res.status(404).json({ error: `Question with id ${id} not found` });
+        }
+
         // 1. Update question_bank
         await query(
             'UPDATE question_bank SET type = ?, marks = ?, question = ? WHERE id = ?',
@@ -544,33 +686,44 @@ router.put('/questions/:id', async (req, res) => {
         );
 
         // 2. Update options gracefully to preserve a_id for past student submissions
-        if (options && options.length > 0) {
-            const existingOptionIds = options.filter(opt => opt.id).map(opt => opt.id);
+        let parsedOptions = options;
+        if (typeof options === 'string') {
+            try {
+                parsedOptions = JSON.parse(options);
+            } catch {
+                parsedOptions = [];
+            }
+        }
+
+        if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+            const existingOptionIds = parsedOptions.filter(opt => opt && opt.id).map(opt => opt.id);
             if (existingOptionIds.length > 0) {
                 await query('DELETE FROM answers WHERE q_id = ? AND id NOT IN (?)', [id, existingOptionIds]);
             } else {
                 await query('DELETE FROM answers WHERE q_id = ?', [id]);
             }
 
-            for (let opt of options) {
-                if (opt.id) {
+            for (let opt of parsedOptions) {
+                const answerText = typeof opt === 'object' ? (opt.answer || opt.text || '') : String(opt);
+                const isCorrect = typeof opt === 'object' ? (Boolean(opt.correct) ? 1 : 0) : 0;
+                if (opt && opt.id) {
                     await query(
                         'UPDATE answers SET answer = ?, correct = ? WHERE id = ? AND q_id = ?',
-                        [opt.answer, opt.correct, opt.id, id]
+                        [answerText, isCorrect, opt.id, id]
                     );
                 } else {
                     await query(
                         'INSERT INTO answers (answer, correct, q_id) VALUES (?, ?, ?)',
-                        [opt.answer, opt.correct, id]
+                        [answerText, isCorrect, id]
                     );
                 }
             }
         }
 
         res.json({ message: 'Question updated successfully' });
-    } catch (err) {
-        console.error('Error updating question:', err);
-        res.status(500).json({ error: 'Failed to update question' });
+    } catch (error) {
+        console.error("Save questions error:", error);
+        res.status(500).json({ error: 'Failed to update question', message: error.message });
     }
 });
 

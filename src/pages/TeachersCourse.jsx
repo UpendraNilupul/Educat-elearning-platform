@@ -814,14 +814,22 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
           });
         } else {
           // Create new question
+          const teacherIdentifier = selectedCourse.t_id || selectedCourse.teacher_id || localStorage.getItem('userId');
           const qResp = await api.post(`/courses/${selectedCourse.id}/questions`, {
-            ...q,
-            t_id: selectedCourse.teacher_id || 1
+            type: q.type,
+            marks: q.marks,
+            question: q.question,
+            options: q.options,
+            t_id: teacherIdentifier,
+            quiz_id: quizId,
+            course_id: selectedCourse.id
           });
-          const qId = qResp.data.id;
+          const qId = qResp.data.id || qResp.data.qId;
 
           // Link to quiz
-          await api.post(`/quizzes/${quizId}/questions`, { qId });
+          if (qId) {
+            await api.post(`/quizzes/${quizId}/questions`, { qId });
+          }
         }
       }
 
