@@ -5,7 +5,13 @@ import {
     MessageSquare, Megaphone, ArrowLeft, Send, Clock, Users, Search, 
     Paperclip, FileIcon, X, ShieldAlert, Plus
 } from 'lucide-react';
-import api from '../api';
+import api, { API_BASE } from '../api';
+
+const baseURL = import.meta.env.VITE_API_BASE_URL 
+    ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
+    : (import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : (API_BASE ? API_BASE.replace(/\/api\/?$/, '') : 'https://educat-elearning-platform.onrender.com'));
 
 const Admin_Communications = ({ userName, onLogout }) => {
     const navigate = useNavigate();
@@ -46,7 +52,6 @@ const Admin_Communications = ({ userName, onLogout }) => {
     const getFileUrl = (url) => {
         if (!url) return '';
         if (url.startsWith('http')) return url;
-        const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
         return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
@@ -65,7 +70,7 @@ const Admin_Communications = ({ userName, onLogout }) => {
     // 🌟 INITIALIZE SOCKET CONNECTION
     // ==========================================
     useEffect(() => {
-        const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+        const SOCKET_URL = baseURL;
         const newSocket = io(SOCKET_URL, {
             withCredentials: true
         });

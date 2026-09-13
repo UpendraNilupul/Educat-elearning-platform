@@ -4,7 +4,13 @@ import {
   MessageSquare, ArrowLeft, Send, ShieldAlert, 
   Search, Plus, X, UserCircle, Paperclip, FileIcon
 } from "lucide-react";
-import api from '../api'; // 🌟 THE FIX: Import the API instance
+import api, { API_BASE } from '../api'; // 🌟 THE FIX: Import the API instance
+
+const baseURL = import.meta.env.VITE_API_BASE_URL 
+    ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
+    : (import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : (API_BASE ? API_BASE.replace(/\/api\/?$/, '') : 'https://educat-elearning-platform.onrender.com'));
 
 const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
   const teacherId = parseInt(localStorage.getItem('userId'));
@@ -36,7 +42,6 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
   const getFileUrl = (url) => {
       if (!url) return '';
       if (url.startsWith('http')) return url;
-      const baseURL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
       return `${baseURL}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
@@ -56,7 +61,7 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
   // ==========================================
   useEffect(() => {
       // 🌟 THE FIX: Dynamically connect to the backend whether on localhost or live production
-      const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:3000';
+      const SOCKET_URL = baseURL;
       const newSocket = io(SOCKET_URL, {
           withCredentials: true // Ensures secure session cookies are sent over WebSockets too
       });
