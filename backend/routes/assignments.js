@@ -28,6 +28,12 @@ const limits = { fileSize: 15 * 1024 * 1024 }; // Limit files to 15MB
 const assignmentUpload = multer({ storage: assignmentStorage, fileFilter, limits });
 const submissionUpload = multer({ storage: submissionStorage, fileFilter, limits });
 
+const toMySQLDateTime = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+};
 
 // --- TEACHER: CREATE ASSIGNMENT ---
 // 🌟 COMBINED FIX: Added auth gatekeeper (HEAD) + Cloudinary upload (Dev)
@@ -35,12 +41,13 @@ router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assi
     const { mId } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
 
-    const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
+    const formattedDeadline = toMySQLDateTime(deadline);
+    const formattedPublishAt = toMySQLDateTime(publish_at);
 
     try {
         const result = await query(
             'INSERT INTO assignments (m_id, title, description, deadline, max_marks, publish_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [mId, title, description, deadline, max_marks || 100.00, publishAtValue]
+            [mId, title, description, formattedDeadline, max_marks || 100.00, formattedPublishAt]
         );
         const aId = result.insertId;
 
@@ -61,9 +68,9 @@ router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assi
             m_id: mId,
             title,
             description,
-            deadline,
+            deadline: formattedDeadline,
             max_marks: max_marks || 100.00,
-            publish_at: publishAtValue,
+            publish_at: formattedPublishAt,
             attachments: insertedAttachments,
             message: 'Assignment created successfully'
         });
@@ -77,12 +84,13 @@ router.post('/modules/:mId/assignments', requireRole(['teacher', 'admin']), assi
 router.put('/assignments/:id', assignmentUpload.array('attachments'), async (req, res) => {
     const { id } = req.params;
     const { title, description, deadline, max_marks, publish_at } = req.body;
-    const publishAtValue = (publish_at && publish_at.trim() !== "") ? publish_at : null;
+    const formattedDeadline = toMySQLDateTime(deadline);
+    const formattedPublishAt = toMySQLDateTime(publish_at);
 
     try {
         await query(
             'UPDATE assignments SET title = ?, description = ?, deadline = ?, max_marks = ?, publish_at = ? WHERE id = ?',
-            [title, description, deadline, max_marks, publishAtValue, id]
+            [title, description, formattedDeadline, max_marks, formattedPublishAt, id]
         );
 
         const newAttachments = [];

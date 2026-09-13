@@ -5,15 +5,23 @@ import util from 'util';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
+const toMySQLDateTime = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+};
+
 // --- TEACHER: CREATE QUIZ ---
 router.post('/modules/:mId/quizzes', async (req, res) => {
     const { mId } = req.params;
     const { title, number, time_limit, publish_at, allow_review } = req.body;
 
     try {
+        const formattedPublishAt = toMySQLDateTime(publish_at);
         const result = await query(
             'INSERT INTO quizes (m_id, title, number, time_limit, is_peer_reviewed, publish_at, allow_review) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [mId, title || null, number, time_limit || '00:30:00', false, publish_at || null, allow_review !== undefined ? allow_review : true]
+            [mId, title || null, number, time_limit || '00:30:00', false, formattedPublishAt, allow_review !== undefined ? allow_review : true]
         );
         res.status(201).json({ id: result.insertId, message: 'Quiz created successfully' });
     } catch (err) {
@@ -494,9 +502,10 @@ router.put('/quizzes/:id', async (req, res) => {
     const { title, number, time_limit, publish_at, allow_review } = req.body;
 
     try {
+        const formattedPublishAt = toMySQLDateTime(publish_at);
         await query(
             'UPDATE quizes SET title = ?, number = ?, time_limit = ?, publish_at = ?, allow_review = ? WHERE id = ?',
-            [title || null, number, time_limit, publish_at || null, allow_review !== undefined ? allow_review : true, id]
+            [title || null, number, time_limit, formattedPublishAt, allow_review !== undefined ? allow_review : true, id]
         );
         res.json({ message: 'Quiz updated successfully' });
     } catch (err) {
