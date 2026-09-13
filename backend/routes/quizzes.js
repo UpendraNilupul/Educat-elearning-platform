@@ -5,11 +5,12 @@ import util from 'util';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-const toMySQLDateTime = (iso) => {
-    if (!iso) return null;
-    const d = new Date(iso);
+const toMySQLDateTime = (input) => {
+    if (!input) return null;
+    const d = new Date(input);
     if (isNaN(d.getTime())) return null;
-    return d.toISOString().slice(0, 19).replace('T', ' ');
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
 // --- TEACHER: CREATE QUIZ ---
@@ -71,14 +72,20 @@ async function saveQuestionToDb({ courseId, question, type, marks, options, teac
         }
     }
 
-    // 4. Insert into question_bank
+    // 4. Parse and cap marks for DECIMAL(5,2)
+    let parsedMarks = parseFloat(marks);
+    if (isNaN(parsedMarks)) parsedMarks = 1.00;
+    parsedMarks = Math.min(Math.max(parsedMarks, 0), 999.99);
+    parsedMarks = parseFloat(parsedMarks.toFixed(2));
+
+    // 5. Insert into question_bank (type, marks, question, c_id, t_id)
     const qResult = await query(
         'INSERT INTO question_bank (type, marks, question, c_id, t_id) VALUES (?, ?, ?, ?, ?)',
-        [type || 'single', marks !== undefined ? marks : 1, question, course.id, validTeacherId]
+        [type || 'single', parsedMarks, question, course.id, validTeacherId]
     );
     const qId = qResult.insertId;
 
-    // 5. Parse and insert options into answers table
+    // 6. Parse and insert options into answers table
     let parsedOptions = options;
     if (typeof options === 'string') {
         try {
@@ -99,7 +106,7 @@ async function saveQuestionToDb({ courseId, question, type, marks, options, teac
         }
     }
 
-    // 6. Link to quiz if validQuizId exists
+    // 7. Link to quiz if validQuizId exists: junction table quiz_questions (qz_id, q_id)
     if (validQuizId) {
         await query('INSERT IGNORE INTO quiz_questions (qz_id, q_id) VALUES (?, ?)', [validQuizId, qId]);
     }
@@ -679,10 +686,16 @@ router.put('/questions/:id', async (req, res) => {
             return res.status(404).json({ error: `Question with id ${id} not found` });
         }
 
-        // 1. Update question_bank
+        // 1. Parse and cap marks for DECIMAL(5,2)
+        let parsedMarks = parseFloat(marks);
+        if (isNaN(parsedMarks)) parsedMarks = 1.00;
+        parsedMarks = Math.min(Math.max(parsedMarks, 0), 999.99);
+        parsedMarks = parseFloat(parsedMarks.toFixed(2));
+
+        // 2. Update question_bank
         await query(
             'UPDATE question_bank SET type = ?, marks = ?, question = ? WHERE id = ?',
-            [type, marks, question, id]
+            [type || 'single', parsedMarks, question, id]
         );
 
         // 2. Update options gracefully to preserve a_id for past student submissions
