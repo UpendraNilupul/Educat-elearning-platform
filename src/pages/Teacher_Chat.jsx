@@ -357,7 +357,7 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
                         className="w-full p-3 bg-white border border-gray-100 rounded-xl hover:shadow-md transition-all flex items-center space-x-4 text-left group"
                     >
                         <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
-                            {contact.picture ? <img src={`http://localhost:3000/uploads/${contact.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : contact.name.charAt(0)}
+                            {contact.picture ? <img src={`${baseURL}/uploads/${contact.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : contact.name.charAt(0)}
                         </div>
                         <div className="flex-1 overflow-hidden">
                             <h4 className="font-bold text-gray-900 truncate">{contact.name}</h4>
@@ -386,7 +386,7 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
                             className={`w-full p-4 border rounded-2xl transition-all flex items-center space-x-4 text-left group ${activeChat?.conversation_id === chat.conversation_id ? 'bg-purple-50 border-purple-200 shadow-sm' : 'bg-white border-gray-100 hover:shadow-md'}`}
                         >
                             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
-                                {chat.other_user_picture ? <img src={`http://localhost:3000/uploads/${chat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chat.other_user_name.charAt(0)}
+                                {chat.other_user_picture ? <img src={`${baseURL}/uploads/${chat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chat.other_user_name.charAt(0)}
                             </div>
                             <div className="flex-1 overflow-hidden flex items-center justify-between">
                                 <div className="min-w-0 flex-1">
@@ -433,7 +433,7 @@ const TeacherChat = ({ autoOpenContact, clearAutoOpenContact }) => {
                         <ArrowLeft size={20} />
                     </button>
                     <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-[#4a0b59] font-bold shrink-0 overflow-hidden">
-                        {activeChat.other_user_picture ? <img src={`http://localhost:3000/uploads/${activeChat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : activeChat.other_user_name.charAt(0)}
+                        {activeChat.other_user_picture ? <img src={`${baseURL}/uploads/${activeChat.other_user_picture}`} alt="Avatar" className="w-full h-full object-cover" /> : activeChat.other_user_name.charAt(0)}
                     </div>
                     <div>
                         <h3 className="font-bold text-lg text-gray-900 leading-tight">{activeChat.other_user_name}</h3>

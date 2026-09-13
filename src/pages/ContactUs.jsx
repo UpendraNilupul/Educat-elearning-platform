@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, Mail, MapPin, User, MessageSquare, Send, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import api from '../api';
 
 const ContactUs = ({ userRole, userName, onLogout }) => {
   const [formData, setFormData] = useState({
@@ -45,9 +45,7 @@ const ContactUs = ({ userRole, userName, onLogout }) => {
     setIsSubmitting(true);
 
     try {
-      const response = await axios.post('http://localhost:3000/api/contact', formData, {
-        withCredentials: true
-      });
+      const response = await api.post('/contact', formData);
       if (response.data.success) {
         alert("Your message has been sent successfully!");
         setFormData({ name: '', phone: '', email: '', message: '' });

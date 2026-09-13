@@ -274,7 +274,7 @@ const Admin = ({ userName, onLogout }) => {
                                     <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
                                         <p className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2">Most Active Teacher</p>
                                         <div className="flex items-center space-x-3">
-                                            <img src={stats.mostActiveTeacher.picture ? `http://localhost:3000/uploads/${stats.mostActiveTeacher.picture}` : "https://ui-avatars.com/api/?name=Teacher&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+                                            <img src={stats.mostActiveTeacher.picture ? `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000'}/uploads/${stats.mostActiveTeacher.picture}` : "https://ui-avatars.com/api/?name=Teacher&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                             <div>
                                                 <p className="font-bold text-gray-800">{stats.mostActiveTeacher.name}</p>
                                                 <p className="text-xs text-gray-500">{stats.mostActiveTeacher.course_count} courses created</p>
@@ -289,7 +289,7 @@ const Admin = ({ userName, onLogout }) => {
                                     <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
                                         <p className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Top Earner (Month)</p>
                                         <div className="flex items-center space-x-3">
-                                            <img src={stats.topEarner.picture ? `http://localhost:3000/uploads/${stats.topEarner.picture}` : "https://ui-avatars.com/api/?name=Earner&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+                                            <img src={stats.topEarner.picture ? `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000'}/uploads/${stats.topEarner.picture}` : "https://ui-avatars.com/api/?name=Earner&background=random"} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                             <div>
                                                 <p className="font-bold text-gray-800">{stats.topEarner.name}</p>
                                                 <p className="text-xs text-gray-500">Rs. {stats.topEarner.total_earned} revenue generated</p>

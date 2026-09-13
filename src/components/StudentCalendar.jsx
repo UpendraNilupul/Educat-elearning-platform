@@ -13,10 +13,14 @@ const StudentCalendar = ({ studentId = 1 }) => {
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [clickedDate, setClickedDate] = useState(null);
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     const fetchEvents = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/student/${studentId}/calendar`);
+            const response = await fetch(`${API_BASE}/api/student/${studentId}/calendar`);
             const data = await response.json();
             setEvents(data);
         } catch (error) {
@@ -44,7 +48,7 @@ const StudentCalendar = ({ studentId = 1 }) => {
         const formattedDate = dateObj.toISOString().split('T')[0];
 
         try {
-            const res = await fetch(`http://localhost:3000/api/student/${studentId}/todos`, {
+            const res = await fetch(`${API_BASE}/api/student/${studentId}/todos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task: newTaskTitle, due_date: formattedDate }),
@@ -56,7 +60,7 @@ const StudentCalendar = ({ studentId = 1 }) => {
             setNewTaskTitle('');
             
             // Instantly refresh the calendar UI
-            const calendarRes = await fetch(`http://localhost:3000/api/student/${studentId}/calendar`);
+            const calendarRes = await fetch(`${API_BASE}/api/student/${studentId}/calendar`);
             const newData = await calendarRes.json();
             setEvents(newData);
             
@@ -80,7 +84,7 @@ const StudentCalendar = ({ studentId = 1 }) => {
         if (!window.confirm('Are you sure you want to delete this event?')) return;
         
         try {
-            const response = await fetch(`http://localhost:3000/api/student/todos/${id}`, {
+            const response = await fetch(`${API_BASE}/api/student/todos/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {

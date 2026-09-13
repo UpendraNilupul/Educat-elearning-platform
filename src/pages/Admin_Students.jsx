@@ -134,11 +134,13 @@ const Admin_Students = ({ userName, onLogout }) => {
         }
     };
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     // 🌟 NEW: Trigger CSV Download
     const handleExportCSV = () => {
-        // We leave this as a raw URL because window.open needs a full URL string to trigger a browser download.
-        // Ideally, in production, this points to your real domain name.
-        window.open('http://localhost:3000/api/admin/export/students', '_blank'); 
+        window.open(`${API_BASE}/api/admin/export/students`, '_blank'); 
     };
 
     return (
@@ -260,7 +262,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
                                                     {student.picture ? (
-                                                        <img src={`http://localhost:3000/uploads/${student.picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                                        <img src={`${API_BASE}/uploads/${student.picture}`} alt="Avatar" className="w-full h-full object-cover" />
                                                     ) : student.name.charAt(0)}
                                                 </div>
                                                 <div>
@@ -394,7 +396,7 @@ const Admin_Students = ({ userName, onLogout }) => {
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0 overflow-hidden">
-                            {chatUser?.picture ? <img src={`http://localhost:3000/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
+                            {chatUser?.picture ? <img src={`${API_BASE}/uploads/${chatUser.picture}`} alt="Avatar" className="w-full h-full object-cover" /> : chatUser?.name?.charAt(0)}
                         </div>
                         <div>
                             <h3 className="font-bold text-gray-900 leading-tight">{chatUser?.name}</h3>

@@ -62,9 +62,13 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null, isVisible: true });
 
+  const API_BASE = import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+    : 'http://localhost:3000';
+
   const getResourceDownloadUrl = (resource) => {
     if (resource.url && resource.url.includes('res.cloudinary.com') && resource.url.includes('/raw/upload/')) {
-        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.url)}&name=${encodeURIComponent(resource.title)}`;
+        return `${API_BASE}/api/resources/download?url=${encodeURIComponent(resource.url)}&name=${encodeURIComponent(resource.title)}`;
     }
     return resource.url;
   };

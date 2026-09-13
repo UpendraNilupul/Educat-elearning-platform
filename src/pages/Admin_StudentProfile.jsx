@@ -68,6 +68,10 @@ const Admin_StudentProfile = ({ userName, onLogout }) => {
     const { profile, enrollments, payments } = data;
     const totalSpent = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
             {/* Header & Navigation */}
@@ -120,7 +124,7 @@ const Admin_StudentProfile = ({ userName, onLogout }) => {
                     <div className="flex items-center space-x-6">
                         <div className="w-24 h-24 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700 font-black text-4xl shrink-0 overflow-hidden">
                             {profile.picture ? (
-                                <img src={`http://localhost:3000/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" />
+                                <img src={`${API_BASE}/uploads/${profile.picture}`} alt="Avatar" className="w-full h-full object-cover" />
                             ) : profile.name.charAt(0)}
                         </div>
                         <div>

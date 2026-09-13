@@ -36,7 +36,10 @@ const StatsCTA = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/public/stats');
+                const API_BASE = import.meta.env.VITE_API_URL 
+                    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+                    : 'http://localhost:3000';
+                const response = await fetch(`${API_BASE}/api/public/stats`);
                 const data = await response.json();
                 setRealStats(data);
             } catch (error) {
@@ -78,20 +81,20 @@ const StatsCTA = () => {
     return (
         <section className="w-full bg-[#4a0b59] text-white overflow-hidden">
             {/* Top Half: CTA */}
-            <div className="container mx-auto px-4 md:px-8 py-16 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="container flex flex-col items-center justify-between gap-8 px-4 py-16 mx-auto md:px-8 md:flex-row">
                 <div className="text-center md:text-left">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                    <h2 className="mb-4 text-3xl font-bold md:text-4xl">
                         Excellence in education, every day
                     </h2>
-                    <p className="text-purple-200 text-sm md:text-base max-w-md">
+                    <p className="max-w-md text-sm text-purple-200 md:text-base">
                         Download our app to access exclusive course materials and track your learning progress on the go.
                     </p>
                 </div>
-                <div className="flex-shrink-0 cursor-pointer hover:scale-105 transition-transform duration-300">
+                <div className="flex-shrink-0 transition-transform duration-300 cursor-pointer hover:scale-105">
                     <img
                         src="/google-play.png"
                         alt="Get it on Google Play"
-                        className="h-16 md:h-20 object-contain shadow-xl rounded-xl"
+                        className="object-contain h-16 shadow-xl md:h-20 rounded-xl"
                     />
                 </div>
             </div>
@@ -101,26 +104,26 @@ const StatsCTA = () => {
                 ref={sectionRef}
                 className="w-full bg-gradient-to-r from-[#31073b] via-[#4a0b59] to-[#2c0635] border-t border-white/10"
             >
-                <div className="container mx-auto px-4 md:px-8 py-12 md:py-20">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div className="container px-4 py-12 mx-auto md:px-8 md:py-20">
+                    <div className="grid grid-cols-1 gap-8 text-center md:grid-cols-3">
                         {stats.map((stat, idx) => (
                             <div
                                 key={idx}
-                                className="group relative bg-white/5 backdrop-blur-md rounded-2xl p-8 border border-white/10 transition-all duration-500 hover:-translate-y-2 hover:bg-white/10 hover:shadow-2xl hover:shadow-orange-500/10"
+                                className="relative p-8 transition-all duration-500 border group bg-white/5 backdrop-blur-md rounded-2xl border-white/10 hover:-translate-y-2 hover:bg-white/10 hover:shadow-2xl hover:shadow-orange-500/10"
                             >
                                 <span className="block text-gray-300 text-sm font-bold uppercase tracking-[0.2em] mb-4">
                                     {stat.label}
                                 </span>
-                                <div className="text-orange-500 text-5xl md:text-6xl font-black mb-4 flex justify-center items-center">
+                                <div className="flex items-center justify-center mb-4 text-5xl font-black text-orange-500 md:text-6xl">
                                     <AnimatedCounter end={stat.target} shouldStart={isVisible} />
                                     <span>+</span>
                                 </div>
-                                <span className="text-xs text-gray-400 font-medium tracking-wide">
+                                <span className="text-xs font-medium tracking-wide text-gray-400">
                                     {stat.subtext}
                                 </span>
 
                                 {/* Card Accent Decoration */}
-                                <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/5 rounded-tr-2xl blur-2xl group-hover:bg-orange-500/10 transition-colors"></div>
+                                <div className="absolute top-0 right-0 w-16 h-16 transition-colors bg-orange-500/5 rounded-tr-2xl blur-2xl group-hover:bg-orange-500/10"></div>
                             </div>
                         ))}
                     </div>

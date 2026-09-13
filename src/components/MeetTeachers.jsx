@@ -34,6 +34,10 @@ const MeetTeachers = () => {
         return null; // Or a loading spinner
     }
 
+    const API_BASE = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') 
+        : 'http://localhost:3000';
+
     return (
         <section id="teachers" className="w-full bg-white py-16 px-4 md:px-8 scroll-mt-24">
             <div className="container mx-auto">
@@ -67,7 +71,7 @@ const MeetTeachers = () => {
                                     <div className="w-full md:w-1/3 flex flex-col items-center">
                                         <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden mb-6 shadow-lg rotate-3 hover:rotate-0 transition-transform duration-500 bg-gray-100 flex items-center justify-center">
                                             <img
-                                                src={teacher.picture ? (teacher.picture.startsWith('http') ? teacher.picture : `http://localhost:3000/${teacher.picture}`) : '/default-avatar.png'}
+                                                src={teacher.picture ? (teacher.picture.startsWith('http') ? teacher.picture : `${API_BASE}/${teacher.picture.replace(/^\//, '')}`) : '/default-avatar.png'}
                                                 alt={teacher.name}
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => { e.target.src = '/default-avatar.png' }}

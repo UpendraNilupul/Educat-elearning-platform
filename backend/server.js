@@ -53,7 +53,40 @@ import adminChatRoutes from './routes/adminChat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Trust reverse proxy for secure cookies on Render/Vercel
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
+// ==========================================
+// 🌟 CORS CONFIGURATION (Localhost + Vercel)
+// ==========================================
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+    if (!origin) return true; // Allow mobile apps, curl, postman
+    if (allowedOrigins.includes(origin)) return true;
+    if (origin.endsWith('.vercel.app')) return true;
+    return false;
+};
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, false);
+        }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+};
 
 // ==========================================
 // 🌟 SERVER & SOCKET INITIALIZATION
@@ -62,18 +95,23 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'http://localhost:5174'],
+        origin: (origin, callback) => {
+            if (isOriginAllowed(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('Socket CORS Error'));
+            }
+        },
         methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
     }
 });
 
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174'], credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 // Express Session Configuration
 const sessionMiddleware = session({
@@ -83,7 +121,7 @@ const sessionMiddleware = session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 1000 * 60 * 60 * 24
     }
 });
@@ -111,7 +149,7 @@ app.use(async (req, res, next) => {
                         SELECT users.id, roles.role_name, users.name, users.picture, admins.admin_level 
                         FROM users 
                         JOIN roles ON users.role_id = roles.id 
-                        LEFT JOIN admins ON users.id = admins.user_id
+                        LEFT JOIN admins ON users.id = admins.user_id 
                         WHERE users.id = ?
                     `;
                     const results = await query(sqlQuery, [reqUserId]);
@@ -156,6 +194,14 @@ app.use('/api', async (req, res, next) => {
         }
     }
     next();
+});
+
+// Root Health Check Route
+app.get('/', (req, res) => {
+    res.status(200).json({
+        status: 'online',
+        message: 'EduCat Backend API is live and operational!'
+    });
 });
 
 // Heartbeat
@@ -214,9 +260,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 io.on("connection", (socket) => {
     const session = socket.request.session;
 
-    // Join a specific conversation room
     socket.on("join_room", async (conversationId) => {
-        // Verify Authentication & Authorization
         if (!session || !session.userId) return;
 
         try {
@@ -228,19 +272,17 @@ io.on("connection", (socket) => {
             if (check.length > 0) {
                 socket.join(conversationId);
             } else {
-                console.warn(`⚠️ User ${session.userId} attempted to hack into unauthorized chat ${conversationId}`);
+                console.warn(`⚠️ User ${session.userId} attempted to join unauthorized chat ${conversationId}`);
             }
         } catch (err) {
             console.error(err);
         }
     });
 
-    // Handle sending/receiving messages
     socket.on("send_message", (data) => {
         socket.to(data.room).emit("receive_message", data.message);
     });
 
-    // Handle joining a global notification room for the user
     socket.on("join_notification_room", (userId) => {
         const roomName = `user_${userId}`;
         socket.join(roomName);
@@ -250,15 +292,12 @@ io.on("connection", (socket) => {
     });
 });
 
-// Fallback for SPA routing
+// API 404 Fallback
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    res.status(404).json({ error: 'Resource not found' });
 });
 
 server.listen(PORT, () => {
-    console.log(`🌱 Server running on http://localhost:${PORT}`);
-    // Start background jobs
+    console.log(`🌱 Server running on port ${PORT}`);
     initAssignmentScheduler(io);
 });
-
-
