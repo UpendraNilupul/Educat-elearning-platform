@@ -92,8 +92,8 @@ router.get('/dashboard-stats', async (req, res) => {
             JOIN users u ON t.user_id = u.id 
             JOIN classes_courses c ON c.t_id = t.id 
             JOIN payments p ON p.c_id = c.id 
-            WHERE MONTH(p.payment_date) = MONTH(CURRENT_DATE())
-            GROUP BY t.id 
+            WHERE MONTH(p.payment_date) = MONTH(CURRENT_DATE()) AND YEAR(p.payment_date) = YEAR(CURRENT_DATE()) AND p.status = 'completed'
+            GROUP BY t.id, u.name, u.picture 
             ORDER BY total_earned DESC LIMIT 1
         `);
 
@@ -102,7 +102,7 @@ router.get('/dashboard-stats', async (req, res) => {
             FROM teachers t
             JOIN users u ON t.user_id = u.id
             JOIN classes_courses c ON c.t_id = t.id
-            GROUP BY t.id
+            GROUP BY t.id, u.name, u.picture
             ORDER BY course_count DESC LIMIT 1
         `);
 
@@ -1464,24 +1464,47 @@ router.get('/export/finance', async (req, res) => {
 });
 
 // ==========================================
-// 28. FINANCIAL PAYOUT SYSTEM
+// 28. FINANCIAL PAYOUT SYSTEM / LEDGER
 // ==========================================
-router.get('/payouts', async (req, res) => {
+const getFinancialLedgerPayouts = async (req, res) => {
     try {
         const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
         const [year, month] = monthYear.split('-');
 
+        // 1. Query aggregated earnings per teacher joining teachers, courses, payments
         const rawEarnings = await query(`
             SELECT 
-                c.t_id as teacher_id, 
-                COALESCE(SUM(p.amount), 0) as gross_earned
-            FROM payments p
-            JOIN classes_courses c ON p.c_id = c.id
+                t.id AS teacher_id, 
+                u.name AS teacher_name,
+                COALESCE(SUM(p.amount), 0) AS gross_earned
+            FROM teachers t
+            JOIN users u ON t.user_id = u.id
+            JOIN classes_courses c ON c.t_id = t.id
+            JOIN payments p ON p.c_id = c.id
             WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'completed'
-            GROUP BY c.t_id
+            GROUP BY t.id, u.name
         `, [month, year]);
 
+        // 2. Group calculations by teacher.id using a Map/Dictionary to guarantee deduplication in JS
+        const earningsByTeacher = new Map();
         for (let earning of rawEarnings) {
+            const teacherId = earning.teacher_id;
+            const grossEarned = parseFloat(earning.gross_earned || 0);
+
+            if (earningsByTeacher.has(teacherId)) {
+                const existing = earningsByTeacher.get(teacherId);
+                existing.gross_earned += grossEarned;
+            } else {
+                earningsByTeacher.set(teacherId, {
+                    teacher_id: teacherId,
+                    teacher_name: earning.teacher_name,
+                    gross_earned: grossEarned
+                });
+            }
+        }
+
+        // 3. Upsert into teacher_payouts table using aggregated totals per teacher
+        for (let earning of earningsByTeacher.values()) {
             const platformFee = earning.gross_earned * 0.10; 
             await query(`
                 INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, net_payable)
@@ -1493,10 +1516,21 @@ router.get('/payouts', async (req, res) => {
             `, [earning.teacher_id, monthYear, earning.gross_earned, platformFee, earning.gross_earned - platformFee]);
         }
 
-        const payouts = await query(`
-            SELECT DISTINCT
-                tp.*, 
-                u.name as teacher_name, 
+        // 4. Fetch payout records ensuring 1 row per teacher using GROUP BY t.id, u.name
+        const rawPayouts = await query(`
+            SELECT 
+                tp.id,
+                tp.teacher_id,
+                tp.month_year,
+                tp.gross_earnings,
+                tp.platform_fee,
+                tp.adjustment,
+                tp.net_payable,
+                tp.amount_paid,
+                tp.payment_status,
+                tp.status,
+                tp.paid_at,
+                u.name AS teacher_name, 
                 u.picture
             FROM teacher_payouts tp
             JOIN teachers t ON tp.teacher_id = t.id
@@ -1506,10 +1540,27 @@ router.get('/payouts', async (req, res) => {
             ORDER BY tp.net_payable DESC
         `, [monthYear]);
 
+        // 5. Consolidate into a map by teacher.id before returning to ensure exactly one row per teacher
+        const payoutsMap = new Map();
+        rawPayouts.forEach(p => {
+            if (!payoutsMap.has(p.teacher_id)) {
+                payoutsMap.set(p.teacher_id, {
+                    ...p,
+                    gross_earnings: parseFloat(p.gross_earnings || 0),
+                    platform_fee: parseFloat(p.platform_fee || 0),
+                    adjustment: parseFloat(p.adjustment || 0),
+                    net_payable: parseFloat(p.net_payable || 0),
+                    amount_paid: parseFloat(p.amount_paid || 0)
+                });
+            }
+        });
+
+        const payouts = Array.from(payoutsMap.values());
+
         const systemStats = {
-            totalGross: payouts.reduce((sum, p) => sum + parseFloat(p.gross_earnings), 0),
-            systemEarnings: payouts.reduce((sum, p) => sum + parseFloat(p.platform_fee), 0),
-            totalToPay: payouts.reduce((sum, p) => sum + parseFloat(p.net_payable), 0),
+            totalGross: payouts.reduce((sum, p) => sum + p.gross_earnings, 0),
+            systemEarnings: payouts.reduce((sum, p) => sum + p.platform_fee, 0),
+            totalToPay: payouts.reduce((sum, p) => sum + p.net_payable, 0),
         };
 
         res.status(200).json({ success: true, data: payouts, stats: systemStats });
@@ -1517,7 +1568,10 @@ router.get('/payouts', async (req, res) => {
         console.error("Payout Sync Error:", error);
         res.status(500).json({ success: false, message: "Failed to load payouts." });
     }
-});
+};
+
+router.get('/payouts', getFinancialLedgerPayouts);
+router.get('/financial-ledger', getFinancialLedgerPayouts);
 
 router.put('/payouts/:id/adjust', async (req, res) => {
     try {
