@@ -7,9 +7,13 @@ const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
     secure: true,
+    family: 4, // Force IPv4 to prevent ENETUNREACH on environments without IPv6 outbound (e.g. Render)
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
+    },
+    tls: {
+        rejectUnauthorized: false,
     },
 });
 
