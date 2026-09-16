@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const LatestUpdates = () => {
     const [advertisements, setAdvertisements] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {
         const fetchAds = async () => {
@@ -20,50 +21,39 @@ const LatestUpdates = () => {
         fetchAds();
     }, []);
 
-    // Fallback if no ads
-    const renderContent = () => {
-        if (isLoading) {
-            return (
-                <div className="flex justify-center items-center py-20 w-full col-span-full">
-                    <Loader2 className="w-10 h-10 text-[#4a0b59] animate-spin" />
-                </div>
-            );
-        }
+    // Optional: Auto-slide every 5 seconds
+    useEffect(() => {
+        if (isLoading) return;
+        const timer = setInterval(() => {
+            nextSlide();
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [currentIndex, isLoading, advertisements]);
 
-        if (advertisements.length === 0) {
-            // Keep the default static banners if no dynamic ones exist yet
-            return (
-                <>
-                    <div className="relative group overflow-hidden rounded-xl shadow-md transition-transform duration-300 hover:scale-105 cursor-pointer bg-white">
-                        <img src="/add4.png" alt="Apply Now" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="relative group overflow-hidden rounded-xl shadow-md transition-transform duration-300 hover:scale-105 cursor-pointer bg-white">
-                        <img src="/add3.png" alt="Our Team" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="bg-gray-100 rounded-xl shadow-md flex justify-center items-center p-4 transition-transform duration-300 hover:scale-105 cursor-pointer">
-                        <img src="/add1.png" alt="Flyer 1" className="w-full h-auto max-h-[500px] object-contain" />
-                    </div>
-                    <div className="bg-gray-100 rounded-xl shadow-md flex justify-center items-center p-4 transition-transform duration-300 hover:scale-105 cursor-pointer">
-                        <img src="/add2.png" alt="Flyer 2" className="w-full h-auto max-h-[500px] object-contain" />
-                    </div>
-                </>
-            );
-        }
+    // Fallback static ads if the database is empty
+    const fallbackAds = [
+        { ad_id: 'f1', ad_link: '/add4.png', teacher_name: 'EduCat Team', avg_rating: 5.0 },
+        { ad_id: 'f2', ad_link: '/add3.png', teacher_name: 'EduCat Team', avg_rating: 5.0 },
+        { ad_id: 'f3', ad_link: '/add1.png', teacher_name: 'EduCat Team', avg_rating: 5.0 },
+        { ad_id: 'f4', ad_link: '/add2.png', teacher_name: 'EduCat Team', avg_rating: 5.0 }
+    ];
 
-        return advertisements.map((ad) => (
-            <div key={ad.ad_id} className="relative group overflow-hidden rounded-xl shadow-md transition-transform duration-300 hover:scale-105 cursor-pointer bg-white aspect-[4/3] md:aspect-[3/2] flex justify-center items-center p-4">
-                <img
-                    src={ad.ad_link}
-                    alt={`Advertisement from ${ad.teacher_name}`}
-                    className="w-full h-auto max-h-[500px] object-contain"
-                    title={`By ${ad.teacher_name} (Rating: ${Number(ad.avg_rating).toFixed(1)}/5.0)`}
-                />
-            </div>
-        ));
+    const displayAds = advertisements.length > 0 ? advertisements : fallbackAds;
+
+    const nextSlide = () => {
+        setCurrentIndex((prevIndex) => (prevIndex === displayAds.length - 1 ? 0 : prevIndex + 1));
+    };
+
+    const prevSlide = () => {
+        setCurrentIndex((prevIndex) => (prevIndex === 0 ? displayAds.length - 1 : prevIndex - 1));
+    };
+
+    const goToSlide = (index) => {
+        setCurrentIndex(index);
     };
 
     return (
-        <section className="w-full bg-[#f9f8f4] py-16">
+        <section id="classes" className="w-full bg-[#f9f8f4] py-16 scroll-mt-24">
             <div className="container mx-auto px-4">
                 {/* Header */}
                 <div className="text-center mb-12">
@@ -75,10 +65,58 @@ const LatestUpdates = () => {
                     </p>
                 </div>
 
-                {/* Banners Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto px-6 mt-10">
-                    {renderContent()}
-                </div>
+                {/* Loading State */}
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-20 w-full">
+                        <Loader2 className="w-10 h-10 text-[#4a0b59] animate-spin" />
+                    </div>
+                ) : (
+                    /* Carousel Container */
+                    <div className="relative w-full max-w-5xl mx-auto group">
+                        
+                        {/* Main Image Viewport (Updated for better height scaling) */}
+                        <div className="overflow-hidden rounded-2xl shadow-lg bg-white relative h-[400px] md:h-[500px] lg:h-[600px] w-full flex justify-center items-center">
+                            <img
+                                src={displayAds[currentIndex].ad_link}
+                                alt={`Advertisement from ${displayAds[currentIndex].teacher_name}`}
+                                className="w-full h-full object-contain p-2 md:p-4 transition-all duration-500 ease-in-out"
+                                title={`By ${displayAds[currentIndex].teacher_name} (Rating: ${Number(displayAds[currentIndex].avg_rating).toFixed(1)}/5.0)`}
+                            />
+                        </div>
+
+                        {/* Left Navigation Arrow */}
+                        <button 
+                            onClick={prevSlide}
+                            className="absolute top-1/2 -left-4 md:-left-6 -translate-y-1/2 bg-white/80 hover:bg-[#4a0b59] text-[#4a0b59] hover:text-white p-2 md:p-3 rounded-full shadow-md backdrop-blur-sm transition-all z-10"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+
+                        {/* Right Navigation Arrow */}
+                        <button 
+                            onClick={nextSlide}
+                            className="absolute top-1/2 -right-4 md:-right-6 -translate-y-1/2 bg-white/80 hover:bg-[#4a0b59] text-[#4a0b59] hover:text-white p-2 md:p-3 rounded-full shadow-md backdrop-blur-sm transition-all z-10"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+
+                        {/* Navigation Dots */}
+                        <div className="flex justify-center gap-2 mt-6">
+                            {displayAds.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => goToSlide(index)}
+                                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                        currentIndex === index 
+                                            ? 'bg-[#4a0b59] w-8' 
+                                            : 'bg-gray-300 hover:bg-gray-400'
+                                    }`}
+                                    aria-label={`Go to slide ${index + 1}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </section>
     );

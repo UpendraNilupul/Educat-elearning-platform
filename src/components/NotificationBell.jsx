@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Check, Circle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api';
 
-const NotificationBell = () => {
+const NotificationBell = ({ onOpenChat }) => {
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -73,6 +75,16 @@ const NotificationBell = () => {
         }
     };
 
+    const markGroupAsRead = async (unreadIds) => {
+        try {
+            await Promise.all(unreadIds.map(id => api.put(`/notifications/${userId}/read/${id}`)));
+            setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, is_read: 1 } : n));
+            setUnreadCount(prev => Math.max(0, prev - unreadIds.length));
+        } catch (error) {
+            console.error('Error marking group notifications as read:', error);
+        }
+    };
+
     const markAllAsRead = async () => {
         try {
             await api.put(`/notifications/${userId}/read`);
@@ -83,7 +95,88 @@ const NotificationBell = () => {
         }
     };
 
-    const filteredNotifications = notifications.filter(n => filter === 'all' ? true : !n.is_read);
+    // Helper to check if notification is a chat message
+    const isMessageNotif = (notif) => {
+        const prefix = 'New message from ';
+        return notif.title === 'New Message' && notif.description && notif.description.startsWith(prefix);
+    };
+
+    // Helper to get sender name from notification
+    const getSenderName = (notif) => {
+        const prefix = 'New message from ';
+        return notif.description.substring(prefix.length);
+    };
+
+    // Grouping function
+    const groupNotifications = (notifs) => {
+        const grouped = [];
+        const messageGroups = {}; // Key: senderName
+
+        notifs.forEach(notif => {
+            if (isMessageNotif(notif)) {
+                const senderName = getSenderName(notif);
+                if (messageGroups[senderName]) {
+                    const group = messageGroups[senderName];
+                    group.ids.push(notif.id);
+                    group.totalCount += 1;
+                    if (!notif.is_read) {
+                        group.unreadCount += 1;
+                        group.unreadIds.push(notif.id);
+                    }
+                } else {
+                    const group = {
+                        id: `group_${notif.id}`,
+                        isGroup: true,
+                        senderName,
+                        ids: [notif.id],
+                        unreadIds: !notif.is_read ? [notif.id] : [],
+                        totalCount: 1,
+                        unreadCount: !notif.is_read ? 1 : 0,
+                        created_at: notif.created_at,
+                        is_read: notif.is_read
+                    };
+                    messageGroups[senderName] = group;
+                    grouped.push(group);
+                }
+            } else {
+                grouped.push({
+                    ...notif,
+                    isGroup: false
+                });
+            }
+        });
+
+        return grouped.map(item => {
+            if (item.isGroup) {
+                const isRead = item.unreadCount === 0;
+                let title = 'New Message';
+                let description = '';
+
+                if (item.unreadCount > 0) {
+                    title = item.unreadCount > 1 ? 'New Messages' : 'New Message';
+                    description = item.unreadCount > 1
+                        ? `${item.unreadCount} new messages from ${item.senderName}`
+                        : `New message from ${item.senderName}`;
+                } else {
+                    title = 'Message';
+                    description = item.totalCount > 1
+                        ? `${item.totalCount} messages from ${item.senderName}`
+                        : `Message from ${item.senderName}`;
+                }
+
+                return {
+                    ...item,
+                    is_read: isRead ? 1 : 0,
+                    title,
+                    description
+                };
+            }
+            return item;
+        });
+    };
+
+    const processedNotifications = groupNotifications(notifications);
+    const filteredNotifications = processedNotifications.filter(n => filter === 'all' ? true : !n.is_read);
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -131,11 +224,36 @@ const NotificationBell = () => {
                         ) : (
                             <div className="divide-y divide-gray-50">
                                 {filteredNotifications.map((notif) => (
-                                    <div 
-                                        key={notif.id} 
-                                        onClick={() => !notif.is_read && markAsRead(notif.id)}
-                                        className={`p-4 transition-colors hover:bg-gray-50 flex gap-3 ${!notif.is_read ? 'bg-purple-50/30 cursor-pointer' : ''}`}
-                                    >
+                                     <div 
+                                         key={notif.id} 
+                                         onClick={async () => {
+                                             if (notif.isGroup) {
+                                                 if (notif.unreadCount > 0) {
+                                                     await markGroupAsRead(notif.unreadIds);
+                                                 }
+                                                 if (onOpenChat) {
+                                                     onOpenChat(notif.senderName);
+                                                 }
+                                                 setIsOpen(false);
+                                             } else {
+                                                 if (!notif.is_read) {
+                                                     await markAsRead(notif.id);
+                                                 }
+                                                 const prefix = 'New message from ';
+                                                 if (notif.title === 'New Message' && notif.description.startsWith(prefix)) {
+                                                     const senderName = notif.description.substring(prefix.length);
+                                                     if (onOpenChat) {
+                                                         onOpenChat(senderName);
+                                                     }
+                                                     setIsOpen(false);
+                                                 } else if (notif.title === 'Chat Request') {
+                                                     navigate('/admin/communications', { state: { activeTab: 'chat_requests' } });
+                                                     setIsOpen(false);
+                                                 }
+                                             }
+                                         }}
+                                         className={`p-4 transition-colors hover:bg-gray-50 flex gap-3 cursor-pointer ${!notif.is_read ? 'bg-purple-50/30' : ''}`}
+                                     >
                                         <div className="mt-1 flex-shrink-0">
                                             {!notif.is_read && <div className="w-2.5 h-2.5 bg-black rounded-full" title="Unread"></div>}
                                         </div>

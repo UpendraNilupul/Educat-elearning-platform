@@ -6,6 +6,42 @@ import bcrypt from 'bcryptjs';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
+async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+    try {
+        const receiverQuery = await query(`
+            SELECT r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = ?
+        `, [receiverId]);
+
+        if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
+            const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
+            const senderName = senderQuery[0]?.name || 'Someone';
+            const notifTitle = 'New Message';
+            const notifDesc = `New message from ${senderName}`;
+            
+            const insertRes = await query(`
+                INSERT INTO notifications (user_id, title, description, is_read)
+                VALUES (?, ?, ?, FALSE)
+            `, [receiverId, notifTitle, notifDesc]);
+
+            if (req.io) {
+                req.io.to(`user_${receiverId}`).emit('new_notification', {
+                    id: insertRes.insertId,
+                    title: notifTitle,
+                    description: notifDesc,
+                    user_id: receiverId,
+                    is_read: 0,
+                    created_at: new Date()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error in checkAndCreateMessageNotification:", error);
+    }
+}
+
 // Helper function to safely get YYYY-MM-DD for past dates
 const getPastDateString = (daysAgo) => {
     const d = new Date();
@@ -179,9 +215,6 @@ router.get('/dashboard-stats', async (req, res) => {
 // ==========================================
 // 6. FETCH FULL TEACHER DETAILS & HISTORY
 // ==========================================
-// ==========================================
-// 6. FETCH FULL TEACHER DETAILS & HISTORY
-// ==========================================
 router.get('/teacher-details/:id', async (req, res) => {
     try {
         const teacherData = await query(`
@@ -250,7 +283,6 @@ router.put('/verify-teacher/:id', async (req, res) => {
     }
 });
 
-//teachers page routs
 // ==========================================
 // 8. FETCH ALL SUBJECTS (For Filter Dropdown)
 // ==========================================
@@ -271,7 +303,6 @@ router.get('/teachers-list', async (req, res) => {
     try {
         const { search, status, subject } = req.query;
 
-        // 🌟 UPDATED: t.user_code is now explicitly selected
         let sqlQuery = `
             SELECT 
                 t.id AS teacher_id,
@@ -296,7 +327,6 @@ router.get('/teachers-list', async (req, res) => {
 
         const queryParams = [];
 
-        // 🌟 UPDATED: Search checks user_code as well
         if (search && search.trim() !== '') {
             sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ? OR t.user_code LIKE ?)`;
             const searchWildcard = `%${search}%`;
@@ -338,10 +368,9 @@ router.get('/teacher-analytics/:id', async (req, res) => {
     try {
         const teacherId = req.params.id;
 
-        // 1. Get Basic Profile & Subjects
         const profileQuery = await query(`
             SELECT 
-                u.id as user_id, /* 🌟 THE FIX: Added this line so we can message/suspend them! */
+                u.id as user_id,
                 u.name, u.email, u.picture, u.phone_number, u.status, u.last_active, u.created_at,
                 t.verification_status,
                 GROUP_CONCAT(DISTINCT s.name SEPARATOR ', ') AS subjects
@@ -357,7 +386,6 @@ router.get('/teacher-analytics/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: "Teacher not found." });
         }
 
-        // 2. Get Course Performance (Revenue, Students, Ratings per course)
         const coursesQuery = await query(`
             SELECT 
                 c.id, c.title, c.status, c.created_at,
@@ -373,7 +401,6 @@ router.get('/teacher-analytics/:id', async (req, res) => {
             ORDER BY total_revenue DESC
         `, [teacherId]);
 
-        // 3. Get Recent Student Reviews
         const reviewsQuery = await query(`
             SELECT 
                 r.rating, r.description, r.created_at,
@@ -387,7 +414,6 @@ router.get('/teacher-analytics/:id', async (req, res) => {
             LIMIT 5
         `, [teacherId]);
 
-        // 4. Calculate Master KPIs
         let totalPlatformStudents = 0;
         let totalPlatformRevenue = 0;
         let sumRatings = 0;
@@ -430,7 +456,6 @@ router.get('/students-list', async (req, res) => {
     try {
         const { search, status } = req.query;
 
-        // 🌟 UPDATED: s.user_code is now explicitly selected
         let sqlQuery = `
             SELECT 
                 s.id AS student_id,
@@ -453,7 +478,6 @@ router.get('/students-list', async (req, res) => {
 
         const queryParams = [];
 
-        // 🌟 UPDATED: Search checks user_code as well
         if (search && search.trim() !== '') {
             sqlQuery += ` AND (u.name LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ? OR s.user_code LIKE ?)`;
             const searchWildcard = `%${search}%`;
@@ -483,7 +507,6 @@ router.get('/student-profile/:id', async (req, res) => {
     try {
         const studentId = req.params.id;
 
-        // 1. Get Basic Profile
         const profileQuery = await query(`
             SELECT 
                 s.id as student_id, u.id as user_id, u.name, u.email, u.phone_number, u.picture, 
@@ -497,7 +520,6 @@ router.get('/student-profile/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: "Student not found." });
         }
 
-        // 2. Get Enrollments Details
         const enrollmentsQuery = await query(`
             SELECT 
                 e.id, e.status, e.enrolled_date,
@@ -511,7 +533,6 @@ router.get('/student-profile/:id', async (req, res) => {
             ORDER BY e.enrolled_date DESC
         `, [studentId]);
 
-        // 3. Get Payment History
         const paymentsQuery = await query(`
             SELECT 
                 p.id, p.amount, p.status, p.payment_date, p.invoice_link,
@@ -538,10 +559,9 @@ router.get('/student-profile/:id', async (req, res) => {
 // ==========================================
 // 13. QUICK ACTIONS: SUSPEND & MESSAGE
 // ==========================================
-// Toggle Suspend/Active Status
 router.put('/student-status/:userId', async (req, res) => {
     try {
-        const { status } = req.body; // Expects 'active' or 'suspended'
+        const { status } = req.body; 
         await query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.userId]);
         await query(
             'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
@@ -553,7 +573,6 @@ router.put('/student-status/:userId', async (req, res) => {
     }
 });
 
-// Send Direct Notification
 router.post('/student-notify', async (req, res) => {
     try {
         const { userId, title, message } = req.body;
@@ -578,7 +597,6 @@ router.post('/students/bulk-notify', async (req, res) => {
             return res.status(400).json({ success: false, message: "No students selected." });
         }
 
-        // 🌟 THE FIX: Use Promise.all for guaranteed, bulletproof inserts
         const insertPromises = userIds.map(id => {
             return query(
                 'INSERT INTO notifications (user_id, title, description) VALUES (?, ?, ?)',
@@ -598,8 +616,6 @@ router.post('/students/bulk-notify', async (req, res) => {
 // ==========================================
 // 15. PROMO CODES MANAGEMENT
 // ==========================================
-
-// A. Fetch simplified courses list for the dropdown
 router.get('/all-courses', async (req, res) => {
     try {
         const courses = await query("SELECT id, title FROM classes_courses WHERE status = 'active' ORDER BY title ASC");
@@ -609,7 +625,6 @@ router.get('/all-courses', async (req, res) => {
     }
 });
 
-// B. Fetch all Promo Codes
 router.get('/promo-codes', async (req, res) => {
     try {
         const promos = await query(`
@@ -626,7 +641,6 @@ router.get('/promo-codes', async (req, res) => {
     }
 });
 
-// C. Create a new Promo Code
 router.post('/promo-codes', async (req, res) => {
     try {
         const { code, c_id, discount_percent, expire_date } = req.body;
@@ -648,7 +662,6 @@ router.post('/promo-codes', async (req, res) => {
             return res.status(400).json({ success: false, message: "Expiry date must be a valid date with a 4-digit year no later than 2100." });
         }
 
-        // Convert the discount to decimal (e.g., 50% -> 0.50) if it comes in as a whole number
         let formattedDiscount = parseFloat(discount_percent);
         if (formattedDiscount > 1) {
             formattedDiscount = formattedDiscount / 100;
@@ -662,7 +675,6 @@ router.post('/promo-codes', async (req, res) => {
         res.status(201).json({ success: true, message: "Promo code generated successfully!" });
     } catch (error) {
         console.error("Promo Code Error:", error);
-        // Handle MySQL unique constraint errors if the code already exists
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ success: false, message: "This promo code already exists!" });
         }
@@ -670,7 +682,6 @@ router.post('/promo-codes', async (req, res) => {
     }
 });
 
-// D. Toggle Promo Code Status (Deactivate/Reactivate)
 router.put('/promo-codes/:id/status', async (req, res) => {
     try {
         const { status } = req.body;
@@ -708,14 +719,12 @@ router.get('/courses-list', async (req, res) => {
 
         const queryParams = [];
 
-        // 1. Search Filter (Checks Course Title or Teacher Name)
         if (search && search.trim() !== '') {
             sqlQuery += ` AND (c.title LIKE ? OR u.name LIKE ?)`;
             const searchWildcard = `%${search}%`;
             queryParams.push(searchWildcard, searchWildcard);
         }
 
-        // 2. Status Filter
         if (status && status !== 'All') {
             sqlQuery += ` AND c.status = ?`;
             queryParams.push(status);
@@ -743,7 +752,6 @@ router.get('/courses-list', async (req, res) => {
 router.put('/course-status/:id', async (req, res) => {
     try {
         const { status } = req.body;
-        // Expected statuses: 'active', 'not_active' (Pending), 'suspended'
         await query('UPDATE classes_courses SET status = ? WHERE id = ?', [status, req.params.id]);
         await query(
             'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
@@ -770,7 +778,6 @@ router.post('/global-announcement', async (req, res) => {
 
         let userIds = [];
 
-        // 1. Hunt down the target audience
         if (audienceType === 'all') {
             const users = await query("SELECT id FROM users WHERE status = 'active'");
             userIds = users.map(u => u.id);
@@ -784,7 +791,6 @@ router.post('/global-announcement', async (req, res) => {
             userIds = users.map(u => u.id);
 
         } else if (audienceType === 'course') {
-            // Get all students enrolled in a specific active course
             const users = await query(`
                 SELECT s.user_id 
                 FROM enrollments e 
@@ -794,7 +800,6 @@ router.post('/global-announcement', async (req, res) => {
             userIds = users.map(u => u.user_id);
 
         } else if (audienceType === 'subject') {
-            // Get all teachers who teach a specific subject
             const users = await query(`
                 SELECT t.user_id 
                 FROM teacher_subjects ts 
@@ -804,7 +809,6 @@ router.post('/global-announcement', async (req, res) => {
             userIds = users.map(u => u.user_id);
 
         } else if (audienceType === 'students_by_subject') {
-            // 🌟 NEW: Get all students currently learning a specific subject
             const users = await query(`
                 SELECT DISTINCT s.user_id 
                 FROM enrollments e 
@@ -816,7 +820,6 @@ router.post('/global-announcement', async (req, res) => {
             userIds = users.map(u => u.user_id);
 
         } else if (audienceType === 'students_by_age') {
-            // 🌟 NEW: Get students dynamically based on their exact age today
             if (!minAge || !maxAge) return res.status(400).json({ success: false, message: "Age range is required." });
 
             const users = await query(`
@@ -830,12 +833,10 @@ router.post('/global-announcement', async (req, res) => {
             userIds = users.map(u => u.id);
         }
 
-        // 2. Safety check
         if (userIds.length === 0) {
             return res.status(404).json({ success: false, message: "No active users found matching this criteria." });
         }
 
-        // 3. Blast the notifications using Promise.all
         const insertPromises = userIds.map(id => {
             return query(
                 'INSERT INTO notifications (user_id, title, description) VALUES (?, ?, ?)',
@@ -866,7 +867,6 @@ router.get('/profile/:id', async (req, res) => {
 
         if (profile.length === 0) return res.status(404).json({ success: false, message: "Admin not found." });
 
-        // Format the date so it plays nicely with HTML date inputs
         if (profile[0].dob) {
             const d = new Date(profile[0].dob);
             profile[0].dob = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -906,7 +906,6 @@ router.put('/profile/:id', async (req, res) => {
 
         res.status(200).json({ success: true, message: "Profile updated successfully!" });
     } catch (error) {
-        // Handle duplicate email error
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ success: false, message: "That email is already in use by another account." });
         }
@@ -922,15 +921,12 @@ router.put('/change-password/:id', async (req, res) => {
         const { currentPassword, newPassword } = req.body;
         const adminId = req.params.id;
 
-        // 1. Get current user's hashed password
         const user = await query('SELECT password FROM users WHERE id = ?', [adminId]);
         if (user.length === 0) return res.status(404).json({ success: false, message: "User not found." });
 
-        // 2. Verify current password
         const isMatch = await bcrypt.compare(currentPassword, user[0].password);
         if (!isMatch) return res.status(400).json({ success: false, message: "Incorrect current password." });
 
-        // 3. Hash new password and save
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
         await query('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, adminId]);
 
@@ -945,13 +941,12 @@ router.put('/change-password/:id', async (req, res) => {
 // ==========================================
 router.post('/send-message', async (req, res) => {
     try {
-        const { senderId, receiverId, message } = req.body;
+        const { senderId, receiverId, message, fileUrl, fileType } = req.body;
 
-        if (!senderId || !receiverId || !message) {
+        if (!senderId || !receiverId || (!message && !fileUrl)) {
             return res.status(400).json({ success: false, message: "Missing required fields." });
         }
 
-        // 1. Check if a conversation already exists between these two users
         const convQuery = await query(`
             SELECT id FROM conversations 
             WHERE (participant1_id = ? AND participant2_id = ?) 
@@ -963,7 +958,6 @@ router.post('/send-message', async (req, res) => {
         if (convQuery.length > 0) {
             conversationId = convQuery[0].id;
         } else {
-            // 2. Create a new conversation if one doesn't exist
             const newConv = await query(`
                 INSERT INTO conversations (participant1_id, participant2_id) 
                 VALUES (?, ?)
@@ -971,16 +965,16 @@ router.post('/send-message', async (req, res) => {
             conversationId = newConv.insertId;
         }
 
-        // 3. Insert the actual message
         await query(`
-            INSERT INTO messages (conversation_id, sender_id, body) 
-            VALUES (?, ?, ?)
-        `, [conversationId, senderId, message]);
+            INSERT INTO messages (conversation_id, sender_id, body, file_url, file_type) 
+            VALUES (?, ?, ?, ?, ?)
+        `, [conversationId, senderId, message || '', fileUrl || null, fileType || null]);
 
-        // 4. Update the conversation's timestamp to bump it to the top of the inbox
         await query(`
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
+
+        await checkAndCreateMessageNotification(req, senderId, receiverId);
 
         res.status(200).json({ success: true, message: "Message sent successfully!" });
 
@@ -993,8 +987,6 @@ router.post('/send-message', async (req, res) => {
 // ==========================================
 // 🌟 23. THE ESCALATION SYSTEM (SUB TO SUPER)
 // ==========================================
-
-// Sub-Admin sends an issue up the chain
 router.post('/escalate', async (req, res) => {
     try {
         const { entityType, entityId, reason } = req.body;
@@ -1011,7 +1003,6 @@ router.post('/escalate', async (req, res) => {
     }
 });
 
-// Super Admin views pending issues
 router.get('/escalations', async (req, res) => {
     try {
         const escalations = await query(`
@@ -1026,7 +1017,6 @@ router.get('/escalations', async (req, res) => {
     }
 });
 
-// Super Admin marks an issue as resolved
 router.put('/resolve-escalation/:id', async (req, res) => {
     try {
         await query(`UPDATE admin_escalations SET status = 'resolved' WHERE id = ?`, [req.params.id]);
@@ -1046,7 +1036,11 @@ router.post('/create-sub-admin', async (req, res) => {
             return res.status(403).json({ success: false, message: "Unauthorized. Super Admin access required." });
         }
 
-        const { name, email, password, phoneNumber, address, dob, gender } = req.body;
+        const { name, email, password, phoneNumber, address, dob, gender, adminLevelType } = req.body;
+
+        if (!['moderator', 'finance'].includes(adminLevelType)) {
+            return res.status(400).json({ success: false, message: "Invalid admin role specified." });
+        }
 
         if (dob) {
             const dobDate = new Date(dob);
@@ -1067,25 +1061,20 @@ router.post('/create-sub-admin', async (req, res) => {
             }
         }
 
-        // Hash the new admin's password
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Find the 'admin' role ID
         const roleResults = await query('SELECT id FROM roles WHERE role_name = "admin"');
         const roleId = roleResults[0].id;
 
-        // 1. Insert into main users table
         const userResult = await query(`
             INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
         `, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
 
-        // 2. Insert into admins table and tag them specifically as 'sub'
         await query(`
-            INSERT INTO admins (user_id, admin_level) VALUES (?, 'sub')
-        `, [userResult.insertId]);
+            INSERT INTO admins (user_id, admin_level) VALUES (?, ?)
+        `, [userResult.insertId, adminLevelType]);
 
-        res.status(201).json({ success: true, message: "Sub-Admin created successfully!" });
+        res.status(201).json({ success: true, message: `${adminLevelType === 'finance' ? 'Financial Manager' : 'System Moderator'} created successfully!` });
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ success: false, message: "That email is already in use by another account." });
@@ -1093,17 +1082,83 @@ router.post('/create-sub-admin', async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to create Sub-Admin." });
     }
 });
+
+// ==========================================
+// 🌟 24.5 MANAGE SUB-ADMINS (SUPER ADMIN ONLY)
+// ==========================================
+
+// A. Fetch all Sub-Admins
+router.get('/sub-admins', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        const team = await query(`
+            SELECT u.id, u.name, u.email, u.phone_number, u.status, u.join_date, a.admin_level 
+            FROM users u
+            JOIN admins a ON u.id = a.user_id
+            WHERE a.admin_level IN ('moderator', 'finance')
+            ORDER BY u.created_at DESC
+        `);
+
+        res.status(200).json({ success: true, data: team });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to fetch team members." });
+    }
+});
+
+// 🌟 RESTORED MISSING ROUTE: Toggle Status (Suspend / Activate)
+router.put('/sub-admins/:id/status', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        const { status } = req.body; 
+        
+        await query('UPDATE users SET status = ? WHERE id = ?', [status, req.params.id]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Changed Sub-Admin ID ${req.params.id} status to: ${status}`]
+        );
+
+        res.status(200).json({ success: true, message: `Sub-Admin marked as ${status}.` });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update status." });
+    }
+});
+
+// 🌟 RESTORED MISSING ROUTE: Permanently Remove Sub-Admin
+router.delete('/sub-admins/:id', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Unauthorized." });
+        }
+
+        await query('DELETE FROM users WHERE id = ?', [req.params.id]);
+
+        await query(
+            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
+            [req.session.userId, `Permanently deleted Sub-Admin ID ${req.params.id}`]
+        );
+
+        res.status(200).json({ success: true, message: "Sub-Admin permanently removed." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to remove Sub-Admin." });
+    }
+});
+
 // ==========================================
 // 25. GLOBAL AUDIT LOGS (SUPER ADMIN ONLY)
 // ==========================================
 router.get('/system-logs', async (req, res) => {
     try {
-        // Security: Only Super Admins can view the master logs
         if (req.session.adminLevel !== 'super') {
             return res.status(403).json({ success: false, message: "Unauthorized. Super Admin clearance required." });
         }
 
-        // Fetch logs, joining with the users table to get the name of the admin who did it
         const logs = await query(`
             SELECT 
                 ua.id, 
@@ -1127,11 +1182,10 @@ router.get('/system-logs', async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to fetch system logs." });
     }
 });
+
 // ==========================================
 // 26. UNIFIED COMMUNICATIONS HUB ROUTES
 // ==========================================
-
-// A. Fetch all active conversations for the logged-in Admin
 router.get('/conversations', async (req, res) => {
     try {
         const adminId = req.session.userId;
@@ -1143,7 +1197,11 @@ router.get('/conversations', async (req, res) => {
                 u.id as other_user_id, 
                 u.name as other_user_name, 
                 u.picture as other_user_picture,
-                r.role_name as other_user_role
+                r.role_name as other_user_role,
+                (SELECT COUNT(*) FROM messages m 
+                 WHERE m.conversation_id = c.id 
+                   AND m.sender_id = u.id 
+                   AND m.is_read = FALSE) as unread_count
             FROM conversations c
             JOIN users u ON (u.id = c.participant1_id OR u.id = c.participant2_id) AND u.id != ?
             JOIN roles r ON u.role_id = r.id
@@ -1158,11 +1216,19 @@ router.get('/conversations', async (req, res) => {
     }
 });
 
-// B. Fetch messages for a specific conversation
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
+        const userId = req.session.userId;
+        if (userId) {
+            await query(`
+                UPDATE messages 
+                SET is_read = TRUE 
+                WHERE conversation_id = ? AND sender_id != ? AND is_read = FALSE
+            `, [req.params.id, userId]);
+        }
+
         const messages = await query(`
-            SELECT sender_id, body, created_at 
+            SELECT sender_id, body, file_url, file_type, created_at 
             FROM messages 
             WHERE conversation_id = ? 
             ORDER BY created_at ASC
@@ -1174,7 +1240,6 @@ router.get('/conversations/:id/messages', async (req, res) => {
     }
 });
 
-// C. Fetch Announcement History (Groups notifications to show the blast record)
 router.get('/announcements-history', async (req, res) => {
     try {
         const history = await query(`
@@ -1197,15 +1262,12 @@ router.get('/announcements-history', async (req, res) => {
 // ==========================================
 // 27. CSV DATA EXPORT ROUTES
 // ==========================================
-
-// Helper function to convert JSON to CSV format
 const convertToCSV = (data) => {
     if (!data || data.length === 0) return '';
     const headers = Object.keys(data[0]).join(',');
     const rows = data.map(row => 
         Object.values(row).map(val => {
             let str = String(val !== null && val !== undefined ? val : '');
-            // Escape quotes and commas for Excel compatibility
             if (str.includes(',') || str.includes('"') || str.includes('\n')) {
                 str = `"${str.replace(/"/g, '""')}"`;
             }
@@ -1215,7 +1277,6 @@ const convertToCSV = (data) => {
     return [headers, ...rows].join('\n');
 };
 
-// A. Export Teachers
 router.get('/export/teachers', async (req, res) => {
     try {
         const teachers = await query(`
@@ -1244,7 +1305,6 @@ router.get('/export/teachers', async (req, res) => {
     }
 });
 
-// B. Export Students
 router.get('/export/students', async (req, res) => {
     try {
         const students = await query(`
@@ -1274,32 +1334,155 @@ router.get('/export/students', async (req, res) => {
 });
 
 // ==========================================
+// 27.5 PROFESSIONAL FINANCIAL EXPORTS
+// ==========================================
+router.get('/export/finance', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).send("Unauthorized. Super Admin clearance required.");
+        }
+
+        const { type, timeframe, customDate } = req.query;
+        let dateCondition = "1=1";
+
+        if (timeframe === 'weekly') {
+            dateCondition = "DATE(payment_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+        } else if (timeframe === 'monthly') {
+            dateCondition = "MONTH(payment_date) = MONTH(CURDATE()) AND YEAR(payment_date) = YEAR(CURDATE())";
+        } else if (timeframe === 'yearly') {
+            dateCondition = "YEAR(payment_date) = YEAR(CURDATE())";
+        } else if (timeframe === 'custom_month' && customDate) {
+            const [year, month] = customDate.split('-');
+            dateCondition = `MONTH(payment_date) = ${parseInt(month)} AND YEAR(payment_date) = ${parseInt(year)}`;
+        } else if (timeframe === 'custom_year' && customDate) {
+            dateCondition = `YEAR(payment_date) = ${parseInt(customDate)}`;
+        }
+
+        let data = [];
+        let filename = "";
+
+        if (type === 'revenue') {
+            filename = `Educat_Student_Revenue_${timeframe}_${getPastDateString(0)}.csv`;
+            dateCondition = dateCondition.replace(/payment_date/g, 'p.payment_date');
+            
+            data = await query(`
+                SELECT 
+                    p.invoice_link AS 'Invoice ID',
+                    DATE_FORMAT(p.payment_date, '%Y-%m-%d %H:%i') AS 'Date & Time',
+                    u.name AS 'Student Name',
+                    u.email AS 'Student Email',
+                    c.title AS 'Course Name',
+                    p.payment_method AS 'Method',
+                    p.amount AS 'Amount (LKR)'
+                FROM payments p
+                JOIN students s ON p.s_id = s.id
+                JOIN users u ON s.user_id = u.id
+                JOIN classes_courses c ON p.c_id = c.id
+                WHERE p.status = 'completed' AND ${dateCondition}
+                ORDER BY p.payment_date DESC
+            `);
+
+        } else if (type === 'payouts') {
+            filename = `Educat_Teacher_Payouts_${timeframe}_${getPastDateString(0)}.csv`;
+            dateCondition = dateCondition.replace(/payment_date/g, 'pt.payment_date');
+
+            data = await query(`
+                SELECT 
+                    pt.id AS 'Transaction ID',
+                    DATE_FORMAT(pt.payment_date, '%Y-%m-%d %H:%i') AS 'Date & Time',
+                    u.name AS 'Teacher Name',
+                    t.user_code AS 'Teacher ID',
+                    pt.amount AS 'Amount Paid (LKR)',
+                    pt.reference_note AS 'Reference / Note',
+                    admin_u.name AS 'Processed By'
+                FROM payout_transactions pt
+                JOIN teachers t ON pt.teacher_id = t.id
+                JOIN users u ON t.user_id = u.id
+                JOIN users admin_u ON pt.admin_id = admin_u.id
+                WHERE ${dateCondition}
+                ORDER BY pt.payment_date DESC
+            `);
+
+        } else if (type === 'manifest') {
+            filename = `Educat_Bank_Transfer_Manifest_${getPastDateString(0)}.csv`;
+
+            data = await query(`
+                SELECT 
+                    u.name AS 'Teacher Name',
+                    t.user_code AS 'Teacher ID',
+                    u.phone_number AS 'Phone Number',
+                    u.email AS 'Contact Email',
+                    tp.month_year AS 'For Month',
+                    (tp.net_payable - tp.amount_paid) AS 'Balance to Pay (LKR)'
+                FROM teacher_payouts tp
+                JOIN teachers t ON tp.teacher_id = t.id
+                JOIN users u ON t.user_id = u.id
+                WHERE (tp.net_payable - tp.amount_paid) > 0
+                ORDER BY u.name ASC
+            `);
+
+        } else if (type === 'profit') {
+            filename = `Educat_Platform_Profit_Summary_${timeframe}_${getPastDateString(0)}.csv`;
+            
+            let profitDateCondition = "1=1";
+            if (timeframe === 'yearly') {
+                profitDateCondition = "month_year LIKE CONCAT(YEAR(CURDATE()), '-%')";
+            } else if (timeframe === 'monthly') {
+                profitDateCondition = "month_year = DATE_FORMAT(CURDATE(), '%Y-%m')";
+            } else if (timeframe === 'custom_month' && customDate) {
+                profitDateCondition = `month_year = '${customDate}'`;
+            } else if (timeframe === 'custom_year' && customDate) {
+                profitDateCondition = `month_year LIKE '${customDate}-%'`;
+            }
+
+            data = await query(`
+                SELECT 
+                    month_year AS 'Month/Year',
+                    COUNT(DISTINCT teacher_id) AS 'Active Teachers',
+                    SUM(gross_earnings) AS 'Total System Volume (LKR)',
+                    SUM(platform_fee) AS 'Platform Profit/Fee (LKR)'
+                FROM teacher_payouts
+                WHERE ${profitDateCondition}
+                GROUP BY month_year
+                ORDER BY month_year DESC
+            `);
+        }
+
+        if (data.length === 0) {
+            data = [{ Message: `No financial records found for ${type} in the ${timeframe} timeframe.` }];
+        }
+
+        const csvData = convertToCSV(data);
+        res.header('Content-Type', 'text/csv');
+        res.attachment(filename);
+        res.send(csvData);
+
+    } catch (error) {
+        console.error("Financial Export Error:", error);
+        res.status(500).send("Failed to generate financial report.");
+    }
+});
+
+// ==========================================
 // 28. FINANCIAL PAYOUT SYSTEM
 // ==========================================
-
-// A. Fetch & Sync Monthly Payouts
 router.get('/payouts', async (req, res) => {
     try {
-        // Default to current month if none provided (Format: YYYY-MM)
         const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
         const [year, month] = monthYear.split('-');
 
-        // 1. Calculate raw earnings from student payments for this specific month
         const rawEarnings = await query(`
             SELECT 
                 c.t_id as teacher_id, 
                 COALESCE(SUM(p.amount), 0) as gross_earned
             FROM payments p
             JOIN classes_courses c ON p.c_id = c.id
-            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'success'
+            WHERE MONTH(p.payment_date) = ? AND YEAR(p.payment_date) = ? AND p.status = 'completed'
             GROUP BY c.t_id
         `, [month, year]);
 
-        // 2. Sync with the teacher_payouts table (Insert or Update)
         for (let earning of rawEarnings) {
-            const platformFee = earning.gross_earned * 0.10; // 10% System Charge
-            
-            // Upsert logic: If row exists, update gross & fee. If not, insert it.
+            const platformFee = earning.gross_earned * 0.10; 
             await query(`
                 INSERT INTO teacher_payouts (teacher_id, month_year, gross_earnings, platform_fee, net_payable)
                 VALUES (?, ?, ?, ?, ?)
@@ -1310,7 +1493,6 @@ router.get('/payouts', async (req, res) => {
             `, [earning.teacher_id, monthYear, earning.gross_earned, platformFee, earning.gross_earned - platformFee]);
         }
 
-        // 3. Fetch the finalized list for the frontend
         const payouts = await query(`
             SELECT 
                 tp.*, u.name as teacher_name, u.picture
@@ -1321,7 +1503,6 @@ router.get('/payouts', async (req, res) => {
             ORDER BY tp.net_payable DESC
         `, [monthYear]);
 
-        // 4. Calculate Master System Stats for this month
         const systemStats = {
             totalGross: payouts.reduce((sum, p) => sum + parseFloat(p.gross_earnings), 0),
             systemEarnings: payouts.reduce((sum, p) => sum + parseFloat(p.platform_fee), 0),
@@ -1335,11 +1516,9 @@ router.get('/payouts', async (req, res) => {
     }
 });
 
-// B. Adjust a Teacher's Payout (Bonus / Penalty)
 router.put('/payouts/:id/adjust', async (req, res) => {
     try {
         const { adjustment } = req.body;
-        
         await query(`
             UPDATE teacher_payouts 
             SET adjustment = ?, 
@@ -1353,34 +1532,182 @@ router.put('/payouts/:id/adjust', async (req, res) => {
     }
 });
 
-// C. Bulk Process Payments for a Month
-router.post('/payouts/process', async (req, res) => {
+router.post('/payouts/:id/pay', async (req, res) => {
     try {
-        const { monthYear } = req.body;
+        const payoutId = req.params.id;
+        const { amount, referenceNote, teacherId } = req.body;
+        const adminId = req.session.userId;
 
-        if (!monthYear) return res.status(400).json({ success: false, message: "Month is required." });
+        await query(`
+            INSERT INTO payout_transactions (payout_id, teacher_id, admin_id, amount, reference_note)
+            VALUES (?, ?, ?, ?, ?)
+        `, [payoutId, teacherId, adminId, amount, referenceNote]);
 
         await query(`
             UPDATE teacher_payouts 
-            SET status = 'paid', paid_at = NOW() 
-            WHERE month_year = ? AND status = 'pending'
-        `, [monthYear]);
+            SET amount_paid = amount_paid + ? 
+            WHERE id = ?
+        `, [amount, payoutId]);
 
-        await query(
-            'INSERT INTO user_activity (user_id, action_type) VALUES (?, ?)', 
-            [req.session.userId, `Processed all teacher payouts for ${monthYear}`]
-        );
+        await query(`
+            UPDATE teacher_payouts 
+            SET payment_status = CASE 
+                WHEN amount_paid >= net_payable THEN 'completed'
+                ELSE 'partial'
+            END
+            WHERE id = ?
+        `, [payoutId]);
 
-        res.status(200).json({ success: true, message: "All pending payments have been successfully processed!" });
+        res.status(200).json({ success: true, message: "Payment recorded successfully in the ledger." });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Failed to process payments." });
+        console.error("Payment Transaction Error:", error);
+        res.status(500).json({ success: false, message: "Failed to process payment transaction." });
     }
 });
+
+router.get('/payouts/:id/history', async (req, res) => {
+    try {
+        const history = await query(`
+            SELECT pt.*, u.name as admin_name 
+            FROM payout_transactions pt
+            JOIN users u ON pt.admin_id = u.id
+            WHERE pt.payout_id = ?
+            ORDER BY pt.payment_date DESC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load transaction history." });
+    }
+});
+
+// ==========================================
+// 29. STAFF (SUB-ADMIN) PAYROLL SYSTEM
+// ==========================================
+router.get('/staff-payouts', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') {
+            return res.status(403).json({ success: false, message: "Super Admin clearance required." });
+        }
+
+        const monthYear = req.query.month || new Date().toISOString().slice(0, 7);
+
+        const subAdmins = await query(`
+            SELECT u.id, u.name 
+            FROM users u 
+            JOIN admins a ON u.id = a.user_id 
+            WHERE a.admin_level IN ('moderator', 'finance') AND u.status = 'active'
+        `);
+
+        for (let admin of subAdmins) {
+            await query(`
+                INSERT IGNORE INTO admin_payouts (sub_admin_id, month_year)
+                VALUES (?, ?)
+            `, [admin.id, monthYear]);
+        }
+
+        const payouts = await query(`
+            SELECT 
+                ap.*, u.name as admin_name, u.picture
+            FROM admin_payouts ap
+            JOIN users u ON ap.sub_admin_id = u.id
+            WHERE ap.month_year = ?
+            ORDER BY ap.net_payable DESC
+        `, [monthYear]);
+
+        const systemStats = {
+            totalSalaries: payouts.reduce((sum, p) => sum + parseFloat(p.base_salary), 0),
+            totalAdjustments: payouts.reduce((sum, p) => sum + parseFloat(p.adjustment), 0),
+            totalToPay: payouts.reduce((sum, p) => sum + parseFloat(p.net_payable), 0),
+        };
+
+        res.status(200).json({ success: true, data: payouts, stats: systemStats });
+    } catch (error) {
+        console.error("Staff Payout Sync Error:", error);
+        res.status(500).json({ success: false, message: "Failed to load staff payouts." });
+    }
+});
+
+router.put('/staff-payouts/:id/update', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+        
+        const { base_salary, adjustment } = req.body;
+        
+        await query(`
+            UPDATE admin_payouts 
+            SET base_salary = ?, 
+                adjustment = ?, 
+                net_payable = (? + ?),
+                payment_status = CASE 
+                    WHEN amount_paid >= (? + ?) THEN 'completed'
+                    WHEN amount_paid > 0 THEN 'partial'
+                    ELSE 'unpaid'
+                END
+            WHERE id = ?
+        `, [base_salary, adjustment, base_salary, adjustment, base_salary, adjustment, req.params.id]);
+
+        res.status(200).json({ success: true, message: "Payroll updated successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to update payroll." });
+    }
+});
+
+router.post('/staff-payouts/:id/pay', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+
+        const payoutId = req.params.id;
+        const { amount, referenceNote, subAdminId } = req.body;
+        const superAdminId = req.session.userId;
+
+        await query(`
+            INSERT INTO admin_payout_transactions (payout_id, sub_admin_id, processed_by, amount, reference_note)
+            VALUES (?, ?, ?, ?, ?)
+        `, [payoutId, subAdminId, superAdminId, amount, referenceNote]);
+
+        await query(`
+            UPDATE admin_payouts 
+            SET amount_paid = amount_paid + ? 
+            WHERE id = ?
+        `, [amount, payoutId]);
+
+        await query(`
+            UPDATE admin_payouts 
+            SET payment_status = CASE 
+                WHEN amount_paid >= net_payable THEN 'completed'
+                ELSE 'partial'
+            END
+            WHERE id = ?
+        `, [payoutId]);
+
+        res.status(200).json({ success: true, message: "Payment recorded successfully." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to process payment." });
+    }
+});
+
+router.get('/staff-payouts/:id/history', async (req, res) => {
+    try {
+        if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
+
+        const history = await query(`
+            SELECT pt.*, u.name as processor_name 
+            FROM admin_payout_transactions pt
+            JOIN users u ON pt.processed_by = u.id
+            WHERE pt.payout_id = ?
+            ORDER BY pt.payment_date DESC
+        `, [req.params.id]);
+
+        res.status(200).json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to load history." });
+    }
+});
+
 // ==========================================
 // 21. BANK SLIP PAYMENTS APPROVAL
 // ==========================================
-
-// A. Get pending slip payments
 router.get('/pending-payments', async (req, res) => {
     try {
         const payments = await query(`
@@ -1403,12 +1730,10 @@ router.get('/pending-payments', async (req, res) => {
     }
 });
 
-// B. Approve slip payment
 router.put('/payments/:id/approve', async (req, res) => {
     try {
         const paymentId = req.params.id;
         
-        // Find payment details
         const paymentDetails = await query('SELECT * FROM payments WHERE id = ?', [paymentId]);
         if (paymentDetails.length === 0) {
             return res.status(404).json({ success: false, message: "Payment not found" });
@@ -1416,13 +1741,9 @@ router.put('/payments/:id/approve', async (req, res) => {
         
         const { c_id, s_id } = paymentDetails[0];
 
-        // Update payment status
         await query('UPDATE payments SET status = ? WHERE id = ?', ['completed', paymentId]);
-
-        // Enroll student
         await query('INSERT IGNORE INTO enrollments (s_id, c_id) VALUES (?, ?)', [s_id, c_id]);
 
-        // Add Notification
         const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [s_id]);
         if (studentUser.length > 0) {
             await query(`
@@ -1438,13 +1759,11 @@ router.put('/payments/:id/approve', async (req, res) => {
     }
 });
 
-// C. Reject slip payment
 router.put('/payments/:id/reject', async (req, res) => {
     try {
         const paymentId = req.params.id;
         await query('UPDATE payments SET status = ? WHERE id = ?', ['rejected', paymentId]);
         
-        // Optionally notify student
         const paymentDetails = await query('SELECT s_id FROM payments WHERE id = ?', [paymentId]);
         if (paymentDetails.length > 0) {
             const studentUser = await query('SELECT user_id FROM students WHERE id = ?', [paymentDetails[0].s_id]);

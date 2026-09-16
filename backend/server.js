@@ -12,6 +12,22 @@ import db from './db.js';
 import util from 'util';
 const query = util.promisify(db.query).bind(db);
 
+// Migrate messages table
+(async () => {
+    try {
+        await query(`ALTER TABLE messages ADD COLUMN file_url VARCHAR(255) DEFAULT NULL`);
+        console.log("Successfully added file_url to messages table");
+    } catch (e) {
+        // Suppress if already exists
+    }
+    try {
+        await query(`ALTER TABLE messages ADD COLUMN file_type VARCHAR(50) DEFAULT NULL`);
+        console.log("Successfully added file_type to messages table");
+    } catch (e) {
+        // Suppress if already exists
+    }
+})();
+
 // Route Imports
 import loginRoutes from './routes/login.js';
 import registerRoutes from './routes/register.js';
@@ -27,6 +43,7 @@ import assignmentRoutes from './routes/assignments.js';
 import quizRoutes from './routes/quizzes.js';
 import paymentRoute from './routes/paymentRoute.js'; 
 import advertisementRoutes from './routes/advertisements.js';
+import contactRoutes from './routes/contact.js';
 import initAssignmentScheduler from './jobs/assignmentScheduler.js';
 
 // Chat Routes
@@ -73,6 +90,12 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 io.engine.use(sessionMiddleware);
+
+// Expose io to req
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 
 // Session-swapping middleware for tab-level role isolation on localhost
 app.use(async (req, res, next) => {
@@ -153,6 +176,7 @@ app.use('/api', verifyRoutes);
 app.use('/api', classRoutes);
 app.use('/api/student', studentProfileRoutes);
 app.use('/api', paymentRoute); 
+app.use('/api', contactRoutes);
 
 // ==========================================
 // 📊 STATS API ROUTE

@@ -40,7 +40,6 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [formData, setFormData] = useState({
     name: "",
     title: "",
-    type: "Class",
     grade: "",
     status: "not_active",
     is_published: false,
@@ -63,12 +62,20 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [resourceData, setResourceData] = useState({ title: "", type: "pdf", url: "", file: null, isVisible: true });
 
+  const getResourceDownloadUrl = (resource) => {
+    if (resource.url && resource.url.includes('res.cloudinary.com') && resource.url.includes('/raw/upload/')) {
+        return `http://localhost:3000/api/resources/download?url=${encodeURIComponent(resource.url)}&name=${encodeURIComponent(resource.title)}`;
+    }
+    return resource.url;
+  };
+
   const [expandedLessons, setExpandedLessons] = useState([]);
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState(null);
   const [activeLessonId, setActiveLessonId] = useState(null);
   const [editingLessonId, setEditingLessonId] = useState(null);
   const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonMonth, setLessonMonth] = useState("January");
 
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState(null);
@@ -259,14 +266,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
 
     try {
       if (editingLessonId) {
-        await api.put(`/lessons/${editingLessonId}`, { title: lessonTitle });
+        await api.put(`/lessons/${editingLessonId}`, { title: lessonTitle, month: lessonMonth });
 
         setCourses(courses.map(course => {
           if (course.id === selectedCourse.id) {
             const updatedChapters = (course.chapters || []).map(c =>
               c.id === activeModuleId ? {
                 ...c,
-                lessons: (c.lessons || []).map(l => l.id === editingLessonId ? { ...l, title: lessonTitle } : l)
+                lessons: (c.lessons || []).map(l => l.id === editingLessonId ? { ...l, title: lessonTitle, month: lessonMonth } : l)
               } : c
             );
             const updatedCourse = { ...course, chapters: updatedChapters };
@@ -276,7 +283,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
           return course;
         }));
       } else {
-        const response = await api.post(`/modules/${activeModuleId}/lessons`, { title: lessonTitle });
+        const response = await api.post(`/modules/${activeModuleId}/lessons`, { title: lessonTitle, month: lessonMonth });
         const newLesson = response.data;
 
         setCourses(courses.map(course => {
@@ -298,6 +305,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     }
 
     setLessonTitle("");
+    setLessonMonth("January");
     setActiveModuleId(null);
     setEditingLessonId(null);
     setIsLessonModalOpen(false);
@@ -426,6 +434,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     setActiveModuleId(chapterId);
     setEditingLessonId(lesson.id);
     setLessonTitle(lesson.title);
+    setLessonMonth(lesson.month || "January");
     setIsLessonModalOpen(true);
   };
 
@@ -1035,7 +1044,6 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     setFormData({
       name: "",
       title: "",
-      type: "Class",
       grade: "",
       status: "not_active",
       is_published: false,
@@ -1054,7 +1062,6 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
     setFormData({
       name: course.name || "",
       title: course.title || "",
-      type: course.type || "Class",
       grade: course.grade || "",
       status: course.status || "not_active",
       is_published: course.is_published || false,
@@ -1249,16 +1256,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </>
               )}
               <button onClick={() => setIsAnnouncementModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm"><Megaphone className="w-4 h-4" /> Post Announcement</button>
-              <button
-                onClick={() => {
-                  setEditingChapterId(null);
-                  setChapterTitle("");
-                  setIsChapterModalOpen(true);
-                }}
-                className="bg-purple-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-              >
-                <Plus size={18} /> Add Module
-              </button>
+
             </div>
           </div>
 
@@ -1333,7 +1331,14 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                         return (
                           <div key={lesson.id} className="border border-gray-200 rounded-lg overflow-hidden">
                             <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer" onClick={() => toggleLesson(lesson.id)}>
-                              <h4 className={`font-semibold ${lesson.isVisible === false ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{lesson.title}</h4>
+                              <h4 className={`font-semibold flex items-center gap-2 ${lesson.isVisible === false ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                                <span>{lesson.title}</span>
+                                {lesson.month && (
+                                  <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                                    {lesson.month}
+                                  </span>
+                                )}
+                              </h4>
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleToggleLessonVisibility(chapter.id, lesson.id); }}
@@ -1382,7 +1387,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                               <div className="p-4 bg-white flex flex-col gap-2">
                                 {lesson.resources?.map((res, resIndex) => (
                                   <div key={res.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-transparent transition-colors group ${res.isVisible === false ? 'opacity-60' : ''}`}>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="flex items-center gap-3 flex-1 cursor-pointer">
                                       {res.type === 'pdf' ? (
                                         <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0 transition-colors group-hover:bg-red-100">
                                           <File size={16} />
@@ -1433,7 +1438,7 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                                         <Trash2 size={12} />
                                       </button>
                                     </div>
-                                    <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
+                                    <a href={getResourceDownloadUrl(res)} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-purple-600 transition-colors px-2 font-medium text-xs border-l pl-3">
                                       Open
                                     </a>
                                   </div>
@@ -2048,33 +2053,19 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Course Type</label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                  >
-                    <option value="Class">Class</option>
-                    <option value="Certificate Course">Certificate Course</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee (LKR)</label>
-                  <input
-                    type="number"
-                    name="monthly_fee"
-                    value={formData.monthly_fee}
-                    onChange={handleInputChange}
-                    required
-                    min="0"
-                    step="0.01"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                    placeholder="e.g. 2500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee (LKR)</label>
+                <input
+                  type="number"
+                  name="monthly_fee"
+                  value={formData.monthly_fee}
+                  onChange={handleInputChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="e.g. 2500"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -2136,6 +2127,28 @@ const TeachersCourse = ({ courses, setCourses, selectedCourse, setSelectedCourse
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Title</label>
                 <input type="text" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} required className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none" placeholder="e.g. Lesson 1: Introduction" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Month</label>
+                <select
+                  value={lessonMonth}
+                  onChange={(e) => setLessonMonth(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                >
+                  <option value="January">January</option>
+                  <option value="February">February</option>
+                  <option value="March">March</option>
+                  <option value="April">April</option>
+                  <option value="May">May</option>
+                  <option value="June">June</option>
+                  <option value="July">July</option>
+                  <option value="August">August</option>
+                  <option value="September">September</option>
+                  <option value="October">October</option>
+                  <option value="November">November</option>
+                  <option value="December">December</option>
+                </select>
               </div>
               <button type="submit" className="w-full py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition">{editingLessonId ? "Save Changes" : "Create Lesson"}</button>
             </form>
