@@ -4,12 +4,52 @@ dotenv.config();
 
 // Create a transporter using SMTP (e.g., Gmail)
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // You can change this to your email provider
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
-        user: process.env.EMAIL_USER, // e.g., 'your-email@gmail.com'
-        pass: process.env.EMAIL_PASS, // e.g., 'your-app-password'
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
     },
 });
+
+export const sendContactEmail = async ({ name, email, phone, message }) => {
+    const recipient = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: recipient,
+        replyTo: email,
+        subject: `New Inquiry from ${name} - Educat`,
+        html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; color: #333;">
+                <h2 style="color: #4a0b59; border-bottom: 2px solid #4a0b59; padding-bottom: 8px;">New Contact Inquiry</h2>
+                <p>You have received a new inquiry from the Educat platform contact form.</p>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold; width: 120px; background-color: #f9fafb;">Name</td>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb;">${name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold; background-color: #f9fafb;">Email</td>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb;"><a href="mailto:${email}">${email}</a></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold; background-color: #f9fafb;">Phone</td>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb;">${phone || 'Not provided'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold; background-color: #f9fafb; vertical-align: top;">Message</td>
+                        <td style="padding: 10px; border: 1px solid #e5e7eb; white-space: pre-wrap;">${message}</td>
+                    </tr>
+                </table>
+                <br/>
+                <p style="font-size: 12px; color: #6b7280;">This message was submitted via the Educat contact form.</p>
+            </div>
+        `,
+    };
+
+    return await transporter.sendMail(mailOptions);
+};
 
 export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => {
     try {
