@@ -229,14 +229,14 @@ app.use('/api', contactRoutes);
 // ==========================================
 app.get('/api/public/stats', async (req, res) => {
     try {
-        const studentCount = await query('SELECT COUNT(*) AS count FROM users WHERE role_id = (SELECT id FROM roles WHERE role_name = "student")');
-        const teacherCount = await query('SELECT COUNT(*) AS count FROM teachers');
-        const courseCount = await query('SELECT COUNT(*) AS count FROM classes_courses');
+        const studentCount = await query('SELECT COUNT(*) AS total FROM students');
+        const teacherCount = await query('SELECT COUNT(*) AS total FROM teachers');
+        const courseCount = await query('SELECT COUNT(*) AS total FROM classes_courses');
 
         res.status(200).json({
-            students: studentCount[0]?.count || 0,
-            teachers: teacherCount[0]?.count || 0,
-            courses: courseCount[0]?.count || 0
+            students: studentCount[0]?.total || 0,
+            teachers: teacherCount[0]?.total || 0,
+            courses: courseCount[0]?.total || 0
         });
     } catch (error) {
         console.error("❌ Stats Backend Error:", error);
