@@ -146,10 +146,10 @@ const TuitionClass = () => {
             // 2. Setup PayHere object
             const payment = {
                 sandbox: true,
-                merchant_id: '1234834',
+                merchant_id: import.meta.env.VITE_PAYHERE_MERCHANT_ID || '1234834',
                 return_url: window.location.href,
                 cancel_url: window.location.href,
-                notify_url: 'https://webhook.site/placeholder',
+                notify_url: import.meta.env.VITE_API_URL ? `${API_BASE}/api/payment/notify` : 'http://localhost:3000/api/payment/notify',
                 order_id: order_id,
                 items: 'Educat Class Fee',
                 amount: amount,
