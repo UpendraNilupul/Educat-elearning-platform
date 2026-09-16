@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import net from 'net';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
@@ -13,13 +14,13 @@ const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
-    requireTLS: true,
-    lookup: (hostname, options, callback) => dns.lookup(hostname, { family: 4 }, callback),
+    createConnection: (options, callback) => net.connect({ host: options.host, port: options.port, family: 4 }, callback),
     auth: {
         user: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : '',
         pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
     },
     tls: {
+        servername: 'smtp.gmail.com',
         rejectUnauthorized: false,
     },
 });
