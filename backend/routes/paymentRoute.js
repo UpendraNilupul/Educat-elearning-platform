@@ -11,8 +11,9 @@ const uploadSlip = multer({ storage: slipStorage });
 const query = util.promisify(db.query).bind(db);
 const router = express.Router();
 
-const MERCHANT_ID = '1234834'; 
-const MERCHANT_SECRET = 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
+const MERCHANT_ID = process.env.PAYHERE_MERCHANT_ID || '1234834'; 
+// Default to the Localhost secret if no environment variable is provided
+const MERCHANT_SECRET = process.env.PAYHERE_MERCHANT_SECRET || 'MTM4MDI1MTA5MDIzNTk2OTY3MjcyNDYwNjMzODc3MzQ4ODk0MDA5Nw=='; 
 
 // ==========================================
 // 1. ROUTE TO GENERATE HASH
