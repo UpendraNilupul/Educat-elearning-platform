@@ -2,10 +2,15 @@ import express from 'express';
 import db from '../db.js';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 import twilio from 'twilio';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import util from 'util';
+
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 dotenv.config();
 
@@ -22,11 +27,12 @@ const otpLimiter = rateLimit({
 // 1. Configure Email Transporter
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    family: 4,
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    lookup: (hostname, options, callback) => dns.lookup(hostname, { family: 4 }, callback),
     auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : '',
         pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
     },
     tls: {

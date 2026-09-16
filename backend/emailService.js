@@ -1,15 +1,22 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 import dotenv from 'dotenv';
+
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 dotenv.config();
 
 // Create a transporter using SMTP (e.g., Gmail)
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    family: 4, // Force IPv4 to prevent ENETUNREACH on environments without IPv6 outbound (e.g. Render)
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    lookup: (hostname, options, callback) => dns.lookup(hostname, { family: 4 }, callback),
     auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : '',
         pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
     },
     tls: {
