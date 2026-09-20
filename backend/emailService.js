@@ -1,34 +1,22 @@
-import nodemailer from 'nodemailer';
-import net from 'net';
-import dns from 'dns';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
-
-if (dns.setDefaultResultOrder) {
-    dns.setDefaultResultOrder('ipv4first');
-}
 
 dotenv.config();
 
-// Create a transporter using SMTP (e.g., Gmail)
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    createConnection: (options, callback) => net.connect({ host: options.host, port: options.port, family: 4 }, callback),
-    auth: {
-        user: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : '',
-        pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : '',
-    },
-    tls: {
-        servername: 'smtp.gmail.com',
-        rejectUnauthorized: false,
-    },
-});
+// Initialize Resend with RESEND_API_KEY
+const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 export const sendContactEmail = async ({ name, email, phone, message }) => {
-    const recipient = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
+    if (!process.env.RESEND_API_KEY) {
+        console.error('RESEND_API_KEY is not configured in environment variables.');
+        throw new Error('RESEND_API_KEY is missing. Please set it in your environment.');
+    }
+
+    const recipient = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'delivered@resend.dev';
+    const fromSender = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+    const { data, error } = await resend.emails.send({
+        from: fromSender,
         to: recipient,
         replyTo: email,
         subject: `New Inquiry from ${name} - Educat`,
@@ -58,15 +46,27 @@ export const sendContactEmail = async ({ name, email, phone, message }) => {
                 <p style="font-size: 12px; color: #6b7280;">This message was submitted via the Educat contact form.</p>
             </div>
         `,
-    };
+    });
 
-    return await transporter.sendMail(mailOptions);
+    if (error) {
+        console.error('Resend sendContactEmail API Error:', error);
+        throw new Error(error.message || 'Failed to send contact email');
+    }
+
+    return data;
 };
 
 export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => {
     try {
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
+        if (!process.env.RESEND_API_KEY) {
+            console.error('RESEND_API_KEY is not configured in environment variables.');
+            return false;
+        }
+
+        const fromSender = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+        const { data, error } = await resend.emails.send({
+            from: fromSender,
             to: toEmail,
             subject: 'Enrollment Successful - Educat',
             html: `
@@ -80,13 +80,17 @@ export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => 
                     <p><strong>Educat Team</strong></p>
                 </div>
             `,
-        };
+        });
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Enrollment email sent: ' + info.response);
+        if (error) {
+            console.error('Resend sendEnrollmentEmail API Error:', error);
+            return false;
+        }
+
+        console.log('Enrollment email sent successfully:', data?.id);
         return true;
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('Error sending enrollment email:', error);
         return false;
     }
 };
