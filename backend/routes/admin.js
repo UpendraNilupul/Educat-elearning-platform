@@ -1036,12 +1036,54 @@ router.post('/create-sub-admin', async (req, res) => {
             return res.status(403).json({ success: false, message: "Unauthorized. Super Admin access required." });
         }
 
-        const { name, email, password, phoneNumber, address, dob, gender, adminLevelType } = req.body;
+        const {
+            name,
+            email,
+            password,
+            phoneNumber,
+            phone_number,
+            address,
+            dob,
+            gender,
+            adminLevelType,
+            admin_level,
+            adminLevel,
+            role
+        } = req.body;
 
-        if (!['moderator', 'finance'].includes(adminLevelType)) {
-            return res.status(400).json({ success: false, message: "Invalid admin role specified." });
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: "Name, email, and password are required." });
         }
 
+        // Determine admin level from radio option / input
+        const rawAdminLevel = adminLevelType || admin_level || adminLevel || role || 'moderator';
+        let assignedAdminLevel = 'moderator';
+        if (rawAdminLevel === 'Financial Manager' || rawAdminLevel === 'finance') {
+            assignedAdminLevel = 'finance';
+        } else if (rawAdminLevel === 'System Moderator' || rawAdminLevel === 'moderator') {
+            assignedAdminLevel = 'moderator';
+        } else {
+            assignedAdminLevel = rawAdminLevel;
+        }
+
+        // Fallback defaults for NOT NULL columns in users table
+        const finalPhoneNumber = phoneNumber || phone_number || 'N/A';
+        const finalAddress = address || 'N/A';
+        const finalDob = dob || '2000-01-01';
+        const finalGender = gender || 'other';
+        const finalJoinDate = req.body.join_date || new Date().toISOString().slice(0, 10);
+        let roleId = 1;
+
+        try {
+            const roleResults = await query('SELECT id FROM roles WHERE role_name = "admin"');
+            if (roleResults && roleResults.length > 0) {
+                roleId = roleResults[0].id;
+            }
+        } catch (e) {
+            roleId = 1;
+        }
+
+        // Validate dob if provided explicitly
         if (dob) {
             const dobDate = new Date(dob);
             const today = new Date();
@@ -1056,26 +1098,28 @@ router.post('/create-sub-admin', async (req, res) => {
             if (dobDate < new Date('1900-01-01')) {
                 return res.status(400).json({ success: false, message: "Date of birth must be after 1900-01-01." });
             }
-            if (dob.split('-')[0].length !== 4) {
+            if (typeof dob === 'string' && dob.split('-')[0].length !== 4) {
                 return res.status(400).json({ success: false, message: "Date of birth must have a valid 4-digit year." });
             }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const roleResults = await query('SELECT id FROM roles WHERE role_name = "admin"');
-        const roleId = roleResults[0].id;
 
         const userResult = await query(`
             INSERT INTO users (name, email, password, phone_number, address, dob, gender, role_id, join_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())
-        `, [name, email, hashedPassword, phoneNumber, address, dob, gender, roleId]);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [name, email, hashedPassword, finalPhoneNumber, finalAddress, finalDob, finalGender, roleId, finalJoinDate]);
 
         await query(`
             INSERT INTO admins (user_id, admin_level) VALUES (?, ?)
-        `, [userResult.insertId, adminLevelType]);
+        `, [userResult.insertId, assignedAdminLevel]);
 
-        res.status(201).json({ success: true, message: `${adminLevelType === 'finance' ? 'Financial Manager' : 'System Moderator'} created successfully!` });
+        res.status(201).json({ 
+            success: true, 
+            message: `${assignedAdminLevel === 'finance' ? 'Financial Manager' : 'System Moderator'} created successfully!` 
+        });
     } catch (error) {
+        console.error("Sub-admin creation error:", error);
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ success: false, message: "That email is already in use by another account." });
         }
