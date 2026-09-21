@@ -19,62 +19,98 @@ const upload = multer({ storage: courseResourceStorage });
 // GET all courses
 router.get('/courses', async (req, res) => {
     try {
-        let q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c ORDER BY c.id DESC';
-        let params = [];
-        if (req.query.teacherId) {
-            const tRes = await query('SELECT id FROM teachers WHERE user_id = ?', [req.query.teacherId]);
-            if (tRes.length > 0) {
-                q = 'SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count FROM classes_courses c WHERE c.t_id = ? ORDER BY c.id DESC';
-                params.push(tRes[0].id);
-            } else {
-                return res.status(200).json([]);
-            }
-        }
-        const courses = await query(q, params);
-        for (let course of courses) {
-            const modules = await query('SELECT * FROM modules WHERE c_id = ? ORDER BY number ASC, id ASC', [course.id]);
-            course.chapters = modules.map(m => ({ id: m.id, title: m.title, isVisible: m.isVisible === 1 }));
-            course.modules = course.chapters.length; // Override stale db property with dynamic calculation
-            for (let mod of course.chapters) {
-                const lessons = await query('SELECT * FROM lessons WHERE m_id = ? ORDER BY number ASC, id ASC', [mod.id]);
-                mod.lessons = [];
-                for (let les of lessons) {
-                    const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title, month: les.month, isVisible: les.isVisible !== 0 };
-                    const resources = await query('SELECT * FROM resources WHERE l_id = ? ORDER BY number ASC, id ASC', [les.id]);
-                    mappedLesson.resources = resources.map(r => ({
-                        id: r.id, title: r.name, type: r.type || 'pdf', url: r.link, isVisible: r.isVisible !== 0
-                    }));
-                    mod.lessons.push(mappedLesson);
-                }
-                const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mod.id]);
-                mod.assignments = await Promise.all(assignments.map(async (a) => {
-                    const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [a.id]);
-                    return {
-                        id: a.id,
-                        title: a.title,
-                        description: a.description,
-                        attachments: attachments.map(att => ({ id: att.id, file_url: att.file_url })),
-                        deadline: a.deadline,
-                        maxMarks: a.max_marks,
-                        publish_at: a.publish_at
-                    };
-                }));
+        const { search, status, teacherId } = req.query;
 
-                const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
-                mod.quizzes = quizzes.map(q => ({
-                    id: q.id,
-                    title: q.title || `Quiz #${q.number}`,
-                    number: q.number,
-                    timeLimit: q.time_limit,
-                    isPeerReviewed: q.is_peer_reviewed === 1,
-                    publish_at: q.publish_at
-                }));
+        let sql = `
+            SELECT 
+                c.*,
+                u.name AS teacher_name,
+                u.name AS instructor_name,
+                u.name AS instructor,
+                u.picture AS teacher_picture,
+                u.email AS teacher_email,
+                (SELECT COUNT(*) FROM enrollments e WHERE e.c_id = c.id) AS real_student_count
+            FROM classes_courses c
+            LEFT JOIN teachers t ON c.t_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (teacherId) {
+            sql += ` AND (t.user_id = ? OR c.t_id = ?)`;
+            params.push(teacherId, teacherId);
+        }
+
+        if (status && status.trim() !== '' && status.toLowerCase() !== 'all') {
+            sql += ` AND c.status = ?`;
+            params.push(status.trim());
+        }
+
+        if (search && search.trim() !== '') {
+            sql += ` AND (c.name LIKE ? OR c.title LIKE ? OR u.name LIKE ?)`;
+            const searchWildcard = `%${search.trim()}%`;
+            params.push(searchWildcard, searchWildcard, searchWildcard);
+        }
+
+        sql += ` GROUP BY c.id ORDER BY c.id DESC`;
+
+        const courses = await query(sql, params);
+
+        if (!courses || courses.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        for (let course of courses) {
+            try {
+                const modules = await query('SELECT * FROM modules WHERE c_id = ? ORDER BY number ASC, id ASC', [course.id]);
+                course.chapters = (modules || []).map(m => ({ id: m.id, title: m.title, isVisible: m.isVisible === 1 }));
+                course.modules = course.chapters.length; // Dynamic calculation
+                for (let mod of course.chapters) {
+                    const lessons = await query('SELECT * FROM lessons WHERE m_id = ? ORDER BY number ASC, id ASC', [mod.id]);
+                    mod.lessons = [];
+                    for (let les of lessons || []) {
+                        const mappedLesson = { id: les.id, type: les.type, link: les.link, number: les.number, title: les.title, month: les.month, isVisible: les.isVisible !== 0 };
+                        const resources = await query('SELECT * FROM resources WHERE l_id = ? ORDER BY number ASC, id ASC', [les.id]);
+                        mappedLesson.resources = (resources || []).map(r => ({
+                            id: r.id, title: r.name, type: r.type || 'pdf', url: r.link, isVisible: r.isVisible !== 0
+                        }));
+                        mod.lessons.push(mappedLesson);
+                    }
+                    const assignments = await query('SELECT * FROM assignments WHERE m_id = ? ORDER BY created_at DESC', [mod.id]);
+                    mod.assignments = await Promise.all((assignments || []).map(async (a) => {
+                        const attachments = await query('SELECT id, file_url FROM assignment_attachments WHERE a_id = ?', [a.id]);
+                        return {
+                            id: a.id,
+                            title: a.title,
+                            description: a.description,
+                            attachments: (attachments || []).map(att => ({ id: att.id, file_url: att.file_url })),
+                            deadline: a.deadline,
+                            maxMarks: a.max_marks,
+                            publish_at: a.publish_at
+                        };
+                    }));
+
+                    const quizzes = await query('SELECT * FROM quizes WHERE m_id = ? ORDER BY number ASC', [mod.id]);
+                    mod.quizzes = (quizzes || []).map(q => ({
+                        id: q.id,
+                        title: q.title || `Quiz #${q.number}`,
+                        number: q.number,
+                        timeLimit: q.time_limit,
+                        isPeerReviewed: q.is_peer_reviewed === 1,
+                        publish_at: q.publish_at
+                    }));
+                }
+            } catch (innerErr) {
+                console.error(`Error loading modules for course ${course.id}:`, innerErr);
+                course.chapters = course.chapters || [];
+                course.modules = course.modules || 0;
             }
         }
         res.status(200).json(courses);
     } catch (err) {
         console.error('Error fetching courses:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json([]);
     }
 });
 

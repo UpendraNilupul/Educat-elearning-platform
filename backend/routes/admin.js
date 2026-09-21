@@ -704,7 +704,7 @@ router.get('/courses-list', async (req, res) => {
             SELECT 
                 c.id AS course_id,
                 c.title,
-                c.type,
+                c.name,
                 c.status,
                 c.created_at,
                 u.name AS teacher_name,
@@ -712,28 +712,28 @@ router.get('/courses-list', async (req, res) => {
                 (SELECT COUNT(DISTINCT s_id) FROM enrollments WHERE c_id = c.id) AS total_students,
                 (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE c_id = c.id) AS total_revenue
             FROM classes_courses c
-            JOIN teachers t ON c.t_id = t.id
-            JOIN users u ON t.user_id = u.id
+            LEFT JOIN teachers t ON c.t_id = t.id
+            LEFT JOIN users u ON t.user_id = u.id
             WHERE 1=1
         `;
 
         const queryParams = [];
 
         if (search && search.trim() !== '') {
-            sqlQuery += ` AND (c.title LIKE ? OR u.name LIKE ?)`;
-            const searchWildcard = `%${search}%`;
-            queryParams.push(searchWildcard, searchWildcard);
+            sqlQuery += ` AND (c.name LIKE ? OR c.title LIKE ? OR u.name LIKE ?)`;
+            const searchWildcard = `%${search.trim()}%`;
+            queryParams.push(searchWildcard, searchWildcard, searchWildcard);
         }
 
-        if (status && status !== 'All') {
+        if (status && status.trim() !== '' && status.toLowerCase() !== 'all') {
             sqlQuery += ` AND c.status = ?`;
-            queryParams.push(status);
+            queryParams.push(status.trim());
         }
 
         sqlQuery += ` GROUP BY c.id ORDER BY c.created_at DESC`;
 
         const courses = await query(sqlQuery, queryParams);
-        const maskedCourses = courses.map(c => ({
+        const maskedCourses = (courses || []).map(c => ({
             ...c,
             total_revenue: isSubAdmin ? "RESTRICTED" : c.total_revenue
         }));
@@ -742,7 +742,7 @@ router.get('/courses-list', async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching courses list:", error);
-        res.status(500).json({ success: false, message: "Server error fetching courses." });
+        res.status(500).json({ success: false, data: [], message: "Server error fetching courses." });
     }
 });
 
