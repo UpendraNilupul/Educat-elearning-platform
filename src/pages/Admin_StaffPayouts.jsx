@@ -70,16 +70,20 @@ const Admin_StaffPayouts = () => {
 
     const handleSavePayroll = async (id) => {
         try {
+            const parsedBase = parseFloat(editData.baseSalary);
+            const parsedAdj = parseFloat(editData.adjustment);
             const response = await api.put(`/admin/staff-payouts/${id}/update`, { 
-                base_salary: parseFloat(editData.baseSalary) || 0,
-                adjustment: parseFloat(editData.adjustment) || 0 
+                base_salary: isNaN(parsedBase) ? 0 : parsedBase,
+                adjustment: isNaN(parsedAdj) ? 0 : parsedAdj 
             });
             if (response.data.success) {
                 setEditingId(null);
                 fetchPayouts(); 
+            } else {
+                alert(response.data.message || "Failed to update payroll.");
             }
         } catch (error) {
-            alert("Failed to update payroll.");
+            alert(error.response?.data?.message || "Failed to update payroll.");
         }
     };
 
@@ -250,11 +254,11 @@ const Admin_StaffPayouts = () => {
                                     {editingId === p.id ? (
                                         <>
                                             <td className="p-4">
-                                                <input type="number" className="w-24 border rounded px-2 py-1 text-sm outline-none" value={editData.baseSalary} onChange={(e) => setEditData({...editData, baseSalary: e.target.value})} placeholder="Salary" />
+                                                <input type="number" step="any" className="w-24 border rounded px-2 py-1 text-sm outline-none" value={editData.baseSalary} onChange={(e) => setEditData({...editData, baseSalary: e.target.value})} placeholder="Salary" />
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex items-center space-x-2">
-                                                    <input type="number" className="w-20 border rounded px-2 py-1 text-sm outline-none" value={editData.adjustment} onChange={(e) => setEditData({...editData, adjustment: e.target.value})} placeholder="Bonus" />
+                                                    <input type="number" step="any" className="w-20 border rounded px-2 py-1 text-sm outline-none" value={editData.adjustment} onChange={(e) => setEditData({...editData, adjustment: e.target.value})} placeholder="Bonus" />
                                                     <button onClick={() => handleSavePayroll(p.id)} className="text-green-600 hover:text-green-800"><Save size={16}/></button>
                                                 </div>
                                             </td>

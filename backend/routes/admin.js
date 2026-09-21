@@ -1620,15 +1620,26 @@ router.get('/financial-ledger', getFinancialLedgerPayouts);
 router.put('/payouts/:id/adjust', async (req, res) => {
     try {
         const { adjustment } = req.body;
+        const parsedAdjustment = parseFloat(adjustment);
+        if (isNaN(parsedAdjustment)) {
+            return res.status(400).json({ success: false, message: "Invalid adjustment amount." });
+        }
+
         await query(`
             UPDATE teacher_payouts 
             SET adjustment = ?, 
-                net_payable = (gross_earnings - platform_fee + ?) 
-            WHERE id = ? AND status = 'pending'
-        `, [adjustment, adjustment, req.params.id]);
+                net_payable = (gross_earnings - platform_fee) + ?,
+                payment_status = CASE 
+                    WHEN amount_paid >= ((gross_earnings - platform_fee) + ?) AND ((gross_earnings - platform_fee) + ?) > 0 THEN 'completed'
+                    WHEN amount_paid > 0 THEN 'partial'
+                    ELSE 'unpaid'
+                END
+            WHERE id = ?
+        `, [parsedAdjustment, parsedAdjustment, parsedAdjustment, parsedAdjustment, req.params.id]);
 
         res.status(200).json({ success: true, message: "Adjustment applied successfully." });
     } catch (error) {
+        console.error("Payout adjustment error:", error);
         res.status(500).json({ success: false, message: "Failed to apply adjustment." });
     }
 });
@@ -1734,22 +1745,28 @@ router.put('/staff-payouts/:id/update', async (req, res) => {
         if (req.session.adminLevel !== 'super') return res.status(403).send("Unauthorized.");
         
         const { base_salary, adjustment } = req.body;
+        const parsedBase = parseFloat(base_salary);
+        const parsedAdj = parseFloat(adjustment);
+        const base = isNaN(parsedBase) ? 0 : parsedBase;
+        const adj = isNaN(parsedAdj) ? 0 : parsedAdj;
+        const net = base + adj;
         
         await query(`
             UPDATE admin_payouts 
             SET base_salary = ?, 
                 adjustment = ?, 
-                net_payable = (? + ?),
+                net_payable = ?,
                 payment_status = CASE 
-                    WHEN amount_paid >= (? + ?) THEN 'completed'
+                    WHEN amount_paid >= ? AND ? > 0 THEN 'completed'
                     WHEN amount_paid > 0 THEN 'partial'
                     ELSE 'unpaid'
                 END
             WHERE id = ?
-        `, [base_salary, adjustment, base_salary, adjustment, base_salary, adjustment, req.params.id]);
+        `, [base, adj, net, net, net, req.params.id]);
 
         res.status(200).json({ success: true, message: "Payroll updated successfully." });
     } catch (error) {
+        console.error("Staff Payroll update error:", error);
         res.status(500).json({ success: false, message: "Failed to update payroll." });
     }
 });

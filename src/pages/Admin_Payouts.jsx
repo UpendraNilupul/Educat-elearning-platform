@@ -68,15 +68,19 @@ const Admin_Payouts = () => {
 
     const handleSaveAdjustment = async (id) => {
         try {
+            const parsed = parseFloat(adjustValue);
+            const adjustment = isNaN(parsed) ? 0 : parsed;
             const response = await api.put(`/admin/payouts/${id}/adjust`, { 
-                adjustment: parseFloat(adjustValue) || 0 
+                adjustment: adjustment 
             });
             if (response.data.success) {
                 setEditingId(null);
                 fetchPayouts(); 
+            } else {
+                alert(response.data.message || "Failed to apply adjustment.");
             }
         } catch (error) {
-            alert("Failed to apply adjustment.");
+            alert(error.response?.data?.message || "Failed to apply adjustment.");
         }
     };
 
@@ -262,6 +266,7 @@ const Admin_Payouts = () => {
                                             <div className="flex justify-end items-center space-x-2">
                                                 <input 
                                                     type="number" 
+                                                    step="any"
                                                     className="w-20 border rounded px-2 py-1 text-sm text-right outline-none focus:border-[#4a0b59]"
                                                     value={adjustValue}
                                                     onChange={(e) => setAdjustValue(e.target.value)}
