@@ -71,9 +71,9 @@ const Login = ({ setUserRole, setUserName, setUserPicture, setAdminLevel }) => {
         e.preventDefault();
         try {
             // 🌟 THE FIX: Use api.post
-            await api.post('/forgot-password/send-otp', { email });
+            const res = await api.post('/forgot-password/send-otp', { email });
             
-            alert('OTP sent to your email and phone!');
+            alert(res.data?.message || 'OTP sent to your email address');
             setForgotStep(2);
         } catch (err) { 
             alert(err.response?.data?.message || 'Error sending OTP'); 

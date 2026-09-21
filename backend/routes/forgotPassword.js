@@ -91,8 +91,8 @@ router.post('/send-otp', otpLimiter, async (req, res) => {
             .catch(smsErr => console.error("Twilio SMS error (non-fatal):", smsErr.message));
         }
 
-        // Step 5: Return status 200 with { success: true, message: "OTP sent successfully" }
-        return res.status(200).json({ success: true, message: "OTP sent successfully" });
+        // Step 5: Return status 200 with { success: true, message: "OTP sent to your email address" }
+        return res.status(200).json({ success: true, message: "OTP sent to your email address" });
 
     } catch (error) {
         console.error("Error sending OTP:", error);
