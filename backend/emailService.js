@@ -94,3 +94,75 @@ export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => 
         return false;
     }
 };
+
+export const sendOtpEmail = async (toEmail, otpCode) => {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.error('RESEND_API_KEY is not configured in environment variables.');
+            return false;
+        }
+
+        const fromSender = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+        // Safe fallback logic: if a custom domain is not yet verified (e.g. using onboarding@resend.dev),
+        // Resend test sandbox only permits sending to the registered account email.
+        const isSandbox = !process.env.EMAIL_FROM || process.env.EMAIL_FROM.includes('resend.dev');
+        const recipient = isSandbox ? (process.env.ADMIN_EMAIL || 'educat532@gmail.com') : toEmail;
+
+        const { data, error } = await resend.emails.send({
+            from: fromSender,
+            to: recipient,
+            subject: 'Educat Password Reset OTP',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 24px; color: #333; max-width: 500px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                    <h2 style="color: #4a0b59; text-align: center; margin-bottom: 20px;">Educat Password Reset</h2>
+                    <p>Hello,</p>
+                    <p>You requested a one-time password (OTP) to reset your Educat account password (${toEmail}).</p>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #4a0b59; background-color: #f3e8ff; padding: 12px 28px; border-radius: 8px; border: 1px dashed #a855f7;">
+                            ${otpCode}
+                        </span>
+                    </div>
+                    <p style="color: #6b7280; font-size: 14px;">This code is valid for <strong>10 minutes</strong>. If you did not request this, please safely ignore this email.</p>
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+                    <p style="font-size: 12px; color: #9ca3af; text-align: center;">Educat E-Learning Platform</p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error('Resend sendOtpEmail API Error:', error);
+            // Fallback retry with ADMIN_EMAIL if custom domain failed
+            if (!isSandbox) {
+                const fallbackAdmin = process.env.ADMIN_EMAIL || 'educat532@gmail.com';
+                console.log(`Retrying sendOtpEmail with fallback admin email: ${fallbackAdmin}`);
+                const fallbackRes = await resend.emails.send({
+                    from: 'onboarding@resend.dev',
+                    to: fallbackAdmin,
+                    subject: `[Fallback - Intended for ${toEmail}] Educat Password Reset OTP`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 24px; color: #333; max-width: 500px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            <h2 style="color: #4a0b59; text-align: center;">Educat Password Reset (Fallback)</h2>
+                            <p><strong>Intended Recipient:</strong> ${toEmail}</p>
+                            <p>One-time password (OTP):</p>
+                            <div style="text-align: center; margin: 20px 0;">
+                                <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #4a0b59; background: #f3e8ff; padding: 12px 28px; border-radius: 8px;">
+                                    ${otpCode}
+                                </span>
+                            </div>
+                        </div>
+                    `,
+                });
+                if (!fallbackRes.error) return true;
+            }
+            return false;
+        }
+
+        console.log(`OTP email sent successfully to ${recipient} (intended for: ${toEmail}):`, data?.id);
+        return true;
+    } catch (error) {
+        console.error('Error sending OTP email:', error);
+        return false;
+    }
+};
+
