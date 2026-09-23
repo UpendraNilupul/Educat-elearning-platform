@@ -77,7 +77,7 @@ router.post('/send-otp', otpLimiter, async (req, res) => {
         const emailSent = await sendOtpEmail(email.trim(), otp);
 
         if (!emailSent) {
-            console.warn(`[OTP] Resend email failed or was simulated for ${email.trim()}`);
+            console.warn(`[OTP] Brevo email failed or was simulated for ${email.trim()}`);
         }
 
         // Optional SMS via Twilio if available
