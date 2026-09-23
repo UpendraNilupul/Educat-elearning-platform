@@ -17,8 +17,8 @@ export const sendContactEmail = async ({ name, email, phone, message }) => {
         throw new Error('BREVO_API_KEY is missing. Please set it in your environment.');
     }
 
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@educat.com';
-    const fromSenderEmail = process.env.EMAIL_SENDER || 'no-reply@educat.com';
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'educat532@gmail.com';
+    const fromSenderEmail = process.env.EMAIL_SENDER || 'educat532@gmail.com';
 
     try {
         const response = await brevo.transactionalEmails.sendTransacEmail({
@@ -56,7 +56,7 @@ export const sendContactEmail = async ({ name, email, phone, message }) => {
 
         return response;
     } catch (error) {
-        console.error('Brevo sendContactEmail API Error:', error);
+        console.error('Brevo sendContactEmail API Error:', error.response?.body || error.response?.text || error.message);
         throw new Error(error.message || 'Failed to send contact email');
     }
 };
@@ -68,10 +68,10 @@ export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => 
     try {
         if (!process.env.BREVO_API_KEY) {
             console.error('BREVO_API_KEY is not configured in environment variables.');
-            return false;
+            throw new Error('BREVO_API_KEY is missing. Please set it in your environment.');
         }
 
-        const fromSenderEmail = process.env.EMAIL_SENDER || 'no-reply@educat.com';
+        const fromSenderEmail = process.env.EMAIL_SENDER || 'educat532@gmail.com';
 
         const response = await brevo.transactionalEmails.sendTransacEmail({
             sender: { email: fromSenderEmail, name: 'Educat' },
@@ -91,10 +91,10 @@ export const sendEnrollmentEmail = async (toEmail, studentName, courseTitle) => 
         });
 
         console.log('Enrollment email sent successfully:', response?.messageId || response);
-        return true;
+        return response;
     } catch (error) {
-        console.error('Brevo sendEnrollmentEmail API Error:', error);
-        return false;
+        console.error('Brevo sendEnrollmentEmail API Error:', error.response?.body || error.response?.text || error.message);
+        throw error;
     }
 };
 
@@ -105,10 +105,10 @@ export const sendOtpEmail = async (toEmail, otpCode) => {
     try {
         if (!process.env.BREVO_API_KEY) {
             console.error('BREVO_API_KEY is not configured in environment variables.');
-            return false;
+            throw new Error('BREVO_API_KEY is missing. Please set it in your environment.');
         }
 
-        const fromSenderEmail = process.env.EMAIL_SENDER || 'no-reply@educat.com';
+        const fromSenderEmail = process.env.EMAIL_SENDER || 'educat532@gmail.com';
 
         const response = await brevo.transactionalEmails.sendTransacEmail({
             sender: { email: fromSenderEmail, name: 'Educat' },
@@ -132,9 +132,9 @@ export const sendOtpEmail = async (toEmail, otpCode) => {
         });
 
         console.log(`OTP email sent successfully to ${toEmail}:`, response?.messageId || response);
-        return true;
+        return response;
     } catch (error) {
-        console.error('Brevo sendOtpEmail API Error:', error);
-        return false;
+        console.error("[OTP] Brevo API Error Detail:", error.response?.body || error.response?.text || error.message);
+        throw error;
     }
 };

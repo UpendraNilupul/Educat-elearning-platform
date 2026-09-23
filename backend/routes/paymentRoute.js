@@ -80,7 +80,9 @@ router.post('/payment/notify', async (req, res) => {
                         // Send Email Notification
                         const courseData = await query('SELECT title FROM classes_courses WHERE id = ?', [classId]);
                         if (courseData.length > 0 && studentEmail) {
-                            sendEnrollmentEmail(studentEmail, studentName, courseData[0].title);
+                            sendEnrollmentEmail(studentEmail, studentName, courseData[0].title).catch(err => {
+                                console.error("⚠️ Enrollment email failed (non-fatal):", err.message);
+                            });
                         }
                         
                         // 3. Add Notification
@@ -165,7 +167,9 @@ router.post('/payment/manual-success', async (req, res) => {
                     // Send Email Notification
                     const courseData = await query('SELECT title FROM classes_courses WHERE id = ?', [finalClassId]);
                     if (courseData.length > 0 && studentEmail) {
-                        sendEnrollmentEmail(studentEmail, studentName, courseData[0].title);
+                        sendEnrollmentEmail(studentEmail, studentName, courseData[0].title).catch(err => {
+                            console.error("⚠️ Enrollment email failed (non-fatal):", err.message);
+                        });
                     }
                     
                     // 3. Add Notification

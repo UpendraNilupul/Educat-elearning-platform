@@ -74,11 +74,7 @@ router.post('/send-otp', otpLimiter, async (req, res) => {
         `, [email.trim(), otp]);
 
         // Step 4: Call await sendOtpEmail(email, otp)
-        const emailSent = await sendOtpEmail(email.trim(), otp);
-
-        if (!emailSent) {
-            console.warn(`[OTP] Brevo email failed or was simulated for ${email.trim()}`);
-        }
+        await sendOtpEmail(email.trim(), otp);
 
         // Optional SMS via Twilio if available
         if (twilioClient && user.phone_number && process.env.TWILIO_PHONE) {
@@ -95,8 +91,11 @@ router.post('/send-otp', otpLimiter, async (req, res) => {
         return res.status(200).json({ success: true, message: "OTP sent to your email address" });
 
     } catch (error) {
-        console.error("Error sending OTP:", error);
-        return res.status(500).json({ success: false, message: 'Server error processing password reset request.' });
+        console.error("Error sending OTP / processing password reset:", error.response?.body || error.message || error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message || 'Server error processing password reset request.' 
+        });
     }
 });
 
