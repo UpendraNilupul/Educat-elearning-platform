@@ -46,18 +46,31 @@ const AssignmentSubmissions = () => {
 
     const handleGradeSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!gradingData.id) {
+            alert("Please select a valid student submission to grade.");
+            return;
+        }
+
+        const parsedMarks = Number(gradingData.grade);
+        if (isNaN(parsedMarks)) {
+            alert("Please enter a valid numeric grade.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            // 🌟 THE FIX: Use api.put. No need for headers or JSON.stringify!
+            // 🌟 THE FIX: Send marks as parsed Number, verify submissionId in URL
             const response = await api.put(`/submissions/${gradingData.id}/grade`, { 
-                grade: gradingData.grade, 
+                grade: parsedMarks, 
+                marks: parsedMarks,
                 feedback: gradingData.feedback 
             });
 
             // Assuming the backend sends a success message
             if (response.data) {
                 setSubmissions(submissions.map(s => 
-                    s.id === gradingData.id ? { ...s, grade: gradingData.grade, feedback: gradingData.feedback, status: 'graded' } : s
+                    s.id === gradingData.id ? { ...s, grade: parsedMarks, feedback: gradingData.feedback, status: 'graded' } : s
                 ));
                 setGradingData({ id: null, grade: '', feedback: '' });
                 alert("Grade submitted successfully!");

@@ -275,17 +275,35 @@ router.get('/assignments/:aId/submissions', requireRole(['teacher', 'admin']), a
 // --- TEACHER: GRADE SUBMISSION ---
 router.put('/submissions/:id/grade', requireRole(['teacher', 'admin']), async (req, res) => {
     const { id } = req.params;
-    const { grade, feedback } = req.body;
+    const { grade, marks, feedback } = req.body;
+
+    if (!id || id === 'undefined') {
+        return res.status(400).json({ error: 'Valid submission ID is required.' });
+    }
+
+    const marksValue = grade !== undefined ? grade : marks;
+    const parsedMarks = marksValue !== undefined && marksValue !== null && marksValue !== '' 
+        ? Number(marksValue) 
+        : null;
+
+    if (parsedMarks !== null && isNaN(parsedMarks)) {
+        return res.status(400).json({ error: 'Invalid grade/marks value provided.' });
+    }
 
     try {
-        await query(
+        const result = await query(
             'UPDATE assignment_submissions SET grade = ?, feedback = ?, status = "graded" WHERE id = ?',
-            [grade, feedback, id]
+            [parsedMarks, feedback ?? null, id]
         );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Submission not found.' });
+        }
+
         res.json({ message: 'Submission graded successfully' });
-    } catch (err) {
-        console.error('Error grading submission:', err);
-        res.status(500).json({ error: 'Failed to grade submission' });
+    } catch (error) {
+        console.error("Grading Error Detail:", error);
+        res.status(500).json({ error: error.message || 'Failed to grade submission' });
     }
 });
 
