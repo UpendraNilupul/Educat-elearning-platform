@@ -97,12 +97,13 @@ const StudentProfileEdit = ({ onClose }) => {
     register,
     handleSubmit,
     reset,
+    watch,
     setValue,
     trigger,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(profileSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
     defaultValues: {
       name: '',
       email: '',
@@ -174,21 +175,21 @@ const StudentProfileEdit = ({ onClose }) => {
     fetchProfileData();
   }, [reset]);
 
-  // Helper for strictly numeric Sri Lankan phone numbers starting with +94
+  // Helper for strictly numeric Sri Lankan phone numbers with placeholder
   const handlePhoneChange = (fieldName) => (e) => {
-    let raw = e.target.value;
+    let inputVal = e.target.value;
 
-    // Filter out everything except digits and '+'
-    raw = raw.replace(/[^0-9+]/g, '');
+    // Discard any characters that are not digits or '+'
+    inputVal = inputVal.replace(/[^0-9+]/g, '');
 
-    // If completely cleared, update to empty
-    if (!raw) {
+    // If completely cleared
+    if (!inputVal) {
       setValue(fieldName, '', { shouldValidate: true, shouldDirty: true });
       return;
     }
 
-    // Extract only digits
-    let digits = raw.replace(/\D/g, '');
+    // Extract digits only
+    let digits = inputVal.replace(/\D/g, '');
 
     // If user starts typing standard Sri Lankan local number (e.g., '07...'), strip leading 0
     if (digits.startsWith('94')) {
@@ -197,12 +198,26 @@ const StudentProfileEdit = ({ onClose }) => {
       digits = digits.slice(1);
     }
 
-    // Limit digits after country code to exactly 9 digits
+    // Allow maximum 9 digits after +94
     digits = digits.slice(0, 9);
 
-    const formatted = `+94${digits}`;
+    // If user hasn't typed digits yet, keep whatever valid prefix they typed ('+' or '+94')
+    let formatted = '';
+    if (digits.length > 0) {
+      formatted = `+94${digits}`;
+    } else if (inputVal.startsWith('+94')) {
+      formatted = '+94';
+    } else if (inputVal.startsWith('+')) {
+      formatted = '+';
+    } else {
+      formatted = '';
+    }
+
     setValue(fieldName, formatted, { shouldValidate: true, shouldDirty: true });
   };
+
+  const phoneNumberValue = watch("phoneNumber") || "";
+  const guardianPhoneValue = watch("guardianPhone") || "";
 
   // 4. Submit handler
   const onSubmit = async (data) => {
@@ -401,6 +416,7 @@ const StudentProfileEdit = ({ onClose }) => {
                   <input
                     type="tel"
                     {...register("phoneNumber")}
+                    value={phoneNumberValue}
                     onChange={handlePhoneChange("phoneNumber")}
                     className={getInputClassName(errors.phoneNumber)}
                     placeholder="+94xxxxxxxxx"
@@ -518,6 +534,7 @@ const StudentProfileEdit = ({ onClose }) => {
                     <input
                       type="tel"
                       {...register("guardianPhone")}
+                      value={guardianPhoneValue}
                       onChange={handlePhoneChange("guardianPhone")}
                       className={getInputClassName(errors.guardianPhone)}
                       placeholder="+94xxxxxxxxx"
