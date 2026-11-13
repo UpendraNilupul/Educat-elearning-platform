@@ -89,28 +89,27 @@ const Student = ({ userName, onLogout }) => {
 
         const fetchAssessmentsCount = async () => {
             try {
-                const response = await api.get(`/student/my-assessments`);
-                const pendingCount = response.data.filter(a => {
-                    const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
-                    
-                    let isPastDeadline = false;
-                    if (a.type === 'Assignment') {
-                        isPastDeadline = new Date(a.time_limit) < new Date();
-                    } else if (a.type === 'Quiz' && a.publish_at) {
-                        const publishDate = new Date(a.publish_at);
-                        let timeLimitMs = 0;
-                        if (a.time_limit) {
-                            const parts = a.time_limit.split(':');
-                            timeLimitMs = ((parseInt(parts[0]) * 3600) + (parseInt(parts[1]) * 60) + parseInt(parts[2])) * 1000;
-                        }
-                        isPastDeadline = new Date() > new Date(publishDate.getTime() + timeLimitMs);
-                    }
-
-                    return a.status === 'pending' && isPublished && !isPastDeadline;
-                }).length;
-                setPendingAssessmentsCount(pendingCount);
+                const response = await api.get('/assessments/pending-count');
+                if (response.data && typeof response.data.pendingCount !== 'undefined') {
+                    setPendingAssessmentsCount(response.data.pendingCount);
+                } else if (response.data && response.data.hasNewAssessments) {
+                    setPendingAssessmentsCount(1);
+                } else {
+                    setPendingAssessmentsCount(0);
+                }
             } catch (error) {
-                console.error("Error fetching assessments count:", error);
+                console.error("Error fetching assessments count from /assessments/pending-count, falling back to /student/my-assessments:", error);
+                try {
+                    const fallbackRes = await api.get('/student/my-assessments');
+                    const pendingCount = fallbackRes.data.filter(a => {
+                        const isPublished = !a.publish_at || new Date(a.publish_at) <= new Date();
+                        const isPastDeadline = a.deadline ? new Date(a.deadline) < new Date() : false;
+                        return a.status === 'pending' && isPublished && !isPastDeadline;
+                    }).length;
+                    setPendingAssessmentsCount(pendingCount);
+                } catch (fallbackErr) {
+                    console.error("Error in fallback assessments count:", fallbackErr);
+                }
             }
         };
 

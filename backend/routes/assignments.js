@@ -307,4 +307,51 @@ router.put('/submissions/:id/grade', requireRole(['teacher', 'admin']), async (r
     }
 });
 
+// --- STUDENT: PENDING ASSIGNMENTS COUNT ---
+router.get('/assessments/pending-count', async (req, res) => {
+    try {
+        const userId = req.session?.userId || req.query.student_id;
+        if (!userId) {
+            return res.status(400).json({ error: 'User/Student ID is required', hasNewAssessments: false });
+        }
+
+        // Resolve student ID from students table if user_id was provided
+        let studentId = userId;
+        const studentRes = await query('SELECT id FROM students WHERE user_id = ? OR id = ?', [userId, userId]);
+        if (studentRes.length > 0) {
+            studentId = studentRes[0].id;
+        }
+
+        const sql = `
+            SELECT COUNT(*) AS pendingCount
+            FROM assignments a
+            JOIN modules m ON a.m_id = m.id
+            JOIN classes_courses c ON m.c_id = c.id
+            JOIN enrollments e ON c.id = e.c_id
+            WHERE e.s_id = ?
+              AND e.status = 'In Progress'
+              AND c.status IN ('active', 'completed')
+              AND (a.publish_at IS NULL OR a.publish_at <= NOW())
+              AND (a.deadline IS NULL OR a.deadline >= NOW())
+              AND NOT EXISTS (
+                  SELECT 1 
+                  FROM assignment_submissions sub
+                  WHERE sub.a_id = a.id 
+                    AND (sub.s_id = ? OR sub.s_id = ?)
+              )
+        `;
+
+        const [result] = await query(sql, [studentId, studentId, userId]);
+        const pendingCount = result ? Number(result.pendingCount) : 0;
+
+        return res.json({
+            hasNewAssessments: pendingCount > 0,
+            pendingCount
+        });
+    } catch (err) {
+        console.error('Error checking pending assessments:', err);
+        return res.status(500).json({ error: 'Failed to fetch pending assessments count', hasNewAssessments: false });
+    }
+});
+
 export default router;
