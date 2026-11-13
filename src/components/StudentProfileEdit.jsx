@@ -14,7 +14,7 @@ const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/web
 
 // Regex constants for validation
 const NAME_REGEX = /^[A-Za-z\s]+$/;
-const PHONE_REGEX = /^\+?[0-9]{10,12}$/;
+const PHONE_REGEX = /^\+94[0-9]{9}$/;
 
 // 1. Updated validation rules using Zod based on standard industry validation
 const profileSchema = z.object({
@@ -32,7 +32,7 @@ const profileSchema = z.object({
     .string()
     .trim()
     .min(1, "Phone number is required")
-    .regex(PHONE_REGEX, "Phone number must contain only numbers (optional leading +) and be between 10 to 12 digits"),
+    .regex(PHONE_REGEX, "Phone number must be exactly 12 characters: +94 followed by 9 digits"),
   address: z
     .string()
     .trim()
@@ -71,7 +71,7 @@ const profileSchema = z.object({
     .string()
     .trim()
     .min(1, "Guardian phone is required")
-    .regex(PHONE_REGEX, "Guardian phone must contain only numbers (optional leading +) and be between 10 to 12 digits"),
+    .regex(PHONE_REGEX, "Guardian phone must be exactly 12 characters: +94 followed by 9 digits"),
 
   // Optional picture validation
   picture: z.any()
@@ -97,6 +97,8 @@ const StudentProfileEdit = ({ onClose }) => {
     register,
     handleSubmit,
     reset,
+    setValue,
+    trigger,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(profileSchema),
@@ -171,6 +173,36 @@ const StudentProfileEdit = ({ onClose }) => {
 
     fetchProfileData();
   }, [reset]);
+
+  // Helper for strictly numeric Sri Lankan phone numbers starting with +94
+  const handlePhoneChange = (fieldName) => (e) => {
+    let raw = e.target.value;
+
+    // Filter out everything except digits and '+'
+    raw = raw.replace(/[^0-9+]/g, '');
+
+    // If completely cleared, update to empty
+    if (!raw) {
+      setValue(fieldName, '', { shouldValidate: true, shouldDirty: true });
+      return;
+    }
+
+    // Extract only digits
+    let digits = raw.replace(/\D/g, '');
+
+    // If user starts typing standard Sri Lankan local number (e.g., '07...'), strip leading 0
+    if (digits.startsWith('94')) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+
+    // Limit digits after country code to exactly 9 digits
+    digits = digits.slice(0, 9);
+
+    const formatted = `+94${digits}`;
+    setValue(fieldName, formatted, { shouldValidate: true, shouldDirty: true });
+  };
 
   // 4. Submit handler
   const onSubmit = async (data) => {
@@ -369,8 +401,9 @@ const StudentProfileEdit = ({ onClose }) => {
                   <input
                     type="tel"
                     {...register("phoneNumber")}
+                    onChange={handlePhoneChange("phoneNumber")}
                     className={getInputClassName(errors.phoneNumber)}
-                    placeholder="0777777777"
+                    placeholder="+94xxxxxxxxx"
                   />
                   {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber.message}</p>}
                 </div>
@@ -485,8 +518,9 @@ const StudentProfileEdit = ({ onClose }) => {
                     <input
                       type="tel"
                       {...register("guardianPhone")}
+                      onChange={handlePhoneChange("guardianPhone")}
                       className={getInputClassName(errors.guardianPhone)}
-                      placeholder="0777777777"
+                      placeholder="+94xxxxxxxxx"
                     />
                     {errors.guardianPhone && <p className="text-red-500 text-xs mt-1">{errors.guardianPhone.message}</p>}
                   </div>
