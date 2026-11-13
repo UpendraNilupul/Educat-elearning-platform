@@ -292,7 +292,7 @@ router.put('/submissions/:id/grade', requireRole(['teacher', 'admin']), async (r
 
     try {
         const result = await query(
-            'UPDATE assignment_submissions SET grade = ?, feedback = ?, status = "graded" WHERE id = ?',
+            "UPDATE assignment_submissions SET grade = ?, feedback = ?, status = 'graded' WHERE id = ?",
             [parsedMarks, feedback ?? null, id]
         );
 
