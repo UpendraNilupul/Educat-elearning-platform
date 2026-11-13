@@ -12,28 +12,68 @@ import {
 const MAX_FILE_SIZE = 5000000; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-// 1. Updated validation rules using Zod based on SQL tables
+// Regex constants for validation
+const NAME_REGEX = /^[A-Za-z\s]+$/;
+const PHONE_REGEX = /^\+?[0-9]{10,12}$/;
+
+// 1. Updated validation rules using Zod based on standard industry validation
 const profileSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-  address: z.string().min(5, "Address is required"),
-  dob: z.string()
+  name: z
+    .string()
+    .trim()
+    .min(1, "Full name is required")
+    .regex(NAME_REGEX, "Full name must contain only letters and spaces"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email address is required")
+    .email("Please enter a valid email format"),
+  phoneNumber: z
+    .string()
+    .trim()
+    .min(1, "Phone number is required")
+    .regex(PHONE_REGEX, "Phone number must contain only numbers (optional leading +) and be between 10 to 12 digits"),
+  address: z
+    .string()
+    .trim()
+    .min(1, "Address is required")
+    .refine(
+      (val) => val.toLowerCase() !== "not provided",
+      'Address cannot be "Not provided"'
+    ),
+  dob: z
+    .string()
     .min(1, "Date of birth is required")
     .refine((val) => {
       if (!val) return false;
       const d = new Date(val);
-      const limitDate = new Date('2016-02-01');
-      const minDate = new Date('1900-01-01');
-      return d < limitDate && d >= minDate && val.split('-')[0].length === 4;
-    }, "Date of birth must be between 1900-01-01 and 2016-02-01"),
-  gender: z.string().min(1, "Please select a gender"),
-  schoolName: z.string().min(2, "School name is required"),
-  gradeLevel: z.string().min(1, "Grade level is required"),
-  guardianName: z.string().min(2, "Guardian name is required"),
-  guardianPhone: z.string().min(10, "Guardian phone must be at least 10 digits"),
+      if (isNaN(d.getTime())) return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return d < today;
+    }, "Date of birth must be a valid date in the past"),
+  gender: z
+    .string()
+    .min(1, "Gender selection is required"),
+  schoolName: z
+    .string()
+    .trim()
+    .min(1, "School is required"),
+  gradeLevel: z
+    .string()
+    .min(1, "Grade/Level selection is required"),
+  guardianName: z
+    .string()
+    .trim()
+    .min(1, "Guardian name is required")
+    .regex(NAME_REGEX, "Guardian name must contain only letters and spaces"),
+  guardianPhone: z
+    .string()
+    .trim()
+    .min(1, "Guardian phone is required")
+    .regex(PHONE_REGEX, "Guardian phone must contain only numbers (optional leading +) and be between 10 to 12 digits"),
 
-  // New: Optional picture validation
+  // Optional picture validation
   picture: z.any()
     .optional()
     .refine(
@@ -60,6 +100,7 @@ const StudentProfileEdit = ({ onClose }) => {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(profileSchema),
+    mode: 'onBlur',
     defaultValues: {
       name: '',
       email: '',
@@ -356,7 +397,7 @@ const StudentProfileEdit = ({ onClose }) => {
                     type="date"
                     {...register("dob")}
                     min="1900-01-01"
-                    max="2016-01-31"
+                    max={new Date().toISOString().split('T')[0]}
                     className={getInputClassName(errors.dob)}
                   />
                   {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob.message}</p>}
@@ -392,7 +433,7 @@ const StudentProfileEdit = ({ onClose }) => {
             <div className="space-y-5">
               <div>
                 <label className={labelClassName}>
-                  <BookOpen className="w-4 h-4 text-gray-400" /> School/University
+                  <BookOpen className="w-4 h-4 text-gray-400" /> School
                 </label>
                 <input
                   type="text"
