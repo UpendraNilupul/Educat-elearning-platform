@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Play } from 'lucide-react';
 
 const Hero = () => {
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -23,15 +22,9 @@ const Hero = () => {
             {/* Left Side: Content (Static) */}
             <div className="w-full md:w-1/2 bg-[#4a0b59] flex items-center px-8 md:px-16 py-16 md:py-0 z-10">
                 <div className="max-w-xl">
-                    <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-8">
+                    <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight">
                         Boost up your skills with a new way of learning
                     </h1>
-                    <button className="flex items-center space-x-3 bg-[#ed8936] text-white px-6 py-3 rounded-full hover:bg-[#d97706] transition-all group shadow-lg">
-                        <span className="text-lg font-medium">Start learning today</span>
-                        <div className="bg-[#4a0b59] p-2 rounded-full flex items-center justify-center">
-                            <Play size={16} fill="white" className="text-white" />
-                        </div>
-                    </button>
                 </div>
             </div>
 
