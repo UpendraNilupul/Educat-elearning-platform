@@ -182,7 +182,41 @@ router.get('/notifications/:userId', (req, res) => {
   });
 });
 
-// 3.5 Mark All Notifications as read
+// 3.5 Get actual chat messages for teacher from admin conversations (bypasses stale notifications table)
+router.get('/teacher-messages/:userId', (req, res) => {
+  const { userId } = req.params;
+  const sql = `
+    SELECT 
+      m.id,
+      m.body        AS description,
+      m.body        AS message,
+      m.body        AS content,
+      m.body        AS text,
+      m.body        AS body,
+      m.created_at,
+      m.file_url,
+      m.file_type,
+      u.name        AS sender_name,
+      CONCAT('Message from ', u.name) AS title,
+      0             AS is_read
+    FROM messages m
+    JOIN conversations c ON m.conversation_id = c.id
+    JOIN users u ON m.sender_id = u.id
+    WHERE (c.participant1_id = ? OR c.participant2_id = ?)
+      AND m.sender_id != ?
+    ORDER BY m.created_at DESC
+    LIMIT 30
+  `;
+  db.query(sql, [userId, userId, userId], (err, results) => {
+    if (err) {
+      console.error('teacher-messages fetch error:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    res.json({ success: true, data: results });
+  });
+});
+
+// 3.6 Mark All Notifications as read
 router.put('/notifications/:userId/read', (req, res) => {
   const { userId } = req.params;
   const sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0";

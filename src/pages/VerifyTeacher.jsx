@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { X, MessageSquare, AlertCircle } from 'lucide-react';
-import api from '../api'; // 🌟 THE FIX: Import your Axios instance
+import { X, MessageSquare } from 'lucide-react';
+import api from '../api';
 
 const VerifyTeacher = () => {
   const { id: userId } = useParams();
@@ -14,15 +14,21 @@ const VerifyTeacher = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 🌟 THE FIX: Use Promise.all with api.get to fetch both concurrently without hardcoded URLs
-        const [notifRes, statusRes] = await Promise.all([
+        // Fetch notifications AND real chat messages in parallel
+        const [notifRes, statusRes, msgsRes] = await Promise.all([
           api.get(`/notifications/${userId}`),
-          api.get(`/teacher-status/${userId}`)
+          api.get(`/teacher-status/${userId}`),
+          api.get(`/teacher-messages/${userId}`)
         ]);
 
-        if (notifRes.data.success) {
-          setNotifications(notifRes.data.data);
-        }
+        // Real messages from the messages table (have actual body text)
+        const realMsgs = msgsRes.data?.success ? msgsRes.data.data : [];
+        // Fallback: notifications table (may have stale "New message from Admin" text)
+        const notifs   = notifRes.data?.success ? notifRes.data.data : [];
+
+        // Prefer real messages; if none exist yet fall back to notifications
+        const combined = realMsgs.length > 0 ? realMsgs : notifs;
+        setNotifications(combined);
         if (statusRes.data.success && statusRes.data.data) {
           setSubmittedDocs({
             nic: statusRes.data.data.nic_path,
@@ -109,8 +115,6 @@ const VerifyTeacher = () => {
       "Notification"
     );
   };
-
-  console.log("INCOMING MESSAGES DATA:", notifications);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-10 px-4 relative">
