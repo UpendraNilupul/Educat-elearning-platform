@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+async function checkAndCreateMessageNotification(req, senderId, receiverId, messageText = '') {
     try {
         const receiverQuery = await query(`
             SELECT r.role_name 
@@ -17,9 +17,10 @@ async function checkAndCreateMessageNotification(req, senderId, receiverId) {
 
         if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
             const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
-            const senderName = senderQuery[0]?.name || 'Someone';
-            const notifTitle = 'New Message';
-            const notifDesc = `New message from ${senderName}`;
+            const senderName = senderQuery[0]?.name || 'Admin';
+            const notifTitle = `Message from ${senderName}`;
+            // Use actual message text; fallback only if empty
+            const notifDesc = messageText && messageText.trim() ? messageText.trim() : `New message from ${senderName}`;
             
             const insertRes = await query(`
                 INSERT INTO notifications (user_id, title, description, is_read)
@@ -268,12 +269,40 @@ router.put('/verify-teacher/:id', async (req, res) => {
             [req.session.userId, `Marked Teacher ID ${teacherId} application as: ${status}`]
         );
 
+        // Get user_id of teacher for notification
+        const teacherRows = await query('SELECT user_id FROM teachers WHERE id = ?', [teacherId]);
+        const teacherUserId = teacherRows[0]?.user_id;
+
         // 2. Log the feedback into the new dedicated table
         if (message && message.trim() !== "") {
             await query(
                 'INSERT INTO teacher_reviews (teacher_id, status, feedback) VALUES (?, ?, ?)',
                 [teacherId, status, message]
             );
+        }
+
+        // 3. Insert notification for the unapproved teacher so it shows in their Messages popup
+        if (teacherUserId) {
+            const notifTitle = `Teacher Verification: ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+            const notifDesc = message && message.trim() !== "" 
+                ? message.trim() 
+                : `Your teacher verification status has been updated to ${status}.`;
+
+            const insertRes = await query(
+                'INSERT INTO notifications (user_id, title, description, is_read) VALUES (?, ?, ?, FALSE)',
+                [teacherUserId, notifTitle, notifDesc]
+            );
+
+            if (req.io) {
+                req.io.to(`user_${teacherUserId}`).emit('new_notification', {
+                    id: insertRes.insertId,
+                    title: notifTitle,
+                    description: notifDesc,
+                    user_id: teacherUserId,
+                    is_read: 0,
+                    created_at: new Date()
+                });
+            }
         }
 
         res.status(200).json({ success: true, message: `Teacher marked as ${status}.` });
@@ -974,7 +1003,7 @@ router.post('/send-message', async (req, res) => {
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
 
-        await checkAndCreateMessageNotification(req, senderId, receiverId);
+        await checkAndCreateMessageNotification(req, senderId, receiverId, message);
 
         res.status(200).json({ success: true, message: "Message sent successfully!" });
 

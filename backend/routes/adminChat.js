@@ -5,7 +5,7 @@ import util from 'util';
 const router = express.Router();
 const query = util.promisify(db.query).bind(db);
 
-async function checkAndCreateMessageNotification(req, senderId, receiverId) {
+async function checkAndCreateMessageNotification(req, senderId, receiverId, messageText = '') {
     try {
         const receiverQuery = await query(`
             SELECT r.role_name 
@@ -16,9 +16,10 @@ async function checkAndCreateMessageNotification(req, senderId, receiverId) {
 
         if (receiverQuery.length > 0 && ['student', 'teacher', 'admin'].includes(receiverQuery[0].role_name.toLowerCase().trim())) {
             const senderQuery = await query('SELECT name FROM users WHERE id = ?', [senderId]);
-            const senderName = senderQuery[0]?.name || 'Someone';
-            const notifTitle = 'New Message';
-            const notifDesc = `New message from ${senderName}`;
+            const senderName = senderQuery[0]?.name || 'Admin';
+            const notifTitle = `Message from ${senderName}`;
+            // Use actual message content sent by user/admin; fallback only if empty
+            const notifDesc = messageText && messageText.trim() ? messageText.trim() : `New message from ${senderName}`;
             
             const insertRes = await query(`
                 INSERT INTO notifications (user_id, title, description, is_read)
@@ -148,7 +149,7 @@ router.post('/admin-chat/send-message', async (req, res) => {
             UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?
         `, [conversationId]);
 
-        await checkAndCreateMessageNotification(req, senderId, receiverId);
+        await checkAndCreateMessageNotification(req, senderId, receiverId, message);
 
         res.status(200).json({ success: true, message: "Message sent successfully!" });
     } catch (error) {

@@ -78,30 +78,34 @@ const VerifyTeacher = () => {
   };
 
   const getNotificationText = (note) => {
-    if (!note) return "New message from Admin";
-    // Check direct properties or deeply nested properties (e.g. note.data?.message)
+    if (!note) return "";
+    // Strictly read text properties from backend (description, reason, message, content, text, feedback, body)
+    // No hardcoded "New message from Admin" fallback
     const text =
       note.description ??
+      note.reason ??
       note.message ??
       note.content ??
       note.text ??
+      note.feedback ??
+      note.body ??
+      note.data?.description ??
+      note.data?.reason ??
       note.data?.message ??
       note.data?.content ??
-      note.data?.description ??
       note.data?.text ??
-      note.feedback ??
-      note.body;
+      "";
 
-    return text || "New message from Admin";
+    return String(text);
   };
 
   const getNotificationTitle = (note) => {
-    if (!note) return "New Message";
+    if (!note) return "Notification";
     return (
       note.title ??
       note.data?.title ??
       note.subject ??
-      "New Message"
+      "Notification"
     );
   };
 

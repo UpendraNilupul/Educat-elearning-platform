@@ -103,7 +103,22 @@ router.post('/upload-docs/:userId', (req, res) => {
 // 3. Get Notifications endpoint for retrieving admin messages
 router.get('/notifications/:userId', (req, res) => {
   const { userId } = req.params;
-  const sql = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC";
+  const sql = `
+    SELECT 
+      id, 
+      title, 
+      description, 
+      description AS message, 
+      description AS content, 
+      description AS text, 
+      description AS reason, 
+      user_id, 
+      is_read, 
+      created_at 
+    FROM notifications 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC
+  `;
   
   db.query(sql, [userId], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
