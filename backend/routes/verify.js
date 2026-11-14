@@ -105,24 +105,80 @@ router.get('/notifications/:userId', (req, res) => {
   const { userId } = req.params;
   const sql = `
     SELECT 
-      id, 
-      title, 
-      description, 
-      description AS message, 
-      description AS content, 
-      description AS text, 
-      description AS reason, 
-      user_id, 
-      is_read, 
-      created_at 
-    FROM notifications 
-    WHERE user_id = ? 
-    ORDER BY created_at DESC
+      n.id, 
+      n.title, 
+      n.description, 
+      n.user_id, 
+      n.is_read, 
+      n.created_at,
+      m.id AS message_id,
+      m.body AS message_body,
+      m.file_url,
+      m.file_type,
+      tr.feedback AS review_feedback,
+      tr.status AS review_status
+    FROM notifications n
+    -- 1. Try to find if this notification corresponds to a direct message from admin in conversations
+    LEFT JOIN (
+      SELECT m_inner.id, m_inner.body, m_inner.file_url, m_inner.file_type, m_inner.created_at, c.participant1_id, c.participant2_id
+      FROM messages m_inner
+      JOIN conversations c ON m_inner.conversation_id = c.id
+      WHERE (c.participant1_id = ? OR c.participant2_id = ?)
+    ) m ON (
+      -- Match on user being in conversation and closest message sent around the notification time
+      (m.participant1_id = n.user_id OR m.participant2_id = n.user_id)
+      AND ABS(TIMESTAMPDIFF(SECOND, m.created_at, n.created_at)) <= 15
+    )
+    -- 2. Try to find if this notification corresponds to a teacher_review feedback
+    LEFT JOIN teachers t ON t.user_id = n.user_id
+    LEFT JOIN teacher_reviews tr ON tr.teacher_id = t.id AND ABS(TIMESTAMPDIFF(SECOND, tr.created_at, n.created_at)) <= 30
+    WHERE n.user_id = ? 
+    GROUP BY n.id
+    ORDER BY n.created_at DESC
   `;
   
-  db.query(sql, [userId], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true, data: results });
+  db.query(sql, [userId, userId, userId], (err, results) => {
+    if (err) {
+      console.error("Notifications fetch error, falling back to simple query:", err);
+      // Fallback to simple query if joins fail
+      const fallbackSql = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC";
+      db.query(fallbackSql, [userId], (fbErr, fbResults) => {
+        if (fbErr) return res.status(500).json({ error: fbErr.message });
+        return res.json({ success: true, data: fbResults });
+      });
+      return;
+    }
+
+    // Map each notification item so message/content/body are guaranteed to contain the real message
+    const formatted = results.map(row => {
+      // Priority for the actual text content:
+      // 1. Direct message body from messages table if available
+      // 2. Feedback from teacher_reviews table if available
+      // 3. Description from notifications table
+      let realText = row.message_body || row.review_feedback;
+
+      // If description is NOT just "New message from Someone", description might already have the message!
+      if (!realText && row.description) {
+        realText = row.description;
+      }
+
+      return {
+        id: row.id,
+        title: row.title || 'New Message',
+        description: row.description,
+        content: realText || row.description,
+        message: realText || row.description,
+        text: realText || row.description,
+        body: realText || row.description,
+        file_url: row.file_url || null,
+        file_type: row.file_type || null,
+        user_id: row.user_id,
+        is_read: row.is_read,
+        created_at: row.created_at
+      };
+    });
+
+    res.json({ success: true, data: formatted });
   });
 });
 

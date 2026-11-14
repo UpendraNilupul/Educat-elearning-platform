@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { X, MessageSquare, AlertCircle } from 'lucide-react';
 import api from '../api'; // 🌟 THE FIX: Import your Axios instance
 
 const VerifyTeacher = () => {
@@ -8,6 +9,7 @@ const VerifyTeacher = () => {
   const [files, setFiles] = useState({ nic: null, cv: null });
   const [notifications, setNotifications] = useState([]);
   const [submittedDocs, setSubmittedDocs] = useState(null);
+  const [selectedNote, setSelectedNote] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,21 +81,20 @@ const VerifyTeacher = () => {
 
   const getNotificationText = (note) => {
     if (!note) return "";
-    // Strictly read text properties from backend (description, reason, message, content, text, feedback, body)
-    // No hardcoded "New message from Admin" fallback
+    // Priority order: real message content/body/text > reason > feedback > description
     const text =
-      note.description ??
-      note.reason ??
-      note.message ??
+      note.body ??
       note.content ??
+      note.message ??
       note.text ??
       note.feedback ??
-      note.body ??
-      note.data?.description ??
-      note.data?.reason ??
-      note.data?.message ??
+      note.reason ??
+      note.data?.body ??
       note.data?.content ??
+      note.data?.message ??
       note.data?.text ??
+      note.description ??
+      note.data?.description ??
       "";
 
     return String(text);
@@ -157,32 +158,110 @@ const VerifyTeacher = () => {
         </h3>
         {notifications.length > 0 ? (
           <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-            {notifications.map((note, index) => (
-              <div key={note.id || note._id || index} className="p-4 bg-orange-50 rounded-lg border border-orange-100">
-                <h4 className="font-semibold text-orange-900 break-words text-sm">
-                  {getNotificationTitle(note)}
-                </h4>
-                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
-                  {getNotificationText(note)}
-                </p>
-                <span className="text-xs text-orange-400 mt-2 block font-medium">
-                  {note.created_at || note.createdAt || note.timestamp
-                    ? new Date(note.created_at || note.createdAt || note.timestamp).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: 'numeric'
-                      })
-                    : 'Just now'}
-                </span>
-              </div>
-            ))}
+            {notifications.map((note, index) => {
+              const textContent = getNotificationText(note);
+              const isSelected = selectedNote?.id === note.id;
+
+              return (
+                <div
+                  key={note.id || note._id || index}
+                  onClick={() => setSelectedNote(note)}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${
+                    isSelected
+                      ? 'bg-orange-100/80 border-orange-400 ring-2 ring-orange-300'
+                      : 'bg-orange-50 hover:bg-orange-100/50 border-orange-100'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <h4 className="font-semibold text-orange-900 break-words text-sm flex items-center">
+                      <MessageSquare size={15} className="mr-1.5 text-orange-600 shrink-0" />
+                      {getNotificationTitle(note)}
+                    </h4>
+                    <span className="text-[11px] text-orange-500 font-medium ml-2 shrink-0 bg-orange-100 px-2 py-0.5 rounded-full">
+                      View
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-800 mt-2 whitespace-pre-wrap break-words leading-relaxed font-normal">
+                    {textContent || "Click to view full message details"}
+                  </p>
+
+                  <span className="text-xs text-orange-400 mt-2.5 block font-medium">
+                    {note.created_at || note.createdAt || note.timestamp
+                      ? new Date(note.created_at || note.createdAt || note.timestamp).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: 'numeric'
+                        })
+                      : 'Just now'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-500 italic">No messages found.</p>
         )}
       </div>
+
+      {/* Message Detail Modal when a notification card is clicked */}
+      {selectedNote && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedNote(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                  <MessageSquare size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{getNotificationTitle(selectedNote)}</h3>
+                  <span className="text-xs text-gray-400">
+                    {selectedNote.created_at || selectedNote.createdAt
+                      ? new Date(selectedNote.created_at || selectedNote.createdAt).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: 'numeric'
+                        })
+                      : 'Recently'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedNote(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 text-gray-800 text-sm whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto custom-scrollbar">
+              {getNotificationText(selectedNote) || (
+                <span className="italic text-gray-400">No message body provided.</span>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedNote(null)}
+                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
