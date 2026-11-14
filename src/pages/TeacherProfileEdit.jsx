@@ -47,7 +47,7 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
           bio: res.data.bio || '',
           '2fa_enabled': res.data['2fa_enabled'] === 1 || res.data['2fa_enabled'] === true
         }));
-        
+
         // 🌟 COMBINED FIX: Handle Cloudinary full URLs AND dynamic base URLs for local files
         if (res.data.picture) {
           const pic = res.data.picture;
@@ -111,7 +111,7 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
       // 🌟 THE FIX: Use api.put() - Axios automatically handles the FormData headers!
       const res = await api.put(`/teacher/${resolvedTeacherId}`, data);
       setMessage({ type: 'success', text: res.data.message });
-      
+
       // Keep the frontend dashboard and header in sync with the new database Name and Picture!
       if (typeof setUserName === 'function') {
         setUserName(formData.name);
@@ -145,9 +145,8 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
 
       {message.text && (
         <div
-          className={`mb-4 px-4 py-2 rounded ${
-            message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}
+          className={`mb-4 px-4 py-2 rounded ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}
         >
           {message.text}
         </div>
@@ -309,25 +308,15 @@ const TeacherProfileEdit = ({ teacherId, setUserName, setUserPicture }) => {
         </div>
 
 
-        {/* 2FA */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="2fa_enabled"
-            checked={formData['2fa_enabled']}
-            onChange={handleChange}
-            className="mr-2"
-          />
-          <label className="text-gray-700 font-medium">Enable 2FA</label>
-        </div>
+
+
 
         {/* Submit */}
         <button
           type="submit"
           disabled={loading}
-          className={`bg-blue-500 text-white px-6 py-2 rounded font-medium mt-2 hover:bg-blue-700 transition-colors duration-200 ${
-            loading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className={`bg-blue-500 text-white px-6 py-2 rounded font-medium mt-2 hover:bg-blue-700 transition-colors duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
         >
           {loading ? 'Updating...' : 'Update Profile'}
         </button>
