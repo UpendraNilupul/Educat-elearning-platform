@@ -77,6 +77,36 @@ const VerifyTeacher = () => {
     }
   };
 
+  const getNotificationText = (note) => {
+    if (!note) return "New message from Admin";
+    // Check direct properties or deeply nested properties (e.g. note.data?.message)
+    const text =
+      note.description ??
+      note.message ??
+      note.content ??
+      note.text ??
+      note.data?.message ??
+      note.data?.content ??
+      note.data?.description ??
+      note.data?.text ??
+      note.feedback ??
+      note.body;
+
+    return text || "New message from Admin";
+  };
+
+  const getNotificationTitle = (note) => {
+    if (!note) return "New Message";
+    return (
+      note.title ??
+      note.data?.title ??
+      note.subject ??
+      "New Message"
+    );
+  };
+
+  console.log("INCOMING MESSAGES DATA:", notifications);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-10 px-4 relative">
       <form onSubmit={handleUpload} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md z-10">
@@ -123,17 +153,17 @@ const VerifyTeacher = () => {
         </h3>
         {notifications.length > 0 ? (
           <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-            {notifications.map((note) => (
-              <div key={note.id} className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+            {notifications.map((note, index) => (
+              <div key={note.id || note._id || index} className="p-4 bg-orange-50 rounded-lg border border-orange-100">
                 <h4 className="font-semibold text-orange-900 break-words text-sm">
-                  {note.title || "New Message"}
+                  {getNotificationTitle(note)}
                 </h4>
                 <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
-                  {note.description || note.content || note.message || note.text || "New message from Admin"}
+                  {getNotificationText(note)}
                 </p>
                 <span className="text-xs text-orange-400 mt-2 block font-medium">
-                  {note.created_at
-                    ? new Date(note.created_at).toLocaleString('en-US', {
+                  {note.created_at || note.createdAt || note.timestamp
+                    ? new Date(note.created_at || note.createdAt || note.timestamp).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
