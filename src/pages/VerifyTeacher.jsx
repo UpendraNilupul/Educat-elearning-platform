@@ -125,12 +125,22 @@ const VerifyTeacher = () => {
           <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
             {notifications.map((note) => (
               <div key={note.id} className="p-4 bg-orange-50 rounded-lg border border-orange-100">
-                <h4 className="font-semibold text-orange-900">{note.title}</h4>
-                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{note.description}</p>
+                <h4 className="font-semibold text-orange-900 break-words text-sm">
+                  {note.title || "New Message"}
+                </h4>
+                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
+                  {note.description || note.content || note.message || note.text || "New message from Admin"}
+                </p>
                 <span className="text-xs text-orange-400 mt-2 block font-medium">
-                  {new Date(note.created_at).toLocaleString('en-US', {
-                    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric'
-                  })}
+                  {note.created_at
+                    ? new Date(note.created_at).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric'
+                      })
+                    : 'Just now'}
                 </span>
               </div>
             ))}
